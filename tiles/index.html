@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tiles — генератор настенных инсталляций</title>
+<style>
+  :root {
+    --bg: #dcd9d3;
+    --panel: #f7f6f3;
+    --panel-2: #ecebe7;
+    --line: #dddad4;
+    --text: #23221f;
+    --muted: #7b776f;
+    --accent: #2f6f8f;
+    --warn: #b5532f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); overflow: hidden; -webkit-font-smoothing: antialiased;
+  }
+  #app { display: flex; width: 100vw; height: 100vh; }
+
+  #view { position: relative; flex: 1 1 auto; min-width: 0; }
+  #view canvas { display: block; width: 100%; height: 100%; }
+  #hud {
+    position: absolute; left: 14px; top: 12px; font-size: 12px; color: #5d5a54; line-height: 1.6;
+    pointer-events: none;
+  }
+  #hud b { color: var(--text); }
+  #stats {
+    position: absolute; left: 14px; bottom: 12px; font-size: 12px; color: #4a4843; line-height: 1.55;
+    background: rgba(247,246,243,.82); padding: 8px 11px; border-radius: 8px; pointer-events: none;
+    font-variant-numeric: tabular-nums; max-width: calc(100% - 28px);
+  }
+  #stats .warn { color: var(--warn); }
+  #views { position: absolute; right: 12px; top: 12px; display: flex; gap: 6px; }
+  #views button { flex: 0 0 auto; padding: 6px 10px; background: rgba(247,246,243,.9); }
+
+  #panel {
+    flex: 0 0 350px; width: 350px; height: 100%; overflow-y: auto;
+    background: var(--panel); border-left: 1px solid var(--line); padding-bottom: 40px;
+  }
+  .head { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 5; }
+  .head h1 { font-size: 15px; margin: 0; }
+  .head p { margin: 4px 0 0; font-size: 11px; color: var(--muted); }
+
+  .group { border-bottom: 1px solid var(--line); }
+  .group > .title {
+    display: flex; justify-content: space-between; align-items: center; padding: 11px 18px; cursor: pointer;
+    user-select: none; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted);
+  }
+  .group > .title:hover { color: var(--text); }
+  .group > .title .chev { transition: transform .15s; font-size: 10px; }
+  .group.collapsed > .title .chev { transform: rotate(-90deg); }
+  .group.collapsed > .body { display: none; }
+  .group > .body { padding: 2px 18px 14px; }
+  .sub { font-size: 11px; font-weight: 600; color: var(--muted); margin: 14px 0 2px; text-transform: uppercase; letter-spacing: .4px; }
+
+  .row { margin: 9px 0; }
+  .row.hidden { display: none; }
+  .row > label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }
+  .row > label .unit { color: var(--muted); font-size: 11px; margin-left: 3px; }
+  .row input.num {
+    width: 74px; text-align: right; padding: 3px 6px; font-size: 12px; border: 1px solid var(--line);
+    border-radius: 5px; background: #fff; color: var(--text); font-variant-numeric: tabular-nums;
+  }
+  input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+  select {
+    width: 100%; background: #fff; color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 8px; font-size: 12px;
+  }
+  .row > label.check { display: flex; justify-content: flex-start; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; margin: 0; }
+  .check input { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; }
+  .color { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  .color input { width: 44px; height: 24px; border: 1px solid var(--line); border-radius: 5px; padding: 0 2px; background: #fff; }
+
+  button {
+    flex: 1 1 auto; background: #fff; color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; cursor: pointer; font-weight: 500;
+  }
+  button:hover { border-color: #b9b5ad; }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+  button.primary:hover { background: #255b76; }
+  .btnrow { display: flex; gap: 7px; flex-wrap: wrap; margin: 8px 0; }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .presets button { text-align: left; padding: 7px 9px; }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 6px 0 0; }
+
+  @media (max-width: 760px) {
+    body { overflow: auto; }
+    #app { flex-direction: column; height: auto; }
+    #view { flex: 0 0 58vh; height: 58vh; }
+    #panel { flex: none; width: 100%; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+    .head { position: static; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="view">
+    <div id="hud"><b>Tiles</b> · вращение — ЛКМ · зум — колесо · сдвиг — ПКМ</div>
+    <div id="views">
+      <button data-view="front">Анфас</button>
+      <button data-view="angle">3/4</button>
+      <button data-view="side">Сбоку</button>
+    </div>
+    <div id="stats"></div>
+  </div>
+
+  <div id="panel">
+    <div class="head">
+      <h1>Генератор настенных инсталляций</h1>
+      <p>Модульный рельеф из отдельных деталей. Все размеры — в миллиметрах. Экспорт в STL.</p>
+    </div>
+
+    <div class="group" id="g-presets">
+      <div class="title">Пресеты <span class="chev">▾</span></div>
+      <div class="body">
+        <div class="presets" id="presets"></div>
+        <div class="btnrow">
+          <button id="btn-random">Случайная композиция</button>
+          <button id="btn-reseed">Новый seed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="core.js"></script>
+<script>
+'use strict';
+const { DEFAULTS, PRESETS } = TileCore;
+const STORE_KEY = 'tiles-params-v1';
+
+/* =========================================================================
+   PARAMETER SCHEMA → PANEL
+   ========================================================================= */
+const is = (k, ...vals) => (p) => vals.includes(p[k]);
+const not = (k, ...vals) => (p) => !vals.includes(p[k]);
+const rect = is('layout', 'rect'), radial = is('layout', 'radial');
+
+const SCALAR_MODES = [
+  ['const', 'Постоянно'], ['linear', 'Линейный градиент'], ['radial', 'От точки'], ['wave', 'Волна'],
+  ['ring', 'Круговые волны'], ['noise', 'Шум'], ['random', 'Случайно'], ['checker', 'Шахматы'], ['border', 'От края к центру'],
+];
+function scalarControls(pre) {
+  const m = (...v) => is(pre + '_mode', ...v);
+  return [
+    { k: pre + '_mode', t: 'select', l: 'Распределение', opts: SCALAR_MODES },
+    { k: pre + '_angle', t: 'range', l: 'Угол', min: -180, max: 180, step: 1, u: '°', show: m('linear', 'wave') },
+    { k: pre + '_px', t: 'range', l: 'Точка X', min: -1.5, max: 1.5, step: 0.01, show: m('radial', 'ring') },
+    { k: pre + '_py', t: 'range', l: 'Точка Y', min: -1.5, max: 1.5, step: 0.01, show: m('radial', 'ring') },
+    { k: pre + '_freq', t: 'range', l: 'Частота', min: 0.1, max: 6, step: 0.05, show: m('wave', 'ring') },
+    { k: pre + '_phase', t: 'range', l: 'Фаза', min: 0, max: 360, step: 1, u: '°', show: m('wave', 'ring') },
+    { k: pre + '_noise', t: 'range', l: 'Масштаб шума', min: 0.2, max: 6, step: 0.05, show: m('noise') },
+    { k: pre + '_jit', t: 'range', l: 'Случайность', min: 0, max: 1, step: 0.01, show: not(pre + '_mode', 'const') },
+    { k: pre + '_gamma', t: 'range', l: 'Кривая (гамма)', min: 0.2, max: 4, step: 0.05, show: not(pre + '_mode', 'const') },
+    { k: pre + '_inv', t: 'check', l: 'Инвертировать', show: not(pre + '_mode', 'const') },
+  ];
+}
+
+const SECTIONS = [
+  { title: 'Раскладка', items: [
+    { k: 'layout', t: 'select', l: 'Тип сетки', opts: [['rect', 'Прямоугольная'], ['radial', 'Радиальная']] },
+    { k: 'W', t: 'range', l: 'Ширина', min: 50, max: 2000, step: 1, u: 'мм', show: rect },
+    { k: 'H', t: 'range', l: 'Высота', min: 50, max: 2000, step: 1, u: 'мм', show: rect },
+    { k: 'cols', t: 'range', l: 'Колонок', min: 1, max: 60, step: 1, int: true, show: rect },
+    { k: 'rows', t: 'range', l: 'Рядов', min: 1, max: 60, step: 1, int: true, show: rect },
+    { k: 'rIn', t: 'range', l: 'Внутренний радиус', min: 0, max: 400, step: 1, u: 'мм', show: radial },
+    { k: 'rings', t: 'range', l: 'Колец', min: 1, max: 40, step: 1, int: true, show: radial },
+    { k: 'ringW', t: 'range', l: 'Ширина кольца', min: 5, max: 200, step: 0.5, u: 'мм', show: radial },
+    { k: 'segMode', t: 'select', l: 'Сегменты в кольце', opts: [['equal', 'Равный размер ячеек'], ['fixed', 'Одинаковое число']], show: radial },
+    { k: 'aspect', t: 'range', l: 'Длина дуги / ширина', min: 0.4, max: 3, step: 0.05, show: (p) => radial(p) && p.segMode === 'equal' },
+    { k: 'segs', t: 'range', l: 'Сегментов', min: 3, max: 120, step: 1, int: true, show: (p) => radial(p) && p.segMode === 'fixed' },
+    { k: 'arcDiv', t: 'range', l: 'Граней на дугу', min: 1, max: 8, step: 1, int: true, show: radial },
+    { k: 'startAng', t: 'range', l: 'Поворот сетки', min: -180, max: 180, step: 1, u: '°', show: radial },
+    { k: 'stagger', t: 'check', l: 'Сдвигать чётные кольца (кирпич)', show: radial },
+    { k: 'centerPiece', t: 'check', l: 'Центральная деталь', show: (p) => radial(p) && p.rIn > 0 },
+    { k: 'gap', t: 'range', l: 'Зазор между деталями', min: 0, max: 20, step: 0.1, u: 'мм' },
+  ] },
+  { title: 'Форма детали', items: [
+    { k: 'foot', t: 'select', l: 'Основание', opts: [['cell', 'По ячейке (квадрат / сектор)'], ['circle', 'Круг / многоугольник'], ['drop', 'Капля']] },
+    { k: 'sides', t: 'range', l: 'Граней', min: 3, max: 64, step: 1, int: true, show: is('foot', 'circle', 'drop') },
+    { k: 'dropLen', t: 'range', l: 'Вытянутость капли', min: 1.1, max: 4, step: 0.05, show: is('foot', 'drop') },
+    { k: 'fScale', t: 'range', l: 'Размер основания', min: 0.1, max: 1, step: 0.01 },
+    { k: 'sizeLink', t: 'range', l: 'Размер зависит от высоты', min: 0, max: 0.9, step: 0.01 },
+    { k: 'topScale', t: 'range', l: 'Верх: 0 — пирамида, 1 — призма', min: 0, max: 1.3, step: 0.01 },
+    { k: 'curv', t: 'range', l: 'Профиль: − вогнутый, + купол', min: -2, max: 2, step: 0.05 },
+    { k: 'layers', t: 'range', l: 'Сегментов по высоте', min: 2, max: 24, step: 1, int: true, show: (p) => Math.abs(p.curv) > 0.001 || p.twist !== 0 || p.twistJit !== 0 },
+    { k: 'plinth', t: 'range', l: 'Цоколь (вертикальный борт)', min: 0, max: 20, step: 0.1, u: 'мм' },
+  ] },
+  { title: 'Высота', items: [
+    { k: 'hMin', t: 'range', l: 'Мин. высота', min: 0.5, max: 300, step: 0.5, u: 'мм' },
+    { k: 'hMax', t: 'range', l: 'Макс. высота', min: 0.5, max: 300, step: 0.5, u: 'мм' },
+    ...scalarControls('h'),
+  ] },
+  { title: 'Наклон и поворот', items: [
+    { k: 'offset', t: 'range', l: 'Смещение вершины (в ячейках)', min: 0, max: 2.5, step: 0.01 },
+    { k: 'tilt', t: 'range', l: 'Наклон верхней грани', min: 0, max: 75, step: 0.5, u: '°' },
+    { k: 'twist', t: 'range', l: 'Закрутка', min: -180, max: 180, step: 1, u: '°' },
+    { k: 'twistJit', t: 'range', l: 'Случайная закрутка ±', min: 0, max: 90, step: 1, u: '°' },
+    { sub: 'Сила наклона по полю' },
+    { k: 'iMin', t: 'range', l: 'Минимальная сила', min: 0, max: 1, step: 0.01 },
+    ...scalarControls('i'),
+  ] },
+  { title: 'Направление наклона', items: [
+    { k: 'd_mode', t: 'select', l: 'Поле направлений', opts: [
+      ['linear', 'Одно направление'], ['point', 'От точки / вихрь'], ['wave', 'Волна'], ['noise', 'Шум'],
+      ['alternate', 'Чередование рядов / колец'], ['random', 'Случайно'],
+    ] },
+    { k: 'd_angle', t: 'range', l: 'Угол (0° вправо, 90° вверх)', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'linear', 'wave', 'noise', 'alternate') },
+    { k: 'd_px', t: 'range', l: 'Точка X', min: -1.5, max: 1.5, step: 0.01, show: is('d_mode', 'point') },
+    { k: 'd_py', t: 'range', l: 'Точка Y', min: -1.5, max: 1.5, step: 0.01, show: is('d_mode', 'point') },
+    { k: 'd_rot', t: 'range', l: 'Поворот: 0 от точки, 90 вихрь, 180 к точке', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'point') },
+    { k: 'd_amp', t: 'range', l: 'Амплитуда', min: 0, max: 180, step: 1, u: '°', show: is('d_mode', 'wave', 'noise', 'alternate') },
+    { k: 'd_freq', t: 'range', l: 'Частота волны', min: 0.1, max: 6, step: 0.05, show: is('d_mode', 'wave') },
+    { k: 'd_wAngle', t: 'range', l: 'Направление волны', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'wave') },
+    { k: 'd_noise', t: 'range', l: 'Масштаб шума', min: 0.2, max: 6, step: 0.05, show: is('d_mode', 'noise') },
+    { k: 'd_jit', t: 'range', l: 'Случайное отклонение ±', min: 0, max: 90, step: 1, u: '°' },
+    { k: 'seed', t: 'range', l: 'Seed', min: 1, max: 9999, step: 1, int: true },
+  ] },
+  { title: 'Цвет и подложка', items: [
+    { k: 'colMain', t: 'color', l: 'Основной цвет' },
+    { k: 'acc', t: 'select', l: 'Второй цвет — какие детали', opts: [
+      ['none', 'Нет'], ['random', 'Случайные детали'], ['checker', 'Шахматы'], ['border', 'Рамка по краю'],
+      ['stripes', 'Полосы (ряды / кольца)'], ['height', 'Самые высокие'],
+    ] },
+    { k: 'colAcc', t: 'color', l: 'Цвет второй группы', show: not('acc', 'none') },
+    { k: 'accN', t: 'range', l: 'Ширина рамки / полосы', min: 1, max: 10, step: 1, int: true, show: is('acc', 'border', 'stripes') },
+    { k: 'accP', t: 'range', l: 'Доля деталей', min: 0, max: 1, step: 0.01, show: is('acc', 'random', 'height') },
+    { k: 'board', t: 'check', l: 'Подложка (панель)' },
+    { k: 'colBoard', t: 'color', l: 'Цвет подложки', show: is('board', true) },
+    { k: 'bMargin', t: 'range', l: 'Поле вокруг', min: 0, max: 200, step: 1, u: 'мм', show: is('board', true) },
+    { k: 'bThick', t: 'range', l: 'Толщина подложки', min: 1, max: 40, step: 0.5, u: 'мм', show: is('board', true) },
+  ] },
+  { title: 'Свет', collapsed: true, items: [
+    { k: 'lightAz', t: 'range', l: 'Направление света', min: -180, max: 180, step: 1, u: '°' },
+    { k: 'lightEl', t: 'range', l: 'Высота света', min: 5, max: 90, step: 1, u: '°' },
+  ] },
+  { title: 'Экспорт', id: 'g-export', items: [
+    { k: 'exBoard', t: 'check', l: 'Включить подложку в экспорт', show: is('board', true) },
+    { sub: 'Стол принтера (для раскладки по столам)' },
+    { k: 'bedX', t: 'range', l: 'Стол X', min: 50, max: 1000, step: 1, u: 'мм' },
+    { k: 'bedY', t: 'range', l: 'Стол Y', min: 50, max: 1000, step: 1, u: 'мм' },
+    { k: 'bedGap', t: 'range', l: 'Отступ между деталями', min: 0.5, max: 20, step: 0.5, u: 'мм' },
+    { html: `
+      <div class="btnrow"><button class="primary" id="ex-assembled">STL — вся инсталляция</button></div>
+      <div class="btnrow">
+        <button id="ex-parts">ZIP — каждая деталь</button>
+        <button id="ex-plates">ZIP — по столам</button>
+      </div>
+      <div class="btnrow">
+        <button id="ex-svg">SVG — схема сборки 1:1</button>
+      </div>
+      <div class="btnrow">
+        <button id="ex-json">Сохранить параметры</button>
+        <button id="im-json">Загрузить…</button>
+        <input type="file" id="im-file" accept=".json,application/json" hidden />
+      </div>
+      <p class="hint">Все детали — отдельные замкнутые тела, основанием на z = 0. Имена файлов совпадают с номерами на схеме сборки
+      (R — ряд, C — колонка; K — кольцо, S — сегмент). Красная стрелка на схеме показывает, куда смотрит вершина.</p>` },
+  ] },
+];
+
+let P = loadStored() || { ...DEFAULTS, ...PRESETS[3].p };
+const controls = {}; // key -> {row, set(v)}
+
+function buildPanel() {
+  const panel = document.getElementById('panel');
+  const presetBox = document.getElementById('presets');
+  PRESETS.forEach((pr, i) => {
+    const b = document.createElement('button');
+    b.textContent = pr.name;
+    b.onclick = () => applyPreset(i);
+    presetBox.appendChild(b);
+  });
+
+  for (const sec of SECTIONS) {
+    const g = document.createElement('div');
+    g.className = 'group' + (sec.collapsed ? ' collapsed' : '');
+    if (sec.id) g.id = sec.id;
+    g.innerHTML = `<div class="title">${sec.title} <span class="chev">▾</span></div><div class="body"></div>`;
+    const body = g.querySelector('.body');
+    for (const it of sec.items) body.appendChild(makeControl(it));
+    panel.appendChild(g);
+  }
+  panel.querySelectorAll('.group > .title').forEach((t) => {
+    t.addEventListener('click', () => t.parentElement.classList.toggle('collapsed'));
+  });
+}
+
+function makeControl(it) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  if (it.html) { row.innerHTML = it.html; return row; }
+  if (it.sub) { row.className = 'sub'; row.textContent = it.sub; return row; }
+  const set = (v) => {
+    if (it.int) v = Math.round(v);
+    P[it.k] = v;
+    onChange();
+  };
+  let sync;
+  if (it.t === 'range') {
+    row.innerHTML = `<label><span>${it.l}</span><span><input class="num" type="number" step="${it.step}"/>${it.u ? `<span class="unit">${it.u}</span>` : ''}</span></label>
+      <input type="range" min="${it.min}" max="${it.max}" step="${it.step}"/>`;
+    const num = row.querySelector('.num'), rng = row.querySelector('input[type=range]');
+    rng.addEventListener('input', () => { num.value = rng.value; set(parseFloat(rng.value)); });
+    num.addEventListener('change', () => {
+      const v = parseFloat(num.value);
+      if (Number.isFinite(v)) { rng.value = v; set(v); } else sync();
+    });
+    sync = () => { const v = P[it.k]; num.value = +(+v).toFixed(3); rng.value = v; };
+  } else if (it.t === 'select') {
+    row.innerHTML = `<label><span>${it.l}</span></label><select>${it.opts.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>`;
+    const sel = row.querySelector('select');
+    sel.addEventListener('change', () => set(sel.value));
+    sync = () => { sel.value = P[it.k]; };
+  } else if (it.t === 'check') {
+    row.innerHTML = `<label class="check"><input type="checkbox"/> ${it.l}</label>`;
+    const cb = row.querySelector('input');
+    cb.addEventListener('change', () => set(cb.checked));
+    sync = () => { cb.checked = !!P[it.k]; };
+  } else if (it.t === 'color') {
+    row.innerHTML = `<label class="color"><span>${it.l}</span><input type="color"/></label>`;
+    const ci = row.querySelector('input');
+    ci.addEventListener('input', () => set(ci.value));
+    sync = () => { ci.value = P[it.k]; };
+  }
+  controls[it.k] = { row, sync, show: it.show };
+  return row;
+}
+
+function syncPanel() {
+  for (const k in controls) {
+    const c = controls[k];
+    c.sync();
+    c.row.classList.toggle('hidden', !!c.show && !c.show(P));
+  }
+}
+function refreshVisibility() {
+  for (const k in controls) {
+    const c = controls[k];
+    c.row.classList.toggle('hidden', !!c.show && !c.show(P));
+  }
+}
+
+function applyPreset(i) {
+  P = { ...DEFAULTS, ...PRESETS[i].p, seed: P.seed };
+  syncPanel();
+  rebuild(true);
+  store();
+}
+
+function randomComposition() {
+  const r = Math.random, pick = (a) => a[Math.floor(r() * a.length)];
+  const base = PRESETS[Math.floor(r() * PRESETS.length)].p;
+  P = { ...DEFAULTS, ...base };
+  P.seed = 1 + Math.floor(r() * 9998);
+  P.d_mode = pick(['linear', 'point', 'point', 'wave', 'noise', 'alternate']);
+  P.d_angle = Math.round(r() * 360 - 180);
+  P.d_rot = pick([0, 0, 90, 110, 180, -90]);
+  P.d_px = +(r() * 2 - 1).toFixed(2); P.d_py = +(r() * 2 - 1).toFixed(2);
+  P.i_mode = pick(['const', 'linear', 'radial', 'wave', 'noise', 'ring']);
+  P.i_px = P.d_px; P.i_py = P.d_py; P.i_angle = Math.round(r() * 360 - 180);
+  P.h_mode = pick(['const', 'radial', 'wave', 'noise', 'ring']);
+  P.topScale = pick([0, 0, 0, 0.4, 1]);
+  P.offset = +(0.2 + r() * 1.1).toFixed(2);
+  P.tilt = P.topScale > 0 ? Math.round(r() * 40) : 0;
+  syncPanel();
+  rebuild(true);
+  store();
+}
+
+function store() { try { localStorage.setItem(STORE_KEY, JSON.stringify(P)); } catch (e) { /* storage unavailable */ } }
+function loadStored() {
+  try {
+    const s = localStorage.getItem(STORE_KEY);
+    return s ? { ...DEFAULTS, ...JSON.parse(s) } : null;
+  } catch (e) { return null; }
+}
+
+let pending = false, lastExt = 0;
+function onChange() {
+  refreshVisibility();
+  store();
+  if (pending) return;
+  pending = true;
+  requestAnimationFrame(() => { pending = false; rebuild(false); });
+}
+
+/* =========================================================================
+   VIEWER
+   ========================================================================= */
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+view.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#dcd9d3');
+const camera = new THREE.PerspectiveCamera(32, 1, 1, 100000);
+const orbit = new THREE.OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.12;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb4b0a8, 0.62));
+scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+const sun = new THREE.DirectionalLight(0xffffff, 0.62);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.4;
+scene.add(sun, sun.target);
+
+const wall = new THREE.Mesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshStandardMaterial({ color: '#e4e1db', roughness: 0.95 })
+);
+wall.receiveShadow = true;
+scene.add(wall);
+
+const mats = [0, 1, 2].map(() => new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0 }));
+let meshes = [];
+let G = null;
+
+function rebuild(fit) {
+  G = TileCore.generate(P);
+  for (const m of meshes) { scene.remove(m); m.geometry.dispose(); }
+  meshes = [];
+
+  const groups = [[], [], []];
+  for (const p of G.parts) groups[p.group].push(p.tris);
+  if (G.board) groups[2].push(G.board.tris);
+  groups.forEach((list, gi) => {
+    if (!list.length) return;
+    let n = 0;
+    for (const t of list) n += t.length;
+    const pos = new Float32Array(n);
+    let o = 0;
+    for (const t of list) { pos.set(t, o); o += t.length; }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, mats[gi]);
+    mesh.castShadow = gi !== 2;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    meshes.push(mesh);
+  });
+  mats[0].color.set(P.colMain);
+  mats[1].color.set(P.colAcc);
+  mats[2].color.set(P.colBoard);
+
+  const ext = extent();
+  const zBack = G.board ? -Math.max(0.5, P.bThick) : 0;
+  wall.position.set(0, 0, zBack - 0.2);
+  wall.scale.set(ext * 8, ext * 8, 1);
+  wall.material.color.set(P.board ? '#e4e1db' : shade(P.colMain));
+  placeLight(ext);
+  if (fit || Math.abs(ext - lastExt) / (lastExt || 1) > 0.35) setView(currentView, ext);
+  lastExt = ext;
+  showStats();
+}
+
+// wall tint: a light neutral that still separates from light parts
+function shade(hex) {
+  const c = new THREE.Color(hex);
+  const l = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+  return l > 0.8 ? '#dedad3' : '#ebe8e2';
+}
+
+function extent() {
+  const L = G.layout;
+  const m = P.board ? P.bMargin : 0;
+  return (L.shape === 'rect' ? Math.max(L.w, L.h) / 2 : L.r) + m;
+}
+
+function placeLight(ext) {
+  const az = P.lightAz * Math.PI / 180, el = P.lightEl * Math.PI / 180;
+  const D = ext * 4;
+  sun.position.set(Math.cos(el) * Math.cos(az) * D, Math.cos(el) * Math.sin(az) * D, Math.sin(el) * D);
+  sun.target.position.set(0, 0, 0);
+  const cam = sun.shadow.camera;
+  const s = ext * 1.5;
+  cam.left = -s; cam.right = s; cam.top = s; cam.bottom = -s;
+  cam.near = 1; cam.far = D * 2.5;
+  cam.updateProjectionMatrix();
+}
+
+let currentView = 'angle';
+function setView(kind, ext = extent()) {
+  currentView = kind;
+  const D = ext / Math.tan((camera.fov * Math.PI) / 360) * 1.25;
+  const pos = {
+    front: [0, 0, D],
+    angle: [D * 0.34, -D * 0.12, D * 0.93],
+    side: [D * 0.93, -D * 0.05, D * 0.36],
+  }[kind];
+  camera.position.set(...pos);
+  camera.near = Math.max(0.5, D / 500);
+  camera.far = D * 20;
+  camera.updateProjectionMatrix();
+  orbit.target.set(0, 0, 0);
+  orbit.update();
+}
+document.querySelectorAll('#views button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / Math.max(1, h);
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+(function loop() {
+  requestAnimationFrame(loop);
+  orbit.update();
+  renderer.render(scene, camera);
+})();
+
+/* =========================================================================
+   STATS
+   ========================================================================= */
+const fmt = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1));
+function partBounds(p) { return TileCore.bounds([p.tris]); }
+
+function showStats() {
+  const b = G.bounds;
+  let tris = 0, maxW = 0, maxD = 0, maxH = 0;
+  const count = [0, 0];
+  for (const p of G.parts) {
+    tris += p.tris.length / 9;
+    count[p.group]++;
+    const pb = partBounds(p);
+    maxW = Math.max(maxW, pb.max[0] - pb.min[0]);
+    maxD = Math.max(maxD, pb.max[1] - pb.min[1]);
+    maxH = Math.max(maxH, pb.max[2]);
+  }
+  const lines = [];
+  lines.push(`<b>${G.parts.length}</b> деталей` + (P.acc !== 'none' ? ` (${count[0]} + ${count[1]} второго цвета)` : '') + ` · ${tris.toLocaleString('ru')} треугольников`);
+  if (G.parts.length) {
+    lines.push(`Габарит: ${fmt(b.max[0] - b.min[0])} × ${fmt(b.max[1] - b.min[1])} × ${fmt(b.max[2] - Math.min(0, b.min[2]))} мм`);
+    lines.push(`Самая крупная деталь: ${fmt(maxW)} × ${fmt(maxD)} × ${fmt(maxH)} мм`);
+  }
+  const warn = [...G.warnings];
+  if (maxW > P.bedX || maxD > P.bedY) warn.push('Деталь больше стола принтера');
+  if (P.hMin > P.hMax) warn.push('Мин. высота больше максимальной');
+  for (const w of warn) lines.push(`<span class="warn">⚠ ${w}</span>`);
+  document.getElementById('stats').innerHTML = lines.join('<br/>');
+}
+
+/* =========================================================================
+   EXPORT
+   ========================================================================= */
+function baseName() {
+  const L = G.layout;
+  const size = L.shape === 'rect' ? `${Math.round(L.w)}x${Math.round(L.h)}` : `D${Math.round(L.r * 2)}`;
+  return `tiles_${P.layout}_${size}`;
+}
+
+function download(data, name, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+const groupName = (g) => (g === 1 ? 'color2' : 'color1');
+const boardItem = () => (G.board && P.exBoard ? [G.board] : []);
+
+function readme() {
+  return [
+    'Tiles — комплект деталей',
+    '',
+    `Деталей: ${G.parts.length}. Все размеры в мм, каждая деталь стоит основанием на z = 0.`,
+    'Номер детали: R — ряд (сверху вниз), C — колонка (слева направо);',
+    'для радиальной сетки: K — кольцо (от центра), S — сегмент (против часовой от 0°), C00 — центр.',
+    'assembly.svg — шаблон сборки в масштабе 1:1: контур основания, номер,',
+    'красная стрелка — куда смещена вершина детали.',
+    P.acc !== 'none' ? 'Папки color1 / color2 — детали основного и второго цвета.' : '',
+  ].join('\r\n');
+}
+
+function wireExports() {
+  document.getElementById('ex-assembled').onclick = () => {
+    const items = G.parts.concat(boardItem()).map((p) => ({ tris: p.tris }));
+    download(TileCore.stlBinary(items, baseName()), baseName() + '.stl', 'model/stl');
+  };
+
+  document.getElementById('ex-parts').onclick = () => {
+    const two = P.acc !== 'none';
+    const files = G.parts.map((p) => ({
+      name: (two ? groupName(p.group) + '/' : '') + p.id + '.stl',
+      data: TileCore.stlBinary([{ tris: p.tris }], p.id),
+    }));
+    for (const b of boardItem()) files.push({ name: 'BOARD.stl', data: TileCore.stlBinary([{ tris: b.tris, dz: P.bThick }], 'BOARD') });
+    files.push({ name: 'assembly.svg', data: TileCore.assemblySVG(G) });
+    files.push({ name: 'params.json', data: JSON.stringify(P, null, 2) });
+    files.push({ name: 'README.txt', data: readme() });
+    download(new Blob([TileCore.makeZip(files)], { type: 'application/zip' }), baseName() + '_parts.zip');
+  };
+
+  document.getElementById('ex-plates').onclick = () => {
+    const files = [];
+    const list = [];
+    const two = P.acc !== 'none';
+    const sets = two ? [0, 1].map((g) => G.parts.filter((p) => p.group === g)) : [G.parts];
+    const over = [];
+    sets.forEach((parts, gi) => {
+      if (!parts.length) return;
+      const { plates, oversize } = TileCore.packPlates(parts, P.bedX, P.bedY, P.bedGap);
+      over.push(...oversize);
+      plates.forEach((pl, i) => {
+        const name = (two ? groupName(gi) + '_' : '') + 'plate_' + String(i + 1).padStart(2, '0');
+        files.push({ name: name + '.stl', data: TileCore.stlBinary(pl.items.map((it) => ({ tris: it.part.tris, dx: it.dx, dy: it.dy, dz: it.dz })), name) });
+        list.push(`${name}: ${pl.items.map((it) => it.part.id).join(', ')}`);
+      });
+    });
+    for (const b of boardItem()) files.push({ name: 'BOARD.stl', data: TileCore.stlBinary([{ tris: b.tris, dz: P.bThick }], 'BOARD') });
+    if (over.length) list.push('', 'Больше стола (напечатаны по одной): ' + over.join(', '));
+    files.push({ name: 'plates.txt', data: list.join('\r\n') });
+    files.push({ name: 'assembly.svg', data: TileCore.assemblySVG(G) });
+    files.push({ name: 'params.json', data: JSON.stringify(P, null, 2) });
+    files.push({ name: 'README.txt', data: readme() });
+    download(new Blob([TileCore.makeZip(files)], { type: 'application/zip' }), baseName() + '_plates.zip');
+  };
+
+  document.getElementById('ex-svg').onclick = () => download(TileCore.assemblySVG(G), baseName() + '_assembly.svg', 'image/svg+xml');
+  document.getElementById('ex-json').onclick = () => download(JSON.stringify(P, null, 2), baseName() + '.json', 'application/json');
+  document.getElementById('im-json').onclick = () => document.getElementById('im-file').click();
+  document.getElementById('im-file').onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      P = { ...DEFAULTS, ...JSON.parse(await f.text()) };
+      syncPanel();
+      rebuild(true);
+      store();
+    } catch (err) {
+      alert('Не удалось прочитать файл параметров: ' + err.message);
+    }
+    e.target.value = '';
+  };
+}
+
+document.getElementById('btn-random').onclick = randomComposition;
+document.getElementById('btn-reseed').onclick = () => { P.seed = 1 + Math.floor(Math.random() * 9998); syncPanel(); onChange(); };
+
+/* =========================================================================
+   START
+   ========================================================================= */
+buildPanel();
+wireExports();
+syncPanel();
+resize();
+rebuild(true);
+</script>
+</body>
+</html>
