@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Brutalist Surface — Parametric 3D Texture Generator</title>
+<style>
+  :root {
+    --bg: #101114;
+    --panel: #17181c;
+    --panel-2: #1e2026;
+    --line: #2a2c34;
+    --text: #e9eaee;
+    --muted: #969aa6;
+    --accent: #c8c2b4;      /* concrete warm-grey */
+    --accent-2: #e0a96d;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { display: flex; width: 100vw; height: 100vh; }
+
+  /* ---- Viewport ---- */
+  #view { position: relative; flex: 1 1 auto; min-width: 0; }
+  #view canvas { display: block; width: 100%; height: 100%; }
+  #hud {
+    position: absolute; left: 16px; top: 14px; pointer-events: none;
+    font-size: 12px; color: var(--muted); line-height: 1.6; text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+  #hud b { color: var(--text); font-weight: 600; }
+  #stats {
+    position: absolute; right: 16px; bottom: 12px; font-size: 11px; color: var(--muted);
+    pointer-events: none; text-align: right; line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+
+  /* ---- Panel ---- */
+  #panel {
+    flex: 0 0 344px; width: 344px; height: 100%; overflow-y: auto;
+    background: var(--panel); border-left: 1px solid var(--line);
+    padding: 0 0 48px;
+  }
+  #panel::-webkit-scrollbar { width: 10px; }
+  #panel::-webkit-scrollbar-track { background: var(--panel); }
+  #panel::-webkit-scrollbar-thumb { background: #2c2f38; border-radius: 6px; }
+  .head {
+    padding: 16px 18px 12px; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: var(--panel); z-index: 5;
+  }
+  .head h1 { font-size: 14px; margin: 0; letter-spacing: .4px; text-transform: uppercase; }
+  .head p { margin: 5px 0 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .head b { color: var(--accent); font-weight: 600; }
+
+  .group { border-bottom: 1px solid var(--line); }
+  .group > .title {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px; font-size: 11px; letter-spacing: .8px; text-transform: uppercase;
+    color: var(--muted); cursor: default; user-select: none;
+  }
+  .group .body { padding: 2px 18px 14px; }
+
+  .row { margin: 12px 0; }
+  .row.hidden { display: none; }
+  .row label {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px; margin-bottom: 6px; color: var(--text);
+  }
+  .row label .val { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 11px; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
+    background: #33363f; border-radius: 3px; outline: none; margin: 0;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
+    border-radius: 50%; background: var(--accent); cursor: pointer;
+    border: 2px solid #0d0e11; box-shadow: 0 1px 3px rgba(0,0,0,.5);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 15px; height: 15px; border-radius: 50%; background: var(--accent);
+    cursor: pointer; border: 2px solid #0d0e11;
+  }
+  select {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+    font-size: 12px; outline: none; cursor: pointer;
+  }
+  .seg { display: flex; gap: 6px; }
+  .seg button {
+    flex: 1; background: var(--panel-2); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 7px; padding: 8px 4px;
+    font-size: 11px; cursor: pointer; transition: .12s;
+  }
+  .seg button.active { background: var(--accent); color: #17181c; border-color: var(--accent); font-weight: 600; }
+  .seg button:hover { color: var(--text); }
+  .seg button.active:hover { color: #17181c; }
+
+  .btns { display: flex; gap: 8px; padding: 14px 18px 4px; }
+  button.act {
+    flex: 1; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+    font-size: 12px; cursor: pointer; transition: .12s;
+  }
+  button.act:hover { background: #262932; border-color: #3a3d47; }
+  button.primary {
+    background: var(--accent); color: #17181c; border: none; font-weight: 700;
+    letter-spacing: .3px;
+  }
+  button.primary:hover { filter: brightness(1.06); background: var(--accent); }
+  .foot { padding: 10px 18px 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .foot code { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="view">
+    <div id="hud">
+      <b>Brutalist Surface</b> — parametric concrete relief<br>
+      drag to orbit · scroll to zoom · right-drag to pan
+    </div>
+    <div id="stats"></div>
+  </div>
+
+  <div id="panel">
+    <div class="head">
+      <h1>Brutalist Surface</h1>
+      <p>Parametric concrete relief generator. Units are <b>millimetres</b> — export a solid, watertight <b>STL</b> ready for a slicer.</p>
+    </div>
+
+    <div class="group">
+      <div class="title">Pattern</div>
+      <div class="body">
+        <div class="seg" id="patternSeg">
+          <button data-pattern="shards" class="active">Shards</button>
+          <button data-pattern="blocks">Blocks</button>
+          <button data-pattern="pyramids">Pyramids</button>
+        </div>
+        <div class="seg" id="patternSeg2" style="margin-top:6px;">
+          <button data-pattern="fins">Fins</button>
+          <button data-pattern="slabs">Slabs</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="title">Plate</div>
+      <div class="body" id="grp-plate"></div>
+    </div>
+
+    <div class="group">
+      <div class="title">Relief</div>
+      <div class="body" id="grp-relief"></div>
+    </div>
+
+    <div class="group">
+      <div class="title">Appearance</div>
+      <div class="body">
+        <div class="row">
+          <label for="material">Material</label>
+          <select id="material">
+            <option value="concrete" selected>Raw concrete</option>
+            <option value="dark">Dark concrete</option>
+            <option value="plaster">White plaster</option>
+            <option value="clay">Clay</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="res">Preview resolution <span class="val" id="res-v"></span></label>
+          <input type="range" id="res" min="120" max="360" step="20" value="220">
+        </div>
+        <div class="row">
+          <label for="exres">Export resolution <span class="val" id="exres-v"></span></label>
+          <input type="range" id="exres" min="200" max="560" step="20" value="400">
+        </div>
+      </div>
+    </div>
+
+    <div class="btns">
+      <button class="act" id="btnRandom">🎲 Randomise</button>
+      <button class="act" id="btnReset">↺ Reset</button>
+    </div>
+    <div class="btns">
+      <button class="act primary" id="btnExport">⬇ Export solid STL</button>
+    </div>
+    <div class="foot">
+      The mesh is a closed solid: relief on top, flat base on the bed. Higher
+      export resolution sharpens block walls. Big plates × high resolution can
+      take a moment to build.
+    </div>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script>
+const OrbitControls = THREE.OrbitControls;
+
+/* =========================================================================
+   CONTROL DEFINITIONS
+   ========================================================================= */
+const CONTROLS = [
+  // group, id, label, min, max, step, default, decimals, unit, patterns(null=all)
+  ['plate',  'width',   'Width',         40, 300, 5,  160, 0, 'mm', null],
+  ['plate',  'depth',   'Depth',         40, 300, 5,  160, 0, 'mm', null],
+  ['plate',  'base',    'Base thickness', 1,  30, 0.5,  4, 1, 'mm', null],
+
+  ['relief', 'height',  'Relief height',  2,  70, 1,   26, 0, 'mm', null],
+  ['relief', 'levels',  'Height levels',  1,   8, 1,    4, 0, '',   null],
+  ['relief', 'seed',    'Seed',           1, 9999, 1,  42, 0, '',   null],
+
+  // shards
+  ['relief', 'facets',  'Facets',         4, 160, 1,   40, 0, '',   'shards'],
+  ['relief', 'tilt',    'Facet tilt',     0,   1, 0.01, 0.55, 2, '', 'shards'],
+  ['relief', 'warp',    'Edge warp',      0,   1, 0.01, 0.25, 2, '', 'shards'],
+
+  // blocks + pyramids (shared grid)
+  ['relief', 'gridx',   'Grid X',         2,  48, 1,   10, 0, '',   ['blocks','pyramids']],
+  ['relief', 'gridy',   'Grid Y',         2,  48, 1,   10, 0, '',   ['blocks','pyramids']],
+  ['relief', 'bevel',   'Edge chamfer',   0,  10, 0.1, 2.5, 1, 'mm','blocks'],
+  ['relief', 'groove',  'Joint width',    0,   8, 0.1, 1.2, 1, 'mm','blocks'],
+  ['relief', 'gdepth',  'Joint depth',    0,  30, 0.5,  8, 1, 'mm','blocks'],
+  ['relief', 'bjit',    'Height jitter',  0,   1, 0.01, 0.35, 2, '','blocks'],
+
+  // pyramids
+  ['relief', 'pjit',    'Apex offset',    0,   1, 0.01, 0.4, 2, '', 'pyramids'],
+  ['relief', 'pvalley', 'Valley recess',  0,   1, 0.01, 0.0, 2, '', 'pyramids'],
+
+  // fins
+  ['relief', 'fins',    'Fin count',      3,  60, 1,   22, 0, '',   'fins'],
+  ['relief', 'finseg',  'Stagger steps',  1,  24, 1,    6, 0, '',   'fins'],
+  ['relief', 'fingroove','Reveal width',  0,   6, 0.1, 0.8, 1, 'mm','fins'],
+  ['relief', 'finbevel','Top chamfer',    0,   8, 0.1, 1.5, 1, 'mm','fins'],
+
+  // slabs
+  ['relief', 'splits',  'Subdivision',    2,   9, 1,    6, 0, '',   'slabs'],
+  ['relief', 'minsize', 'Min slab',       6,  60, 1,   16, 0, 'mm', 'slabs'],
+  ['relief', 'gap',     'Reveal gap',     0,   8, 0.1, 1.5, 1, 'mm','slabs'],
+  ['relief', 'stilt',   'Slab tilt',      0,   1, 0.01, 0.35, 2, '','slabs'],
+];
+
+const P = {};              // live params
+let pattern = 'shards';
+
+/* build slider rows into their groups */
+function buildControls() {
+  for (const c of CONTROLS) {
+    const [grp,id,label,min,max,step,def,dec,unit] = c;
+    const host = document.getElementById('grp-' + grp);
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.dataset.id = id;
+    row.innerHTML =
+      `<label for="${id}">${label} <span class="val" id="${id}-v"></span></label>` +
+      `<input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${def}">`;
+    host.appendChild(row);
+    P[id] = def;
+    const input = row.querySelector('input');
+    const readout = () => {
+      P[id] = parseFloat(input.value);
+      row.querySelector('.val').textContent = P[id].toFixed(dec) + (unit ? ' ' + unit : '');
+    };
+    input.addEventListener('input', () => { readout(); scheduleBuild(); });
+    readout();
+  }
+  applyPatternVisibility();
+}
+
+function applyPatternVisibility() {
+  for (const c of CONTROLS) {
+    const [,id,,,,,,,,pat] = c;
+    if (!pat) continue;
+    const shown = Array.isArray(pat) ? pat.includes(pattern) : pat === pattern;
+    const row = document.querySelector(`.row[data-id="${id}"]`);
+    row.classList.toggle('hidden', !shown);
+  }
+}
+
+/* =========================================================================
+   DETERMINISTIC RANDOMNESS
+   ========================================================================= */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+// integer hash -> [0,1)
+function hash2(ix, iy, seed) {
+  let h = Math.imul(ix | 0, 374761393) + Math.imul(iy | 0, 668265263) + Math.imul(seed | 0, 2246822519);
+  h = Math.imul(h ^ h >>> 13, 1274126177);
+  return ((h ^ h >>> 16) >>> 0) / 4294967296;
+}
+function quantize(v, levels) {
+  if (levels <= 1) return v;
+  return Math.round(v * (levels - 1)) / (levels - 1);
+}
+function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+// smooth value noise on a grid, seeded
+function valueNoise(x, y, seed) {
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const fx = x - x0, fy = y - y0;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  const n00 = hash2(x0, y0, seed), n10 = hash2(x0 + 1, y0, seed);
+  const n01 = hash2(x0, y0 + 1, seed), n11 = hash2(x0 + 1, y0 + 1, seed);
+  const a = n00 + (n10 - n00) * sx;
+  const b = n01 + (n11 - n01) * sx;
+  return a + (b - a) * sy;  // [0,1)
+}
+
+/* =========================================================================
+   PATTERN SAMPLERS  ->  height(x,y) in [0, height] over [0,W]x[0,D]
+   ========================================================================= */
+function makeSampler(P) {
+  if (pattern === 'shards') return shardsSampler(P);
+  if (pattern === 'blocks') return blocksSampler(P);
+  if (pattern === 'pyramids') return pyramidsSampler(P);
+  if (pattern === 'fins') return finsSampler(P);
+  return slabsSampler(P);
+}
+
+/* --- Shards: Voronoi cells, each a flat tilted facet (ref image 1) --- */
+function shardsSampler(P) {
+  const W = P.width, D = P.depth, H = P.height;
+  const rng = mulberry32(P.seed * 2654435761 >>> 0 || 1);
+  const n = Math.max(2, P.facets | 0);
+  const cellSize = Math.sqrt((W * D) / n);
+  const seeds = [];
+  for (let k = 0; k < n; k++) {
+    const sx = rng() * W, sy = rng() * D;
+    const lvl = quantize(rng(), P.levels) * H;
+    const ang = rng() * Math.PI * 2;
+    const mag = (P.tilt * H) / Math.max(cellSize, 1) * (0.4 + 0.6 * rng());
+    seeds.push({ x: sx, y: sy, lvl, sx: Math.cos(ang) * mag, sy: Math.sin(ang) * mag });
+  }
+  const warpAmp = P.warp * cellSize * 0.9;
+  const wf = 3.0 / Math.max(W, D);
+  return function (x, y) {
+    let wx = x, wy = y;
+    if (warpAmp > 0) {
+      wx += (valueNoise(x * wf * 6, y * wf * 6, 7) - 0.5) * 2 * warpAmp;
+      wy += (valueNoise(x * wf * 6 + 40, y * wf * 6 + 17, 13) - 0.5) * 2 * warpAmp;
+    }
+    let best = Infinity, bs = seeds[0];
+    for (let k = 0; k < seeds.length; k++) {
+      const s = seeds[k];
+      const dx = wx - s.x, dy = wy - s.y;
+      const d = dx * dx + dy * dy;
+      if (d < best) { best = d; bs = s; }
+    }
+    const h = bs.lvl + bs.sx * (x - bs.x) + bs.sy * (y - bs.y);
+    return clamp(h, 0, H);
+  };
+}
+
+/* --- Blocks: regular grid of chamfered blocks + mortar joints (ref image 2) --- */
+function blocksSampler(P) {
+  const W = P.width, D = P.depth, H = P.height;
+  const gx = Math.max(1, P.gridx | 0), gy = Math.max(1, P.gridy | 0);
+  const cw = W / gx, ch = D / gy;
+  const bevel = P.bevel, groove = P.groove, gd = Math.min(P.gdepth, H);
+  const jit = P.bjit;
+  return function (x, y) {
+    let ci = Math.floor(x / cw), cj = Math.floor(y / ch);
+    ci = clamp(ci, 0, gx - 1); cj = clamp(cj, 0, gy - 1);
+    const r = hash2(ci, cj, P.seed);
+    // base top: quantized level, optionally jittered toward the max
+    const top = (H - gd) * (1 - jit + jit * quantize(r, P.levels)) + gd;
+    // distance to nearest INTERNAL cell border (skip the outer plate edge)
+    const cand = [];
+    if (ci > 0) cand.push(x - ci * cw);
+    if (ci < gx - 1) cand.push((ci + 1) * cw - x);
+    if (cj > 0) cand.push(y - cj * ch);
+    if (cj < gy - 1) cand.push((cj + 1) * ch - y);
+    const dm = cand.length ? Math.min.apply(null, cand) : Infinity;
+    const floor = Math.max(0, top - gd);
+    if (dm <= groove) return floor;                       // flat joint bottom
+    if (dm <= groove + bevel && bevel > 0)                // chamfered edge
+      return floor + ((dm - groove) / bevel) * (top - floor);
+    return top;                                           // flat block top
+  };
+}
+
+/* --- Pyramids: grid of faceted 4-sided pyramids w/ offset apex (ref) --- */
+function pyramidsSampler(P) {
+  const W = P.width, D = P.depth, H = P.height;
+  const gx = Math.max(1, P.gridx | 0), gy = Math.max(1, P.gridy | 0);
+  const cw = W / gx, ch = D / gy;
+  const jit = P.pjit, valley = P.pvalley;
+  return function (x, y) {
+    let ci = Math.floor(x / cw), cj = Math.floor(y / ch);
+    ci = clamp(ci, 0, gx - 1); cj = clamp(cj, 0, gy - 1);
+    const r = hash2(ci, cj, P.seed);
+    // some cells recess (apex down) -> flat pit, for the irregular facade look
+    if (valley > 0 && hash2(ci, cj, P.seed + 777) < valley) return 0;
+    const apexH = (0.35 + 0.65 * quantize(r, P.levels)) * H;
+    // apex position within the cell (offset for asymmetric facets)
+    const ax = 0.5 + (hash2(ci, cj, P.seed + 11) - 0.5) * jit;
+    const ay = 0.5 + (hash2(ci, cj, P.seed + 29) - 0.5) * jit;
+    const lx = (x - ci * cw) / cw, ly = (y - cj * ch) / ch;
+    // normalized distance so every cell edge reaches 0 -> straight pyramid facets
+    const dx = lx < ax ? (ax - lx) / Math.max(ax, 1e-4) : (lx - ax) / Math.max(1 - ax, 1e-4);
+    const dy = ly < ay ? (ay - ly) / Math.max(ay, 1e-4) : (ly - ay) / Math.max(1 - ay, 1e-4);
+    const d = Math.max(dx, dy);
+    return clamp(apexH * (1 - d), 0, H);
+  };
+}
+
+/* --- Fins: vertical ribs, staggered heights, chamfered tops (ref) --- */
+function finsSampler(P) {
+  const W = P.width, D = P.depth, H = P.height;
+  const n = Math.max(1, P.fins | 0);
+  const fw = W / n;
+  const seg = Math.max(1, P.finseg | 0);
+  const segH = D / seg;
+  const groove = P.fingroove, bevel = P.finbevel;
+  return function (x, y) {
+    let fi = Math.floor(x / fw); fi = clamp(fi, 0, n - 1);
+    let sj = Math.floor(y / segH); sj = clamp(sj, 0, seg - 1);
+    const top = quantize(hash2(fi, sj, P.seed), P.levels) * H;
+    // vertical grooves between fins (internal edges only), chamfered along X
+    const cand = [];
+    if (fi > 0) cand.push(x - fi * fw);
+    if (fi < n - 1) cand.push((fi + 1) * fw - x);
+    const dm = cand.length ? Math.min.apply(null, cand) : Infinity;
+    if (dm <= groove) return 0;
+    if (dm <= groove + bevel && bevel > 0) return ((dm - groove) / bevel) * top;
+    return top;
+  };
+}
+
+/* --- Slabs: recursive BSP into rectangles at quantized heights --- */
+function slabsSampler(P) {
+  const W = P.width, D = P.depth, H = P.height;
+  const rng = mulberry32((P.seed * 40503 + 1) >>> 0 || 1);
+  const minS = P.minsize, gap = P.gap;
+  const leaves = [];
+  (function split(x, y, w, h, depth) {
+    const canW = w > minS * 2, canH = h > minS * 2;
+    if (depth <= 0 || (!canW && !canH)) { leaves.push({ x, y, w, h, r: rng() }); return; }
+    const vertical = canW && (!canH || w >= h ? rng() < 0.72 : rng() < 0.28);
+    const t = 0.32 + rng() * 0.36;
+    if (vertical) { split(x, y, w * t, h, depth - 1); split(x + w * t, y, w * (1 - t), h, depth - 1); }
+    else { split(x, y, w, h * t, depth - 1); split(x, y + h * t, w, h * (1 - t), depth - 1); }
+  })(0, 0, W, D, P.splits | 0);
+  for (const L of leaves) {
+    L.lvl = quantize(L.r, P.levels) * H;
+    const ang = rng() * Math.PI * 2;
+    const cs = Math.min(L.w, L.h);
+    const mag = (P.stilt * H) / Math.max(cs, 1) * (0.4 + 0.6 * rng());
+    L.tx = Math.cos(ang) * mag; L.ty = Math.sin(ang) * mag;
+    L.cx = L.x + L.w / 2; L.cy = L.y + L.h / 2;
+  }
+  return function (x, y) {
+    let L = leaves[0];
+    for (let k = 0; k < leaves.length; k++) {
+      const q = leaves[k];
+      if (x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h) { L = q; break; }
+    }
+    const dm = Math.min(x - L.x, L.x + L.w - x, y - L.y, L.y + L.h - y);
+    if (gap > 0 && dm < gap) return 0;                    // recessed reveal between slabs
+    return clamp(L.lvl + L.tx * (x - L.cx) + L.ty * (y - L.cy), 0, H);
+  };
+}
+
+/* =========================================================================
+   GEOMETRY  — heightfield top + skirt walls + flat base  (closed solid)
+   Model space is Z-up (print bed at z=0); mesh is rotated for display.
+   ========================================================================= */
+function buildGeometry(P, res) {
+  const W = P.width, D = P.depth, base = P.base, H = P.height;
+  const nx = Math.max(2, res | 0);
+  const ny = Math.max(2, Math.round(res * D / W));
+  const gx = nx + 1, gy = ny + 1;
+  const sample = makeSampler(P);
+
+  const Z = new Float32Array(gx * gy);
+  for (let j = 0; j < gy; j++) {
+    const y = j / ny * D;
+    for (let i = 0; i < gx; i++) {
+      const x = i / nx * W;
+      Z[j * gx + i] = base + clamp(sample(x, y), 0, H);
+    }
+  }
+
+  const cx = W / 2, cy = D / 2;
+  // 2 top tris + walls (2 per boundary cell *4) + 2 base tris
+  const triCount = nx * ny * 2 + (nx + ny) * 2 * 2 + 2;
+  const pos = new Float32Array(triCount * 9);
+  let p = 0;
+  const px = (i) => i / nx * W - cx;
+  const py = (j) => j / ny * D - cy;
+  const zAt = (i, j) => Z[j * gx + i];
+  function tri(ax, ay, az, bx, by, bz, cxx, cyy, czz) {
+    pos[p++] = ax; pos[p++] = ay; pos[p++] = az;
+    pos[p++] = bx; pos[p++] = by; pos[p++] = bz;
+    pos[p++] = cxx; pos[p++] = cyy; pos[p++] = czz;
+  }
+
+  // top surface (normals up, CCW seen from +Z)
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const x0 = px(i), x1 = px(i + 1), y0 = py(j), y1 = py(j + 1);
+      const z00 = zAt(i, j), z10 = zAt(i + 1, j), z01 = zAt(i, j + 1), z11 = zAt(i + 1, j + 1);
+      tri(x0, y0, z00, x1, y0, z10, x1, y1, z11);
+      tri(x0, y0, z00, x1, y1, z11, x0, y1, z01);
+    }
+  }
+  // walls: south (y=-cy) & north (y=+cy)
+  for (let i = 0; i < nx; i++) {
+    const x0 = px(i), x1 = px(i + 1);
+    // south j=0, outward -Y
+    let za = zAt(i, 0), zb = zAt(i + 1, 0), yS = py(0);
+    tri(x0, yS, 0, x1, yS, 0, x1, yS, zb);
+    tri(x0, yS, 0, x1, yS, zb, x0, yS, za);
+    // north j=ny, outward +Y
+    za = zAt(i, ny); zb = zAt(i + 1, ny); const yN = py(ny);
+    tri(x0, yN, 0, x1, yN, zb, x1, yN, 0);
+    tri(x0, yN, 0, x0, yN, za, x1, yN, zb);
+  }
+  // walls: west (x=-cx) & east (x=+cx)
+  for (let j = 0; j < ny; j++) {
+    const y0 = py(j), y1 = py(j + 1);
+    // west i=0, outward -X
+    let za = zAt(0, j), zb = zAt(0, j + 1), xW = px(0);
+    tri(xW, y0, 0, xW, y1, zb, xW, y1, 0);
+    tri(xW, y0, 0, xW, y0, za, xW, y1, zb);
+    // east i=nx, outward +X
+    za = zAt(nx, j); zb = zAt(nx, j + 1); const xE = px(nx);
+    tri(xE, y0, 0, xE, y1, 0, xE, y1, zb);
+    tri(xE, y0, 0, xE, y1, zb, xE, y0, za);
+  }
+  // base (z=0, outward -Z)
+  const x0 = px(0), x1 = px(nx), y0 = py(0), y1 = py(ny);
+  tri(x0, y0, 0, x1, y1, 0, x1, y0, 0);
+  tri(x0, y0, 0, x0, y1, 0, x1, y1, 0);
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  return geom;
+}
+
+/* =========================================================================
+   THREE.JS SCENE
+   ========================================================================= */
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+view.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xc9ccce);
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 5000);
+camera.position.set(150, 190, 230);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 12, 0);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x9a9c9e, 0.42));
+const key = new THREE.DirectionalLight(0xfff4e6, 1.55);
+key.position.set(-140, 200, 90);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+const sc = key.shadow.camera;
+sc.near = 10; sc.far = 900; sc.left = -260; sc.right = 260; sc.top = 260; sc.bottom = -260;
+key.shadow.bias = -0.0004;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xdfe6ff, 0.28);
+fill.position.set(160, 90, -120);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, 0.22);
+rim.position.set(40, 60, -200);
+scene.add(rim);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(3000, 3000),
+  new THREE.ShadowMaterial({ opacity: 0.22 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.02;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const MATERIALS = {
+  concrete: () => new THREE.MeshStandardMaterial({ color: 0xb8b6b0, roughness: 0.92, metalness: 0.0, flatShading: true }),
+  dark:     () => new THREE.MeshStandardMaterial({ color: 0x5f6166, roughness: 0.78, metalness: 0.04, flatShading: true }),
+  plaster:  () => new THREE.MeshStandardMaterial({ color: 0xeeece7, roughness: 0.95, metalness: 0.0, flatShading: true }),
+  clay:     () => new THREE.MeshStandardMaterial({ color: 0xd7b79a, roughness: 0.85, metalness: 0.0, flatShading: true }),
+};
+
+let mesh = null;
+function currentMaterial() {
+  return (MATERIALS[document.getElementById('material').value] || MATERIALS.concrete)();
+}
+
+function rebuild(res) {
+  const geom = buildGeometry(P, res != null ? res : P._res);
+  if (mesh) { mesh.geometry.dispose(); mesh.material.dispose(); scene.remove(mesh); }
+  mesh = new THREE.Mesh(geom, currentMaterial());
+  mesh.rotation.x = -Math.PI / 2;        // model Z-up -> world Y-up
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  updateStats(geom);
+}
+
+function updateStats(geom) {
+  const tris = geom.attributes.position.count / 3;
+  const bb = geom.boundingBox;
+  const h = (bb.max.z - bb.min.z).toFixed(1);
+  document.getElementById('stats').innerHTML =
+    `${pattern} · ${P.width}×${P.depth} mm · height ${h} mm<br>` +
+    `${tris.toLocaleString()} triangles (preview)`;
+}
+
+/* debounced rebuild while dragging sliders */
+let buildTimer = null;
+function scheduleBuild() {
+  P._res = parseInt(document.getElementById('res').value, 10);
+  clearTimeout(buildTimer);
+  buildTimer = setTimeout(() => rebuild(P._res), 60);
+}
+
+/* =========================================================================
+   STL EXPORT  (binary, mm, built at export resolution)
+   ========================================================================= */
+function exportSTL() {
+  const btn = document.getElementById('btnExport');
+  const label = btn.textContent;
+  btn.textContent = 'Building…'; btn.disabled = true;
+  setTimeout(() => {
+    try {
+      const exres = parseInt(document.getElementById('exres').value, 10);
+      const geom = buildGeometry(P, exres);
+      const pos = geom.attributes.position.array;
+      const nTri = pos.length / 9;
+
+      const buf = new ArrayBuffer(84 + nTri * 50);
+      const dv = new DataView(buf);
+      const header = `Brutalist Surface (${pattern}) units=mm`;
+      for (let i = 0; i < 80; i++) dv.setUint8(i, i < header.length ? header.charCodeAt(i) : 0x20);
+      dv.setUint32(80, nTri, true);
+
+      let o = 84;
+      const ux = new THREE.Vector3(), vx = new THREE.Vector3(), nx = new THREE.Vector3();
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+      for (let t = 0; t < nTri; t++) {
+        const k = t * 9;
+        a.set(pos[k], pos[k + 1], pos[k + 2]);
+        b.set(pos[k + 3], pos[k + 4], pos[k + 5]);
+        c.set(pos[k + 6], pos[k + 7], pos[k + 8]);
+        ux.subVectors(b, a); vx.subVectors(c, a); nx.crossVectors(ux, vx).normalize();
+        dv.setFloat32(o, nx.x, true); dv.setFloat32(o + 4, nx.y, true); dv.setFloat32(o + 8, nx.z, true);
+        dv.setFloat32(o + 12, a.x, true); dv.setFloat32(o + 16, a.y, true); dv.setFloat32(o + 20, a.z, true);
+        dv.setFloat32(o + 24, b.x, true); dv.setFloat32(o + 28, b.y, true); dv.setFloat32(o + 32, b.z, true);
+        dv.setFloat32(o + 36, c.x, true); dv.setFloat32(o + 40, c.y, true); dv.setFloat32(o + 44, c.z, true);
+        dv.setUint16(o + 48, 0, true);
+        o += 50;
+      }
+      geom.dispose();
+
+      const blob = new Blob([buf], { type: 'model/stl' });
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const aEl = document.createElement('a');
+      aEl.href = url;
+      aEl.download = `brutalist-${pattern}_${stamp}.stl`;
+      document.body.appendChild(aEl); aEl.click(); aEl.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (e) {
+      console.error(e); alert('Export failed: ' + e.message);
+    } finally {
+      btn.textContent = label; btn.disabled = false;
+    }
+  }, 30);
+}
+
+/* =========================================================================
+   UI WIRING
+   ========================================================================= */
+const patternButtons = [
+  ...document.querySelectorAll('#patternSeg button'),
+  ...document.querySelectorAll('#patternSeg2 button'),
+];
+function selectPattern(e) {
+  const btn = e.target.closest('button'); if (!btn) return;
+  pattern = btn.dataset.pattern;
+  patternButtons.forEach(b => b.classList.toggle('active', b === btn));
+  applyPatternVisibility();
+  scheduleBuild();
+}
+document.getElementById('patternSeg').addEventListener('click', selectPattern);
+document.getElementById('patternSeg2').addEventListener('click', selectPattern);
+document.getElementById('material').addEventListener('change', () => rebuild(P._res));
+['res', 'exres'].forEach(id => {
+  const inp = document.getElementById(id);
+  const upd = () => { document.getElementById(id + '-v').textContent = inp.value; };
+  inp.addEventListener('input', () => { upd(); if (id === 'res') scheduleBuild(); });
+  upd();
+});
+document.getElementById('btnExport').addEventListener('click', exportSTL);
+document.getElementById('btnRandom').addEventListener('click', () => {
+  const s = document.getElementById('seed');
+  s.value = Math.floor(Math.random() * 9999) + 1;
+  s.dispatchEvent(new Event('input'));
+});
+document.getElementById('btnReset').addEventListener('click', () => {
+  for (const c of CONTROLS) {
+    const [, id, , , , , def] = c;
+    const inp = document.getElementById(id);
+    inp.value = def; inp.dispatchEvent(new Event('input'));
+  }
+});
+
+/* =========================================================================
+   RENDER LOOP + RESIZE
+   ========================================================================= */
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+buildControls();
+P._res = parseInt(document.getElementById('res').value, 10);
+resize();
+rebuild(P._res);
+animate();
+</script>
+</body>
+</html>
