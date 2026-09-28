@@ -251,6 +251,8 @@ const P = {
   base: 3,             // mm base thickness (below relief)
   // look
   material: 'plaster', // plaster | matte | clay | dark
+  brightness: 1,       // light intensity multiplier
+  lightHeight: 30,     // key light elevation, degrees (lower = stronger relief)
   wireframe: false,
   // export
   exportRes: 300,
@@ -355,6 +357,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 view.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -368,11 +371,11 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.target.set(0, 0, 0);
 
-// Lighting — soft studio to echo the white-plaster reference look
-const hemi = new THREE.HemisphereLight(0xffffff, 0xb8bcc4, 0.55);
+// Lighting — a low raking key light so the relief reads on white material;
+// brightness and light height are adjustable under Appearance.
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8f99, 0.3);
 scene.add(hemi);
-const key = new THREE.DirectionalLight(0xffffff, 2.1);
-key.position.set(-80, 130, 60);
+const key = new THREE.DirectionalLight(0xffffff, 1.2);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 key.shadow.camera.near = 10; key.shadow.camera.far = 500;
@@ -380,12 +383,22 @@ key.shadow.camera.left = -120; key.shadow.camera.right = 120;
 key.shadow.camera.top = 120; key.shadow.camera.bottom = -120;
 key.shadow.bias = -0.0004;
 scene.add(key);
-const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+const fill = new THREE.DirectionalLight(0xffffff, 0.15);
 fill.position.set(120, 60, -40);
 scene.add(fill);
-const rim = new THREE.DirectionalLight(0xdfe6ff, 0.4);
+const rim = new THREE.DirectionalLight(0xdfe6ff, 0.15);
 rim.position.set(0, 40, -120);
 scene.add(rim);
+
+function applyLighting() {
+  const elev = P.lightHeight * Math.PI / 180;
+  const az = -2.2; // from the front-left, relative to the default camera
+  key.position.set(Math.cos(elev) * Math.cos(az) * 160, Math.sin(elev) * 160, Math.cos(elev) * Math.sin(az) * -160);
+  key.intensity = 1.2 * P.brightness;
+  hemi.intensity = 0.3 * P.brightness;
+  fill.intensity = 0.15 * P.brightness;
+  rim.intensity = 0.15 * P.brightness;
+}
 
 // ground shadow catcher
 const ground = new THREE.Mesh(
@@ -665,6 +678,17 @@ slider(mp, 'preview', 'Preview grid', 60, 400, 20, v => v.toFixed(0));
 // look
 const lp = document.getElementById('lookParams');
 selectCtl(lp, 'material', 'Material', [['plaster','White plaster'],['matte','Matte grey'],['clay','Clay'],['dark','Dark resin']]);
+for (const [key, label, min, max, step, fmt] of [
+  ['brightness', 'Brightness', 0.3, 2, 0.05, v => v.toFixed(2)],
+  ['lightHeight', 'Light height (°)', 5, 85, 1, v => v.toFixed(0)],
+]) {
+  const { inp, show } = slider(lp, key, label, min, max, step, fmt);
+  // Lighting doesn't need a mesh rebuild: replace the slider's handler.
+  const fresh = inp.cloneNode(true);
+  inp.replaceWith(fresh);
+  fresh.addEventListener('input', () => { P[key] = parseFloat(fresh.value); show(); applyLighting(); });
+  rangeMap[rangeMap.length - 1].el = fresh;
+}
 checkCtl(lp, 'wireframe', 'Wireframe', () => { if (mesh) mesh.material.wireframe = P.wireframe; });
 
 function applyLook() {
@@ -820,6 +844,7 @@ document.querySelectorAll('[data-toggle]').forEach((title) => {
   });
 });
 
+applyLighting();
 PRESETS.two();
 renderPad();
 resize();
