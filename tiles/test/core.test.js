@@ -67,6 +67,11 @@ const extra = [
   ['circle frustums', { foot: 'circle', sides: 5, topScale: 0.3, tilt: 20, sizeLink: 1, h_mode: 'noise' }],
   ['drops in radial', { layout: 'radial', foot: 'drop', rings: 5, ringW: 30, curv: 1, topScale: 0 }],
   ['huge gap', { cols: 6, rows: 6, W: 60, H: 60, gap: 8 }],
+  ['hex rect pointy', { layout: 'hex', hexShape: 'rect', hexOrient: 'pointy', W: 300, H: 200, cols: 7, board: true, acc: 'checker' }],
+  ['hex rect flat', { layout: 'hex', hexShape: 'rect', hexOrient: 'flat', W: 300, H: 200, cols: 7, topScale: 0.5, tilt: 30 }],
+  ['hex rect narrow', { layout: 'hex', hexShape: 'rect', W: 90, H: 400, cols: 1, board: true }],
+  ['hex hexagon circles', { layout: 'hex', hexShape: 'hexagon', hexRings: 4, hexSize: 30, foot: 'circle', sides: 6, curv: 1 }],
+  ['hex single cell', { layout: 'hex', hexShape: 'hexagon', hexOrient: 'flat', hexRings: 0, hexSize: 50, board: true }],
 ];
 for (const [label, p] of extra) checkModel(label, p);
 
@@ -98,6 +103,14 @@ for (const pl of plates) {
     assert.ok(b.min[0] + it.dx > -1e-6 && b.max[0] + it.dx < 220 + 1e-6);
     assert.ok(b.min[1] + it.dy > -1e-6 && b.max[1] + it.dy < 220 + 1e-6);
   }
+}
+
+// hex: ids are unique and the pointy rectangle stays inside W x H
+for (const o of ['pointy', 'flat']) {
+  const H = T.generate({ layout: 'hex', hexShape: 'rect', hexOrient: o, W: 400, H: 300, cols: 8, gap: 0 });
+  assert.strictEqual(new Set(H.parts.map((p) => p.id)).size, H.parts.length, `hex ${o}: duplicate ids`);
+  const b = T.bounds(H.parts.map((p) => p.foot.flatMap((q) => [q[0], q[1], 0])));
+  assert.ok(b.min[0] >= -200 - 1e-6 && b.max[0] <= 200 + 1e-6 && b.min[1] >= -150 - 1e-6 && b.max[1] <= 150 + 1e-6, `hex ${o}: exceeds the panel`);
 }
 
 const svg = T.assemblySVG(G);

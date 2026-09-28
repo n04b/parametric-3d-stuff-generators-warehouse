@@ -21,9 +21,13 @@
   const DEFAULTS = {
     seed: 7,
     // layout
-    layout: 'rect',          // rect | radial
-    W: 400, H: 400,          // rect: panel size, mm
-    cols: 12, rows: 12,
+    layout: 'rect',          // rect | radial | hex
+    W: 400, H: 400,          // rect / hex: panel size, mm
+    cols: 12, rows: 12,      // hex uses cols only: cells across the width
+    hexShape: 'rect',        // hex: rect | hexagon
+    hexOrient: 'pointy',     // hex: pointy | flat (which side of the cell faces up)
+    hexRings: 6,             // hex hexagon: rings around the centre cell
+    hexSize: 40,             // hex hexagon: cell size across flats, mm
     rIn: 0,                  // radial: inner radius, mm
     rings: 8,
     ringW: 25,               // mm
@@ -159,6 +163,24 @@
       },
     },
     {
+      name: 'Соты',
+      p: {
+        layout: 'hex', hexShape: 'rect', hexOrient: 'pointy', W: 420, H: 420, cols: 12, gap: 0.8,
+        topScale: 0, plinth: 1, hMin: 16, hMax: 28, h_mode: 'radial', h_inv: true,
+        offset: 0.55, d_mode: 'point', d_rot: 0, iMin: 0, i_mode: 'radial', i_gamma: 1.2,
+        colMain: '#eee9df', board: true, bMargin: 20,
+      },
+    },
+    {
+      name: 'Шестиугольник',
+      p: {
+        layout: 'hex', hexShape: 'hexagon', hexOrient: 'flat', hexRings: 6, hexSize: 38, gap: 1,
+        topScale: 0.5, plinth: 0, hMin: 14, hMax: 34, h_mode: 'ring', h_freq: 1.2,
+        offset: 0.35, tilt: 18, d_mode: 'point', d_rot: 90, iMin: 0.2, i_mode: 'radial',
+        colMain: '#e9e4da', colAcc: '#c7a27c', acc: 'checker', colBoard: '#232323', board: true, bMargin: 18,
+      },
+    },
+    {
       name: 'Радиальная звезда',
       p: {
         layout: 'radial', rIn: 0, rings: 9, ringW: 22, segMode: 'equal', aspect: 1, stagger: true, arcDiv: 1,
@@ -260,7 +282,7 @@
 
   // Shrink a CCW polygon by d (mm). Returns null when the polygon collapses.
   function inset(poly, d) {
-    if (d <= 0) return poly.slice();
+    if (d === 0) return poly.slice();
     const n = poly.length, out = [];
     for (let i = 0; i < n; i++) {
       const a = poly[(i - 1 + n) % n], p = poly[i], b = poly[(i + 1) % n];
@@ -359,7 +381,8 @@
         });
       }
     }
-    return { cells, ext: Math.max(P.W, P.H) / 2, shape: 'rect', w: P.W, h: P.H };
+    const w = P.W / 2, h = P.H / 2;
+    return { cells, outline: [[-w, -h], [w, -h], [w, h], [-w, h]] };
   }
 
   function layoutRadial(P) {
@@ -418,7 +441,92 @@
       }
     });
     const Rout = P.rIn + nRings * P.ringW;
-    return { cells, ext: Rout, shape: 'circle', r: Rout };
+    return { cells, outline: regularPolygon([0, 0], Rout, 96, 0) };
+  }
+
+  // Convex hull (monotone chain), CCW.
+  function convexHull(pts) {
+    const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const half = (list) => {
+      const h = [];
+      for (const q of list) {
+        while (h.length >= 2 && cross3(h[h.length - 2], h[h.length - 1], q) <= 1e-9) h.pop();
+        h.push(q);
+      }
+      h.pop();
+      return h;
+    };
+    return half(p).concat(half(p.slice().reverse()));
+  }
+
+  // Honeycomb. Cells are built "pointy side up" in a local frame and the whole
+  // frame is turned 90° for the flat orientation.
+  function layoutHex(P) {
+    const flat = P.hexOrient === 'flat';
+    const raw = []; // frame centre, band, distance to the edge, 3-colour index
+    let s;
+    if (P.hexShape === 'hexagon') {
+      const N = Math.max(0, Math.round(P.hexRings));
+      s = P.hexSize / Math.sqrt(3);
+      const w = P.hexSize;
+      for (let r = -N; r <= N; r++) {
+        for (let q = -N; q <= N; q++) {
+          const ring = Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r));
+          if (ring > N) continue;
+          raw.push({ x: w * (q + r / 2), y: -1.5 * s * r, edge: N - ring, band: ring, tri: (((q - r) % 3) + 3) % 3 });
+        }
+      }
+    } else {
+      // frame width runs along the rows, frame height across them
+      const cols = Math.max(1, Math.round(P.cols));
+      let Wf, Hf;
+      if (flat) { Wf = P.H; Hf = P.W; s = P.W / (1.5 * cols + 0.5); }
+      else { Wf = P.W; Hf = P.H; s = P.W / (Math.sqrt(3) * cols); }
+      const w = Math.sqrt(3) * s;
+      const nRows = Math.max(1, Math.floor((Hf - 2 * s) / (1.5 * s) + 1e-9) + 1);
+      const n0 = Math.max(1, Math.floor(Wf / w + 1e-9));
+      const n1 = Math.max(1, Math.floor((Wf - w / 2) / w + 1e-9));
+      const y0 = ((nRows - 1) * 1.5 * s) / 2;
+      // odd rows sit half a cell to the right; centre the whole block
+      const x0 = -Math.max((n0 - 1) * w, w / 2 + (n1 - 1) * w) / 2;
+      for (let r = 0; r < nRows; r++) {
+        const n = r % 2 ? n1 : n0;
+        for (let c = 0; c < n; c++) {
+          const q = c - Math.floor(r / 2); // axial column, for the 3-colour pattern
+          raw.push({
+            x: x0 + (r % 2 ? w / 2 : 0) + c * w, y: y0 - r * 1.5 * s, band: r,
+            edge: Math.min(r, nRows - 1 - r, c, n - 1 - c), tri: (((q - r) % 3) + 3) % 3,
+          });
+        }
+      }
+    }
+    // turn the frame for flat-top cells: frame x → world y, frame y → world −x
+    const place = flat ? (x, y) => [-y, x] : (x, y) => [x, y];
+    const cells = raw.map((h) => {
+      const poly = regularPolygon([h.x, h.y], s, 6, Math.PI / 6).map((p) => place(p[0], p[1]));
+      const c = place(h.x, h.y);
+      return { h, poly, c };
+    });
+    // Numbering: pointy cells form horizontal rows (R top to bottom, C left to
+    // right inside the row); flat cells form vertical columns (C left to right,
+    // R top to bottom inside the column).
+    const lineOf = (k) => Math.round((flat ? k.c[0] : -k.c[1]) * 100);
+    const along = (k) => (flat ? -k.c[1] : k.c[0]);
+    const keyed = cells.slice().sort((a, b) => lineOf(a) - lineOf(b) || along(a) - along(b));
+    let line = -1, pos = 0, last = null;
+    for (const k of keyed) {
+      const lk = lineOf(k);
+      if (lk !== last) { line++; pos = 0; last = lk; }
+      pos++;
+      k.id = flat ? 'R' + pad2(pos) + 'C' + pad2(line + 1) : 'R' + pad2(line + 1) + 'C' + pad2(pos);
+    }
+    const out = keyed.map((k) => ({
+      id: k.id, poly: k.poly, band: k.h.band, edge: k.h.edge, parity: k.h.tri === 0 ? 1 : 0,
+    }));
+    const outline = P.hexShape === 'hexagon'
+      ? convexHull([].concat(...out.map((c) => c.poly)))
+      : [[-P.W / 2, -P.H / 2], [P.W / 2, -P.H / 2], [P.W / 2, P.H / 2], [-P.W / 2, P.H / 2]];
+    return { cells: out, outline };
   }
 
   /* ------------------------------------------------------------------ */
@@ -599,7 +707,10 @@
     const P = Object.assign({}, DEFAULTS, input);
     const seed = Math.round(P.seed) | 0;
     const noise = makeNoise(seed);
-    const L = P.layout === 'radial' ? layoutRadial(P) : layoutRect(P);
+    const L = P.layout === 'radial' ? layoutRadial(P) : P.layout === 'hex' ? layoutHex(P) : layoutRect(P);
+    L.outline = ccw(L.outline);
+    L.half = [0, 1].map((k) => Math.max(...L.outline.map((p) => Math.abs(p[k]))));
+    L.ext = Math.max(L.half[0], L.half[1]);
     const warnings = [];
 
     // shrink each cell by half the gap so neighbours never touch
@@ -668,9 +779,7 @@
     let board = null;
     if (P.board) {
       const m = Math.max(0, P.bMargin), T = Math.max(0.5, P.bThick);
-      const poly = L.shape === 'rect'
-        ? [[-L.w / 2 - m, -L.h / 2 - m], [L.w / 2 + m, -L.h / 2 - m], [L.w / 2 + m, L.h / 2 + m], [-L.w / 2 - m, L.h / 2 + m]]
-        : regularPolygon([0, 0], L.r + m, 96, 0);
+      const poly = m > 0 ? inset(L.outline, -m) || L.outline : L.outline;
       board = { id: 'BOARD', group: 2, poly, tris: buildSlab(poly, -T, 0) };
     }
 
@@ -816,7 +925,7 @@
     const f = (v) => +v.toFixed(2);
     const L = G.layout, P = G.P;
     const m = P.board ? P.bMargin : 5;
-    const hw = (L.shape === 'rect' ? L.w / 2 : L.r) + m, hh = (L.shape === 'rect' ? L.h / 2 : L.r) + m;
+    const hw = L.half[0] + m, hh = L.half[1] + m;
     const fills = [P.colMain, P.colAcc];
     const s = [];
     s.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${f(2 * hw)}mm" height="${f(2 * hh)}mm" viewBox="${f(-hw)} ${f(-hh)} ${f(2 * hw)} ${f(2 * hh)}">`);
