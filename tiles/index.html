@@ -142,7 +142,9 @@ const STORE_KEY = 'tiles-params-v1';
    ========================================================================= */
 const is = (k, ...vals) => (p) => vals.includes(p[k]);
 const not = (k, ...vals) => (p) => !vals.includes(p[k]);
-const rect = is('layout', 'rect'), radial = is('layout', 'radial');
+const rect = is('layout', 'rect'), radial = is('layout', 'radial'), hex = is('layout', 'hex');
+const hexRect = (p) => hex(p) && p.hexShape === 'rect', hexGon = (p) => hex(p) && p.hexShape === 'hexagon';
+const panelSized = (p) => rect(p) || hexRect(p);
 
 const SCALAR_MODES = [
   ['const', 'Постоянно'], ['linear', 'Линейный градиент'], ['radial', 'От точки'], ['wave', 'Волна'],
@@ -166,10 +168,14 @@ function scalarControls(pre) {
 
 const SECTIONS = [
   { title: 'Раскладка', items: [
-    { k: 'layout', t: 'select', l: 'Тип сетки', opts: [['rect', 'Прямоугольная'], ['radial', 'Радиальная']] },
-    { k: 'W', t: 'range', l: 'Ширина', min: 50, max: 2000, step: 1, u: 'мм', show: rect },
-    { k: 'H', t: 'range', l: 'Высота', min: 50, max: 2000, step: 1, u: 'мм', show: rect },
-    { k: 'cols', t: 'range', l: 'Колонок', min: 1, max: 60, step: 1, int: true, show: rect },
+    { k: 'layout', t: 'select', l: 'Тип сетки', opts: [['rect', 'Прямоугольная'], ['radial', 'Радиальная'], ['hex', 'Шестигранная (соты)']] },
+    { k: 'hexShape', t: 'select', l: 'Форма панели', opts: [['rect', 'Прямоугольник'], ['hexagon', 'Шестиугольник']], show: hex },
+    { k: 'hexOrient', t: 'select', l: 'Ориентация сот', opts: [['pointy', 'Углом вверх'], ['flat', 'Гранью вверх']], show: hex },
+    { k: 'W', t: 'range', l: 'Ширина', min: 50, max: 2000, step: 1, u: 'мм', show: panelSized },
+    { k: 'H', t: 'range', l: 'Высота', min: 50, max: 2000, step: 1, u: 'мм', show: panelSized },
+    { k: 'cols', t: 'range', l: 'Колонок', min: 1, max: 60, step: 1, int: true, show: panelSized },
+    { k: 'hexRings', t: 'range', l: 'Колец вокруг центра', min: 0, max: 25, step: 1, int: true, show: hexGon },
+    { k: 'hexSize', t: 'range', l: 'Размер соты (между гранями)', min: 5, max: 300, step: 0.5, u: 'мм', show: hexGon },
     { k: 'rows', t: 'range', l: 'Рядов', min: 1, max: 60, step: 1, int: true, show: rect },
     { k: 'rIn', t: 'range', l: 'Внутренний радиус', min: 0, max: 400, step: 1, u: 'мм', show: radial },
     { k: 'rings', t: 'range', l: 'Колец', min: 1, max: 40, step: 1, int: true, show: radial },
@@ -263,7 +269,7 @@ const SECTIONS = [
         <input type="file" id="im-file" accept=".json,application/json" hidden />
       </div>
       <p class="hint">Все детали — отдельные замкнутые тела, основанием на z = 0. Имена файлов совпадают с номерами на схеме сборки
-      (R — ряд, C — колонка; K — кольцо, S — сегмент). Красная стрелка на схеме показывает, куда смотрит вершина.</p>` },
+      (R — ряд, C — колонка; K — кольцо, S — сегмент; у сот «гранью вверх» C — колонка, R — место в ней сверху вниз). Красная стрелка на схеме показывает, куда смотрит вершина.</p>` },
   ] },
 ];
 
@@ -479,7 +485,7 @@ function shade(hex) {
 function extent() {
   const L = G.layout;
   const m = P.board ? P.bMargin : 0;
-  return (L.shape === 'rect' ? Math.max(L.w, L.h) / 2 : L.r) + m;
+  return L.ext + m;
 }
 
 function placeLight(ext) {
@@ -562,7 +568,7 @@ function showStats() {
    ========================================================================= */
 function baseName() {
   const L = G.layout;
-  const size = L.shape === 'rect' ? `${Math.round(L.w)}x${Math.round(L.h)}` : `D${Math.round(L.r * 2)}`;
+  const size = `${Math.round(L.half[0] * 2)}x${Math.round(L.half[1] * 2)}`;
   return `tiles_${P.layout}_${size}`;
 }
 
@@ -586,7 +592,8 @@ function readme() {
     '',
     `Деталей: ${G.parts.length}. Все размеры в мм, каждая деталь стоит основанием на z = 0.`,
     'Номер детали: R — ряд (сверху вниз), C — колонка (слева направо);',
-    'для радиальной сетки: K — кольцо (от центра), S — сегмент (против часовой от 0°), C00 — центр.',
+    'для радиальной сетки: K — кольцо (от центра), S — сегмент (против часовой от 0°), C00 — центр;',
+    'для сот «гранью вверх»: C — колонка (слева направо), R — место в колонке (сверху вниз).',
     'assembly.svg — шаблон сборки в масштабе 1:1: контур основания, номер,',
     'красная стрелка — куда смещена вершина детали.',
     P.acc !== 'none' ? 'Папки color1 / color2 — детали основного и второго цвета.' : '',
