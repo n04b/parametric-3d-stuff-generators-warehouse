@@ -4,7 +4,164 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Генератор 3D-текстур</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --accent-text: #ffffff;
+  --view: #d9d9d6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --panel: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9b9a94;
+    --line: #34332f;
+    --accent: #5b92ec;
+    --view: #2a2a28;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --panel: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #9b9a94;
+  --line: #34332f;
+  --accent: #5b92ec;
+  --view: #2a2a28;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100vh;
+}
+
+#panel {
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+h1 { font-size: 18px; margin: 0 0 4px; }
+h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 20px 0 8px;
+}
+
+.hint { color: var(--muted); margin: 0; font-size: 13px; }
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.field > span { font-size: 13px; }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+.field.bool { grid-template-columns: 1fr auto; }
+.field select { grid-column: 2; }
+#panel > .field { grid-template-columns: 1fr 160px; margin-top: 16px; }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: progress; }
+
+#stats {
+  margin-top: 20px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+#stats dt { color: var(--muted); }
+#stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+#stats .warn { color: #c9582b; }
+
+.actions { display: flex; gap: 8px; margin: 16px 0 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; }
+
+#viewport { position: relative; background: var(--view); min-height: 0; overflow: hidden; }
+#viewport canvas { display: block; width: 100%; height: 100%; }
+
+#busy {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.view-tools {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
+  #viewport { grid-row: 1; height: 55vh; }
+  #panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+}
+  </style>
   <script type="importmap">
     {
       "imports": {
@@ -54,6 +211,937 @@
     </div>
   </main>
 
-  <script type="module" src="src/main.js"></script>
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===== noise =====
+
+// Seeded 3D simplex noise (after Stefan Gustavson) plus fractal helpers.
+
+const GRAD3 = new Float32Array([
+  1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1, 0,
+  1, 0, 1, -1, 0, 1, 1, 0, -1, -1, 0, -1,
+  0, 1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1,
+]);
+
+const F3 = 1 / 3;
+const G3 = 1 / 6;
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createNoise3D(seed = 1) {
+  const rand = mulberry32(seed);
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const t = p[i];
+    p[i] = p[j];
+    p[j] = t;
+  }
+  const perm = new Uint8Array(512);
+  const permMod12 = new Uint8Array(512);
+  for (let i = 0; i < 512; i++) {
+    perm[i] = p[i & 255];
+    permMod12[i] = perm[i] % 12;
+  }
+
+  // Returns a value in roughly [-1, 1].
+  return function noise3D(x, y, z) {
+    const s = (x + y + z) * F3;
+    const i = Math.floor(x + s);
+    const j = Math.floor(y + s);
+    const k = Math.floor(z + s);
+    const t = (i + j + k) * G3;
+    const x0 = x - (i - t);
+    const y0 = y - (j - t);
+    const z0 = z - (k - t);
+
+    let i1, j1, k1, i2, j2, k2;
+    if (x0 >= y0) {
+      if (y0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
+      else if (x0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1; }
+      else { i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1; }
+    } else {
+      if (y0 < z0) { i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1; }
+      else if (x0 < z0) { i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1; }
+      else { i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
+    }
+
+    const x1 = x0 - i1 + G3, y1 = y0 - j1 + G3, z1 = z0 - k1 + G3;
+    const x2 = x0 - i2 + 2 * G3, y2 = y0 - j2 + 2 * G3, z2 = z0 - k2 + 2 * G3;
+    const x3 = x0 - 1 + 3 * G3, y3 = y0 - 1 + 3 * G3, z3 = z0 - 1 + 3 * G3;
+
+    const ii = i & 255, jj = j & 255, kk = k & 255;
+    let n = 0;
+
+    let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+    if (t0 > 0) {
+      const g = permMod12[ii + perm[jj + perm[kk]]] * 3;
+      t0 *= t0;
+      n += t0 * t0 * (GRAD3[g] * x0 + GRAD3[g + 1] * y0 + GRAD3[g + 2] * z0);
+    }
+    let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+    if (t1 > 0) {
+      const g = permMod12[ii + i1 + perm[jj + j1 + perm[kk + k1]]] * 3;
+      t1 *= t1;
+      n += t1 * t1 * (GRAD3[g] * x1 + GRAD3[g + 1] * y1 + GRAD3[g + 2] * z1);
+    }
+    let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+    if (t2 > 0) {
+      const g = permMod12[ii + i2 + perm[jj + j2 + perm[kk + k2]]] * 3;
+      t2 *= t2;
+      n += t2 * t2 * (GRAD3[g] * x2 + GRAD3[g + 1] * y2 + GRAD3[g + 2] * z2);
+    }
+    let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+    if (t3 > 0) {
+      const g = permMod12[ii + 1 + perm[jj + 1 + perm[kk + 1]]] * 3;
+      t3 *= t3;
+      n += t3 * t3 * (GRAD3[g] * x3 + GRAD3[g + 1] * y3 + GRAD3[g + 2] * z3);
+    }
+    return 32 * n;
+  };
+}
+
+// Fractal Brownian motion. Normalised by the RMS of the octave amplitudes,
+// so the spread stays similar for any octave count: ~98% within [-0.9, 0.9].
+function fbm(noise, x, y, z, octaves, lacunarity = 2, gain = 0.5) {
+  let sum = 0;
+  let amp = 1;
+  let norm = 0;
+  let f = 1;
+  for (let o = 0; o < octaves; o++) {
+    sum += amp * noise(x * f, y * f, z * f);
+    norm += amp * amp;
+    amp *= gain;
+    f *= lacunarity;
+  }
+  return sum / Math.sqrt(norm);
+}
+
+// Ridged multifractal in [0, 1]: sharp crests where the noise crosses zero.
+function ridged(noise, x, y, z, octaves, lacunarity = 2, gain = 0.5) {
+  let sum = 0;
+  let amp = 1;
+  let norm = 0;
+  let f = 1;
+  for (let o = 0; o < octaves; o++) {
+    const r = 1 - Math.abs(noise(x * f, y * f, z * f));
+    sum += amp * r * r;
+    norm += amp;
+    amp *= gain;
+    f *= lacunarity;
+  }
+  return sum / norm;
+}
+
+// ===== patterns =====
+
+// Parametric texture fields. A field maps a point in millimetres to a
+// relief value in [0, 1]; the mesh builder turns that into height.
+
+const TAU = Math.PI * 2;
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const smoothstep = (a, b, x) => {
+  const t = clamp01((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
+
+// Parameter schema used to build the UI.
+// `patterns` lists which patterns show the parameter (absent = all).
+const PATTERNS = {
+  topo: 'Топография (террасы)',
+  contours: 'Изолинии (стенки)',
+  fibers: 'Волокна (полосы)',
+  dunes: 'Дюны (гребни)',
+  cells: 'Ячейки (Вороной)',
+  rings: 'Кольца (концентрические)',
+};
+
+const FIELD_PARAMS = [
+  { key: 'pattern', label: 'Паттерн', type: 'select', options: PATTERNS, value: 'topo' },
+  { key: 'seed', label: 'Сид', type: 'int', min: 0, max: 99999, step: 1, value: 7 },
+  { key: 'scale', label: 'Размер элементов, мм', type: 'number', min: 2, max: 500, step: 1, value: 40 },
+  { key: 'octaves', label: 'Детализация (октавы)', type: 'int', min: 1, max: 8, step: 1, value: 3 },
+  { key: 'warp', label: 'Искажение', type: 'number', min: 0, max: 3, step: 0.05, value: 0.4 },
+  { key: 'stretch', label: 'Вытянутость', type: 'number', min: 1, max: 8, step: 0.1, value: 1 },
+  { key: 'angle', label: 'Угол, °', type: 'number', min: 0, max: 180, step: 1, value: 0 },
+  { key: 'levels', label: 'Число уровней', type: 'int', min: 2, max: 60, step: 1, value: 12, patterns: ['topo', 'contours'] },
+  { key: 'edge', label: 'Скругление ступеней, мм', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6, patterns: ['topo', 'contours', 'cells'] },
+  { key: 'lineWidth', label: 'Толщина линии, мм', type: 'number', min: 0.2, max: 10, step: 0.1, value: 1.2, patterns: ['contours', 'cells'] },
+  { key: 'baseSlope', label: 'Рельеф под линиями', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['contours'] },
+  { key: 'period', label: 'Период, мм', type: 'number', min: 1, max: 100, step: 0.5, value: 6, patterns: ['fibers', 'rings'] },
+  { key: 'profile', label: 'Острота профиля', type: 'number', min: 0.2, max: 4, step: 0.05, value: 1, patterns: ['fibers', 'dunes', 'rings'] },
+  { key: 'cellMode', label: 'Режим ячеек', type: 'select', options: { walls: 'Стенки', bubbles: 'Выпуклости' }, value: 'walls', patterns: ['cells'] },
+  { key: 'invert', label: 'Инвертировать', type: 'bool', value: false },
+];
+
+function defaultFieldParams() {
+  const out = {};
+  for (const p of FIELD_PARAMS) out[p.key] = p.value;
+  return out;
+}
+
+function hash3(seed, x, y, z) {
+  let h = seed ^ Math.imul(x, 0x8da6b343) ^ Math.imul(y, 0xd8163841) ^ Math.imul(z, 0xcb1ab31f);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+// Worley noise: distances (in cell units) to the nearest and second-nearest
+// feature points, written into `out`.
+function worley(seed, x, y, z, out) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  let f1 = 1e9, f2 = 1e9;
+  for (let dz = -1; dz <= 1; dz++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const cx = xi + dx, cy = yi + dy, cz = zi + dz;
+        const h = hash3(seed, cx, cy, cz);
+        const px = cx + (h & 1023) / 1023;
+        const py = cy + ((h >>> 10) & 1023) / 1023;
+        const pz = cz + ((h >>> 20) & 1023) / 1023;
+        const ddx = px - x, ddy = py - y, ddz = pz - z;
+        const d = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
+        if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) { f2 = d; }
+      }
+    }
+  }
+  out[0] = f1;
+  out[1] = f2;
+}
+
+// Returns f(x, y, z) -> [0, 1] for coordinates in millimetres.
+function createField(params) {
+  const p = { ...defaultFieldParams(), ...params };
+  const seed = p.seed | 0;
+  const noise = createNoise3D(seed);
+  const warpNoise = createNoise3D(seed + 1013);
+  const rand = mulberry32(seed + 77);
+  // Random offsets decorrelate the three warp channels.
+  const off = Array.from({ length: 9 }, () => rand() * 1000);
+
+  const a = (p.angle * Math.PI) / 180;
+  const ca = Math.cos(a), sa = Math.sin(a);
+  const scale = Math.max(p.scale, 1e-3);
+  const stretch = Math.max(p.stretch, 1);
+  const octaves = Math.max(1, p.octaves | 0);
+  const warp = p.warp;
+  const wv = new Float64Array(2);
+
+  // Rotates (u runs along the stretch direction), scales and warps a point
+  // in mm, writing the noise-space coordinates into q.
+  const q = new Float64Array(3);
+  function toNoiseSpace(x, y, z) {
+    const u = x * ca + y * sa;
+    const v = -x * sa + y * ca;
+    let qx = u / (scale * stretch);
+    let qy = v / scale;
+    let qz = z / scale;
+    if (warp > 0) {
+      const wx = fbm(warpNoise, qx * 0.5 + off[0], qy * 0.5 + off[1], qz * 0.5 + off[2], 2);
+      const wy = fbm(warpNoise, qx * 0.5 + off[3], qy * 0.5 + off[4], qz * 0.5 + off[5], 2);
+      const wz = fbm(warpNoise, qx * 0.5 + off[6], qy * 0.5 + off[7], qz * 0.5 + off[8], 2);
+      qx += warp * wx;
+      qy += warp * wy;
+      qz += warp * wz;
+    }
+    q[0] = qx; q[1] = qy; q[2] = qz;
+  }
+
+  // Smooth base height in [0, 1] with contrast stretched to use the range.
+  function baseHeight(x, y, z) {
+    toNoiseSpace(x, y, z);
+    return clamp01(fbm(noise, q[0], q[1], q[2], octaves) * 0.55 + 0.5);
+  }
+
+  // Level coordinate t = baseHeight * levels and its gradient magnitude per
+  // mm (finite differences), so distances to isolines can be measured in mm
+  // and walls get a uniform width regardless of how steep the terrain is.
+  const levels = Math.max(2, p.levels | 0);
+  const fd = Math.min(0.2, scale * 0.01);
+  const lv = new Float64Array(2);
+  function levelAndGradient(x, y, z) {
+    const t = baseHeight(x, y, z) * levels;
+    const gx = baseHeight(x + fd, y, z) * levels - t;
+    const gy = baseHeight(x, y + fd, z) * levels - t;
+    const gz = z === 0 ? 0 : baseHeight(x, y, z + fd) * levels - t;
+    lv[0] = t;
+    lv[1] = Math.max(Math.sqrt(gx * gx + gy * gy + gz * gz) / fd, 1e-6);
+  }
+
+  const edge = Math.max(p.edge, 0.05);
+  let field;
+  switch (p.pattern) {
+    case 'topo': {
+      field = (x, y, z) => {
+        levelAndGradient(x, y, z);
+        const t = lv[0];
+        const k = Math.floor(t);
+        // Each terrace rises to the next one over `edge` mm right before
+        // the isoline, giving flat plateaus with near-vertical steps.
+        const dist = (k + 1 - t) / lv[1];
+        return Math.min(levels, k + 1 - smoothstep(0, edge, dist)) / levels;
+      };
+      break;
+    }
+    case 'contours': {
+      const half = p.lineWidth / 2;
+      const m = clamp01(p.baseSlope);
+      field = (x, y, z) => {
+        levelAndGradient(x, y, z);
+        const t = lv[0];
+        const f = t - Math.floor(t);
+        const dist = Math.min(f, 1 - f) / lv[1];
+        const wall = 1 - smoothstep(half, half + edge, dist);
+        return clamp01((m * t) / levels + (1 - m) * wall);
+      };
+      break;
+    }
+    case 'fibers': {
+      const period = Math.max(p.period, 0.1);
+      const exp = p.profile;
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        const n = fbm(noise, q[0], q[1], q[2], octaves);
+        // Stripes run along the angle direction; warp and noise bend them.
+        const phase = ((q[1] + 0.25 * n) * scale) / period;
+        const s = 0.5 + 0.5 * Math.cos(TAU * phase);
+        return Math.pow(s, exp);
+      };
+      break;
+    }
+    case 'dunes': {
+      const exp = p.profile;
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        // Crests follow the zero set of the noise; a second, smoother layer
+        // adds the broad swell between them.
+        const n = fbm(noise, q[0], q[1], q[2], octaves);
+        const swell = fbm(noise, q[0] * 0.5 + 31.7, q[1] * 0.5, q[2] * 0.5, 2) * 0.5 + 0.5;
+        const crest = Math.pow(1 - clamp01(Math.abs(n) / 0.9), exp);
+        return clamp01(0.75 * crest + 0.25 * swell);
+      };
+      break;
+    }
+    case 'cells': {
+      const half = p.lineWidth / 2;
+      const walls = p.cellMode !== 'bubbles';
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        worley(seed, q[0], q[1], q[2], wv);
+        if (walls) {
+          // (F2 - F1) / 2 approximates the distance to the cell border.
+          const dist = ((wv[1] - wv[0]) / 2) * scale;
+          return 1 - smoothstep(half, half + edge, dist);
+        }
+        const d = clamp01(wv[0] / 0.9);
+        return Math.sqrt(Math.max(0, 1 - d * d));
+      };
+      break;
+    }
+    case 'rings': {
+      const period = Math.max(p.period, 0.1);
+      const exp = p.profile;
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        worley(seed, q[0], q[1], q[2], wv);
+        const s = 0.5 + 0.5 * Math.cos((TAU * wv[0] * scale) / period);
+        return Math.pow(s, exp);
+      };
+      break;
+    }
+    default:
+      throw new Error(`Unknown pattern: ${p.pattern}`);
+  }
+
+  return p.invert ? (x, y, z) => 1 - field(x, y, z) : field;
+}
+
+// ===== mesh =====
+
+// Watertight mesh builders. All sizes are in millimetres; the output is an
+// indexed triangle mesh with outward-facing (counter-clockwise) triangles.
+
+const SHAPES = {
+  rect: 'Прямоугольная панель',
+  disk: 'Круглая панель',
+  sphere: 'Шар',
+};
+
+const SHAPE_PARAMS = [
+  { key: 'shape', label: 'Форма', type: 'select', options: SHAPES, value: 'rect' },
+  { key: 'width', label: 'Ширина, мм', type: 'number', min: 5, max: 2000, step: 1, value: 150, shapes: ['rect'] },
+  { key: 'height', label: 'Высота, мм', type: 'number', min: 5, max: 2000, step: 1, value: 100, shapes: ['rect'] },
+  { key: 'diameter', label: 'Диаметр, мм', type: 'number', min: 5, max: 2000, step: 1, value: 120, shapes: ['disk', 'sphere'] },
+  { key: 'base', label: 'Толщина основания, мм', type: 'number', min: 0.2, max: 100, step: 0.1, value: 2, shapes: ['rect', 'disk'] },
+  { key: 'depth', label: 'Глубина рельефа, мм', type: 'number', min: 0, max: 100, step: 0.1, value: 4 },
+  { key: 'margin', label: 'Гладкий край, мм', type: 'number', min: 0, max: 200, step: 0.5, value: 0, shapes: ['rect', 'disk'] },
+  { key: 'resolution', label: 'Шаг сетки, мм', type: 'number', min: 0.05, max: 10, step: 0.05, value: 0.4 },
+];
+
+function defaultShapeParams() {
+  const out = {};
+  for (const p of SHAPE_PARAMS) out[p.key] = p.value;
+  return out;
+}
+
+const edgeRamp = (a, b, x) => {
+  if (b <= a) return x < a ? 0 : 1;
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+function gridCounts(s, resolution) {
+  const res = Math.max(resolution, 1e-3);
+  if (s.shape === 'rect') {
+    return {
+      nx: Math.max(2, Math.ceil(s.width / res) + 1),
+      ny: Math.max(2, Math.ceil(s.height / res) + 1),
+    };
+  }
+  if (s.shape === 'disk') {
+    const r = s.diameter / 2;
+    return { rings: Math.max(2, Math.ceil(r / res)), segs: Math.max(12, Math.ceil((2 * Math.PI * r) / res)) };
+  }
+  const r = s.diameter / 2;
+  return { rings: Math.max(4, Math.ceil((Math.PI * r) / res)), segs: Math.max(8, Math.ceil((2 * Math.PI * r) / res)) };
+}
+
+// Triangle count for a given shape and grid step, without building anything.
+function estimateTriangles(shape, resolution = shape.resolution) {
+  const s = { ...defaultShapeParams(), ...shape };
+  const g = gridCounts(s, resolution);
+  if (s.shape === 'rect') {
+    const top = 2 * (g.nx - 1) * (g.ny - 1);
+    return 2 * top + 4 * (g.nx - 1 + g.ny - 1);
+  }
+  if (s.shape === 'disk') {
+    const top = g.segs + 2 * g.segs * (g.rings - 1);
+    return 2 * top + 2 * g.segs;
+  }
+  return 2 * g.segs + 2 * g.segs * (g.rings - 2);
+}
+
+// Turns a top surface (xy grid with heights) and its CCW boundary loop into a
+// closed solid: a mirrored flat bottom at z = 0 and vertical side walls.
+function closePlate(topXY, topZ, topTris, loop) {
+  const n = topZ.length;
+  const positions = new Float32Array(n * 2 * 3);
+  for (let i = 0; i < n; i++) {
+    positions[i * 3] = topXY[i * 2];
+    positions[i * 3 + 1] = topXY[i * 2 + 1];
+    positions[i * 3 + 2] = topZ[i];
+    const j = (n + i) * 3;
+    positions[j] = topXY[i * 2];
+    positions[j + 1] = topXY[i * 2 + 1];
+    positions[j + 2] = 0;
+  }
+  const t = topTris.length;
+  const indices = new Uint32Array(t * 2 + loop.length * 6);
+  indices.set(topTris, 0);
+  for (let i = 0; i < t; i += 3) {
+    indices[t + i] = topTris[i] + n;
+    indices[t + i + 1] = topTris[i + 2] + n;
+    indices[t + i + 2] = topTris[i + 1] + n;
+  }
+  let o = t * 2;
+  for (let i = 0; i < loop.length; i++) {
+    const a = loop[i];
+    const b = loop[(i + 1) % loop.length];
+    indices[o++] = a + n; indices[o++] = b + n; indices[o++] = b;
+    indices[o++] = a + n; indices[o++] = b; indices[o++] = a;
+  }
+  return { positions, indices };
+}
+
+function buildRect(s, field, res) {
+  const { nx, ny } = gridCounts(s, res);
+  const W = s.width, H = s.height;
+  const n = nx * ny;
+  const xy = new Float64Array(n * 2);
+  const z = new Float64Array(n);
+  for (let j = 0; j < ny; j++) {
+    const y = (j / (ny - 1) - 0.5) * H;
+    for (let i = 0; i < nx; i++) {
+      const x = (i / (nx - 1) - 0.5) * W;
+      const k = j * nx + i;
+      xy[k * 2] = x;
+      xy[k * 2 + 1] = y;
+      const edge = Math.min(x + W / 2, W / 2 - x, y + H / 2, H / 2 - y);
+      z[k] = s.base + s.depth * field(x, y, 0) * edgeRamp(0, s.margin, edge);
+    }
+  }
+  const tris = new Uint32Array((nx - 1) * (ny - 1) * 6);
+  let o = 0;
+  for (let j = 0; j < ny - 1; j++) {
+    for (let i = 0; i < nx - 1; i++) {
+      const a = j * nx + i, b = a + 1, c = a + nx + 1, d = a + nx;
+      tris[o++] = a; tris[o++] = b; tris[o++] = c;
+      tris[o++] = a; tris[o++] = c; tris[o++] = d;
+    }
+  }
+  const loop = [];
+  for (let i = 0; i < nx - 1; i++) loop.push(i);
+  for (let j = 0; j < ny - 1; j++) loop.push(j * nx + nx - 1);
+  for (let i = nx - 1; i > 0; i--) loop.push((ny - 1) * nx + i);
+  for (let j = ny - 1; j > 0; j--) loop.push(j * nx);
+  return closePlate(xy, z, tris, loop);
+}
+
+function buildDisk(s, field, res) {
+  const { rings, segs } = gridCounts(s, res);
+  const R = s.diameter / 2;
+  const n = 1 + rings * segs;
+  const xy = new Float64Array(n * 2);
+  const z = new Float64Array(n);
+  z[0] = s.base + s.depth * field(0, 0, 0) * edgeRamp(0, s.margin, R);
+  for (let k = 1; k <= rings; k++) {
+    const r = (R * k) / rings;
+    const fall = edgeRamp(0, s.margin, R - r);
+    for (let m = 0; m < segs; m++) {
+      const th = (2 * Math.PI * m) / segs;
+      const x = r * Math.cos(th), y = r * Math.sin(th);
+      const idx = 1 + (k - 1) * segs + m;
+      xy[idx * 2] = x;
+      xy[idx * 2 + 1] = y;
+      z[idx] = s.base + s.depth * field(x, y, 0) * fall;
+    }
+  }
+  const ring = (k, m) => 1 + (k - 1) * segs + (m % segs);
+  const tris = new Uint32Array((segs + 2 * segs * (rings - 1)) * 3);
+  let o = 0;
+  for (let m = 0; m < segs; m++) {
+    tris[o++] = 0; tris[o++] = ring(1, m); tris[o++] = ring(1, m + 1);
+  }
+  for (let k = 1; k < rings; k++) {
+    for (let m = 0; m < segs; m++) {
+      const a = ring(k, m), b = ring(k + 1, m), c = ring(k + 1, m + 1), d = ring(k, m + 1);
+      tris[o++] = a; tris[o++] = b; tris[o++] = c;
+      tris[o++] = a; tris[o++] = c; tris[o++] = d;
+    }
+  }
+  const loop = [];
+  for (let m = 0; m < segs; m++) loop.push(ring(rings, m));
+  return closePlate(xy, z, tris, loop);
+}
+
+function buildSphere(s, field, res) {
+  const { rings, segs } = gridCounts(s, res);
+  const R = s.diameter / 2;
+  const n = 2 + (rings - 1) * segs;
+  const positions = new Float32Array(n * 3);
+  // Relief is carved inwards so the outer diameter stays as specified.
+  const put = (idx, ux, uy, uz) => {
+    const r = R - s.depth * (1 - field(ux * R, uy * R, uz * R));
+    positions[idx * 3] = ux * r;
+    positions[idx * 3 + 1] = uy * r;
+    positions[idx * 3 + 2] = uz * r;
+  };
+  put(0, 0, 0, 1);
+  for (let k = 1; k < rings; k++) {
+    const phi = (Math.PI * k) / rings;
+    const sp = Math.sin(phi), cp = Math.cos(phi);
+    for (let m = 0; m < segs; m++) {
+      const th = (2 * Math.PI * m) / segs;
+      put(1 + (k - 1) * segs + m, sp * Math.cos(th), sp * Math.sin(th), cp);
+    }
+  }
+  const south = n - 1;
+  put(south, 0, 0, -1);
+  const ring = (k, m) => 1 + (k - 1) * segs + (m % segs);
+  const indices = new Uint32Array((2 * segs + 2 * segs * (rings - 2)) * 3);
+  let o = 0;
+  for (let m = 0; m < segs; m++) {
+    indices[o++] = 0; indices[o++] = ring(1, m); indices[o++] = ring(1, m + 1);
+  }
+  for (let k = 1; k < rings - 1; k++) {
+    for (let m = 0; m < segs; m++) {
+      const a = ring(k, m), b = ring(k + 1, m), c = ring(k + 1, m + 1), d = ring(k, m + 1);
+      indices[o++] = a; indices[o++] = b; indices[o++] = c;
+      indices[o++] = a; indices[o++] = c; indices[o++] = d;
+    }
+  }
+  for (let m = 0; m < segs; m++) {
+    indices[o++] = south; indices[o++] = ring(rings - 1, m + 1); indices[o++] = ring(rings - 1, m);
+  }
+  return { positions, indices };
+}
+
+// Builds the solid for `shape` params using `field` (x, y, z mm -> [0, 1]).
+// `resolution` overrides the grid step, e.g. for a coarse preview.
+function buildMesh(shape, field, resolution = shape.resolution) {
+  const s = { ...defaultShapeParams(), ...shape };
+  switch (s.shape) {
+    case 'rect': return buildRect(s, field, resolution);
+    case 'disk': return buildDisk(s, field, resolution);
+    case 'sphere': return buildSphere(s, field, resolution);
+    default: throw new Error(`Unknown shape: ${s.shape}`);
+  }
+}
+
+// ===== stl =====
+
+// Binary STL export for indexed triangle meshes (units: millimetres).
+
+function meshToSTL({ positions, indices }, header = '3d-textures parametric generator') {
+  const triCount = indices.length / 3;
+  const buffer = new ArrayBuffer(84 + triCount * 50);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < Math.min(80, header.length); i++) bytes[i] = header.charCodeAt(i) & 0x7f;
+  view.setUint32(80, triCount, true);
+
+  let o = 84;
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = indices[t] * 3, b = indices[t + 1] * 3, c = indices[t + 2] * 3;
+    const ax = positions[a], ay = positions[a + 1], az = positions[a + 2];
+    const bx = positions[b], by = positions[b + 1], bz = positions[b + 2];
+    const cx = positions[c], cy = positions[c + 1], cz = positions[c + 2];
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    view.setFloat32(o, nx, true); view.setFloat32(o + 4, ny, true); view.setFloat32(o + 8, nz, true);
+    view.setFloat32(o + 12, ax, true); view.setFloat32(o + 16, ay, true); view.setFloat32(o + 20, az, true);
+    view.setFloat32(o + 24, bx, true); view.setFloat32(o + 28, by, true); view.setFloat32(o + 32, bz, true);
+    view.setFloat32(o + 36, cx, true); view.setFloat32(o + 40, cy, true); view.setFloat32(o + 44, cz, true);
+    view.setUint16(o + 48, 0, true);
+    o += 50;
+  }
+  return buffer;
+}
+
+// ===== presets =====
+
+// Starting points modelled on the reference images; any parameter not listed
+// keeps its default from the schema.
+const PRESETS = [
+  {
+    name: 'Топографическая панель',
+    params: { shape: 'rect', width: 150, height: 100, depth: 7, pattern: 'topo', scale: 55, octaves: 2, levels: 14, warp: 0.35, seed: 7 },
+  },
+  {
+    name: 'Лабиринт изолиний',
+    params: { shape: 'rect', width: 180, height: 110, depth: 6, pattern: 'contours', scale: 70, levels: 10, lineWidth: 1, edge: 0.5, baseSlope: 0.3, warp: 0.8, octaves: 2, seed: 21, resolution: 0.3 },
+  },
+  {
+    name: 'Шар с террасами',
+    params: { shape: 'sphere', diameter: 80, depth: 6, pattern: 'topo', scale: 50, levels: 10, edge: 0.4, warp: 0.3, octaves: 1, seed: 4 },
+  },
+  {
+    name: 'Шар с волокнами',
+    params: { shape: 'sphere', diameter: 80, depth: 3, pattern: 'fibers', scale: 35, period: 4, stretch: 3, warp: 0.3, octaves: 2, profile: 1.2, seed: 12, angle: 30 },
+  },
+  {
+    name: 'Дюны на круге',
+    params: { shape: 'disk', diameter: 140, base: 3, depth: 4, pattern: 'dunes', scale: 30, stretch: 2.5, warp: 0.4, octaves: 3, profile: 1.5, angle: 10, seed: 9 },
+  },
+  {
+    name: 'Ячейки',
+    params: { shape: 'rect', width: 120, height: 120, depth: 3, pattern: 'cells', scale: 12, lineWidth: 1.2, warp: 0.25, octaves: 1, seed: 5 },
+  },
+  {
+    name: 'Кольца',
+    params: { shape: 'disk', diameter: 120, base: 2, depth: 2.5, pattern: 'rings', scale: 35, period: 3, profile: 1.5, warp: 0.3, seed: 3 },
+  },
+];
+
+// ===== main =====
+
+
+const PREVIEW_MAX_TRIANGLES = 700_000;
+const EXPORT_WARN_TRIANGLES = 8_000_000;
+
+const ALL_PARAMS = [...SHAPE_PARAMS, ...FIELD_PARAMS];
+const state = Object.fromEntries(ALL_PARAMS.map((p) => [p.key, p.value]));
+Object.assign(state, PRESETS[0].params);
+const fromHash = readHash();
+
+const $ = (id) => document.getElementById(id);
+const controlsByKey = new Map();
+
+// ---------- form ----------
+
+function makeControl(p) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  wrap.append(title);
+
+  if (p.type === 'select') {
+    const sel = document.createElement('select');
+    for (const [value, text] of Object.entries(p.options)) sel.add(new Option(text, value));
+    sel.addEventListener('change', () => update(p.key, sel.value));
+    wrap.append(sel);
+    controlsByKey.set(p.key, { wrap, set: (v) => (sel.value = v) });
+  } else if (p.type === 'bool') {
+    wrap.classList.add('bool');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => update(p.key, box.checked));
+    wrap.append(box);
+    controlsByKey.set(p.key, { wrap, set: (v) => (box.checked = v) });
+  } else {
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.min = p.min; num.max = p.max; num.step = p.step;
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = p.min; range.max = p.max; range.step = p.step;
+    const parse = (v) => {
+      let x = Number(v);
+      if (!Number.isFinite(x)) return null;
+      if (p.type === 'int') x = Math.round(x);
+      return Math.min(p.max, Math.max(p.min, x));
+    };
+    num.addEventListener('change', () => {
+      const x = parse(num.value);
+      if (x === null) { num.value = state[p.key]; return; }
+      num.value = x; range.value = x;
+      update(p.key, x);
+    });
+    range.addEventListener('input', () => {
+      const x = parse(range.value);
+      num.value = x;
+      update(p.key, x);
+    });
+    wrap.append(num, range);
+    controlsByKey.set(p.key, { wrap, set: (v) => { num.value = v; range.value = v; } });
+  }
+  return wrap;
+}
+
+for (const p of SHAPE_PARAMS) $('shape-params').append(makeControl(p));
+for (const p of FIELD_PARAMS) $('field-params').append(makeControl(p));
+
+PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
+$('preset').add(new Option('— свои настройки —', 'custom'));
+$('preset').value = fromHash ? 'custom' : 0;
+$('preset').addEventListener('change', () => {
+  const pr = PRESETS[Number($('preset').value)];
+  if (!pr) return;
+  Object.assign(state, Object.fromEntries(ALL_PARAMS.map((p) => [p.key, p.value])), pr.params);
+  syncForm();
+  schedule();
+});
+
+function syncForm() {
+  for (const p of ALL_PARAMS) {
+    const c = controlsByKey.get(p.key);
+    c.set(state[p.key]);
+    const visible = (!p.shapes || p.shapes.includes(state.shape)) && (!p.patterns || p.patterns.includes(state.pattern));
+    c.wrap.hidden = !visible;
+  }
+}
+
+function update(key, value) {
+  state[key] = value;
+  if (key !== 'resolution') $('preset').value = 'custom';
+  if (key === 'shape' || key === 'pattern') syncForm();
+  schedule();
+}
+
+$('reseed').addEventListener('click', () => {
+  update('seed', Math.floor(Math.random() * 100000));
+  controlsByKey.get('seed').set(state.seed);
+});
+
+// ---------- scene ----------
+
+const viewport = $('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+viewport.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20000);
+camera.up.set(0, 0, 1);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.3));
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
+key.position.set(-1, -0.6, 1.4);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xffffff, 0.6);
+rim.position.set(1, 1, 0.3);
+scene.add(rim);
+
+const material = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, roughness: 0.6, metalness: 0 });
+let object = null;
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewport);
+
+function frameObject() {
+  const size = state.shape === 'rect' ? Math.max(state.width, state.height) : state.diameter;
+  const d = size * 1.9;
+  const tilt = state.shape === 'sphere' ? 0.25 : 0.9;
+  camera.position.set(0, -d * Math.cos(tilt) * 0.9, d * Math.sin(tilt) + (state.shape === 'sphere' ? 0 : state.base));
+  orbit.target.set(0, 0, state.shape === 'sphere' ? 0 : state.base);
+  camera.near = size / 200;
+  camera.far = size * 20;
+  camera.updateProjectionMatrix();
+  orbit.update();
+}
+$('reset-view').addEventListener('click', frameObject);
+$('wire').addEventListener('change', () => { material.wireframe = $('wire').checked; });
+
+(function loop() {
+  orbit.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+// ---------- generation ----------
+
+const split = () => [
+  Object.fromEntries(SHAPE_PARAMS.map((p) => [p.key, state[p.key]])),
+  Object.fromEntries(FIELD_PARAMS.map((p) => [p.key, state[p.key]])),
+];
+
+// Coarsens the grid step until the preview fits the triangle budget.
+function previewResolution(shape) {
+  let res = shape.resolution;
+  const tris = estimateTriangles(shape, res);
+  if (tris > PREVIEW_MAX_TRIANGLES) res *= Math.sqrt(tris / PREVIEW_MAX_TRIANGLES);
+  return res;
+}
+
+let timer = 0;
+let lastShapeKey = '';
+function schedule() {
+  clearTimeout(timer);
+  $('busy').hidden = false;
+  timer = setTimeout(regenerate, 60);
+}
+
+function regenerate() {
+  const [shape, field] = split();
+  const res = previewResolution(shape);
+  const mesh = buildMesh(shape, createField(field), res);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+  geo.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
+  geo.computeVertexNormals();
+  if (object) { scene.remove(object); object.geometry.dispose(); }
+  object = new THREE.Mesh(geo, material);
+  scene.add(object);
+
+  const shapeKey = [shape.shape, shape.width, shape.height, shape.diameter].join();
+  if (shapeKey !== lastShapeKey) { frameObject(); lastShapeKey = shapeKey; }
+
+  renderStats(shape, res);
+  writeHash();
+  $('busy').hidden = true;
+}
+
+function renderStats(shape, previewRes) {
+  const tris = estimateTriangles(shape);
+  const mb = (84 + tris * 50) / 1048576;
+  const dims = shape.shape === 'rect'
+    ? `${shape.width} × ${shape.height} × ${+(shape.base + shape.depth).toFixed(2)}`
+    : shape.shape === 'disk'
+      ? `⌀${shape.diameter} × ${+(shape.base + shape.depth).toFixed(2)}`
+      : `⌀${shape.diameter}`;
+  const rows = [
+    ['Габариты, мм', dims],
+    ['Треугольников в STL', tris.toLocaleString('ru')],
+    ['Размер файла', `${mb.toFixed(1)} МБ`],
+  ];
+  if (previewRes > shape.resolution * 1.01) rows.push(['Шаг превью', `${previewRes.toFixed(2)} мм`]);
+  $('stats').innerHTML = '<dl style="display:contents">' + rows
+    .map(([k, v]) => `<dt>${k}</dt><dd${tris > EXPORT_WARN_TRIANGLES && k.startsWith('Тре') ? ' class="warn"' : ''}>${v}</dd>`)
+    .join('') + '</dl>';
+}
+
+// ---------- export & sharing ----------
+
+$('export').addEventListener('click', () => {
+  const [shape, field] = split();
+  const tris = estimateTriangles(shape);
+  if (tris > EXPORT_WARN_TRIANGLES &&
+    !confirm(`Будет ${tris.toLocaleString('ru')} треугольников (~${Math.round((tris * 50) / 1048576)} МБ). Продолжить? Можно увеличить шаг сетки.`)) return;
+  const btn = $('export');
+  btn.disabled = true;
+  $('message').textContent = 'Строю сетку для экспорта…';
+  setTimeout(() => {
+    try {
+      const mesh = buildMesh(shape, createField(field));
+      const blob = new Blob([meshToSTL(mesh)], { type: 'model/stl' });
+      const name = `texture-${field.pattern}-${shape.shape}-${field.seed}.stl`;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+      $('message').textContent = `Сохранено: ${name}`;
+    } catch (e) {
+      $('message').textContent = `Ошибка: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  }, 30);
+});
+
+function writeHash() {
+  const q = new URLSearchParams();
+  for (const p of ALL_PARAMS) if (state[p.key] !== p.value) q.set(p.key, state[p.key]);
+  history.replaceState(null, '', `#${q}`);
+}
+
+function readHash() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (![...q.keys()].length) return false;
+  Object.assign(state, Object.fromEntries(ALL_PARAMS.map((p) => [p.key, p.value])));
+  for (const p of ALL_PARAMS) {
+    if (!q.has(p.key)) continue;
+    const raw = q.get(p.key);
+    if (p.type === 'bool') state[p.key] = raw === 'true';
+    else if (p.type === 'select') { if (raw in p.options) state[p.key] = raw; }
+    else if (Number.isFinite(Number(raw))) state[p.key] = Number(raw);
+  }
+  return true;
+}
+
+$('share').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('message').textContent = 'Ссылка с параметрами скопирована.';
+  } catch {
+    $('message').textContent = 'Скопируйте адрес страницы: параметры сохранены в нём.';
+  }
+});
+
+syncForm();
+resize();
+regenerate();
+  </script>
 </body>
 </html>
