@@ -118,7 +118,10 @@
     border-radius: 7px; padding: 7px 9px; font: inherit; font-size: 12px; outline: none;
   }
   select { cursor: pointer; }
-  .txt { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1px; }
+  .txt {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 1px;
+    display: block; min-height: 84px; resize: vertical; line-height: 1.5; text-transform: uppercase;
+  }
   .txt:focus { border-color: #3a3c43; }
   .toggle { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
   .toggle input { display: none; }
@@ -435,7 +438,7 @@ var GlyphCore = (function () {
   const TEXT = [
     { id: 'text', label: 'Текст', type: 'text', value: 'THE UNION-' },
     { id: 'flow', label: 'Порядок', type: 'select', value: 'shift', options: [
-      ['rows', 'Строками подряд'], ['snake', 'Змейкой'], ['shift', 'Сдвиг каждого ряда'],
+      ['lines', 'Построчно, как набрано'], ['rows', 'Строками подряд'], ['snake', 'Змейкой'], ['shift', 'Сдвиг каждого ряда'],
       ['cols', 'Столбцами'], ['diag', 'По диагоналям'], ['random', 'Случайно']] },
     { id: 'shift', label: 'Сдвиг ряда', type: 'range', min: -12, max: 12, step: 1, value: 3, unit: 'зн', showIf: (v) => v.flow === 'shift' },
   ];
@@ -513,13 +516,17 @@ var GlyphCore = (function () {
 
   function layout(p) {
     const P = resolve(p);
-    let chars = Array.from(String(p.text || ''));
+    // "lines": every line of the text is one row of tiles, as typed; the other flows
+    // read the text as one continuous stream and ignore line breaks.
+    const lines = String(p.text || '').replace(/\r/g, '').split('\n').map((l) => Array.from(l));
+    let chars = lines.flat();
     if (!chars.length) chars = [' '];
     const n = chars.length;
     const tiles = new Array(P.cols * P.rows);
     for (let r = 0; r < P.rows; r++) for (let i = 0; i < P.cols; i++) {
-      const k = flowIndex(p, i, r, P.cols, P.rows);
-      const ch = chars[((k % n) + n) % n];
+      let ch;
+      if (p.flow === 'lines') ch = (lines[r] && lines[r][i]) || ' ';
+      else { const k = flowIndex(p, i, r, P.cols, P.rows); ch = chars[((k % n) + n) % n]; }
       const g = glyphFor(ch);
       const h1 = hash3(i, r, p.seed | 0), h2 = hash3(i, r, (p.seed | 0) + 7), h3 = hash3(i, r, (p.seed | 0) + 13);
       let rot = 0, mir = false;
@@ -863,7 +870,7 @@ var GlyphCore = (function () {
 
   const PRESETS = [
     ['THE UNION', { text: 'THE^UNION-', flow: 'shift', shift: 3 }],
-    ['NION RHE', { text: 'NION-RHE^NXUNION', flow: 'rows' }],
+    ['NION / RHE', { text: 'NION\n-RHE\n^NXU\nNION', flow: 'lines', cols: 4, rows: 4 }],
     ['CONCRETE 1971', { text: 'CONCRETE 1971 ', flow: 'rows' }],
     ['A–Z', { text: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', flow: 'rows' }],
     ['0–9', { text: '0123456789', flow: 'snake' }],
@@ -896,7 +903,7 @@ var GlyphCore = (function () {
   const encode = (v) => (typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
   function decode(d, raw) {
     if (d.type === 'toggle') return raw === '1';
-    if (d.type === 'text') return raw.slice(0, 400);
+    if (d.type === 'text') return raw.slice(0, 2000);
     if (d.type === 'select') return d.options.some((o) => o[0] === raw) ? raw : d.value;
     const v = parseFloat(raw);
     return isFinite(v) ? Math.min(d.max, Math.max(d.min, v)) : d.value;
@@ -952,8 +959,8 @@ var GlyphCore = (function () {
       row.sync = () => { sel.value = obj[def.id]; };
       sel.addEventListener('change', () => { obj[def.id] = sel.value; onChange(def); });
     } else if (def.type === 'text') {
-      row.innerHTML = `<input class="txt" type="text" maxlength="400" spellcheck="false" autocomplete="off">`;
-      const inp = row.querySelector('input');
+      row.innerHTML = `<textarea class="txt" rows="4" maxlength="2000" spellcheck="false" autocomplete="off"></textarea>`;
+      const inp = row.querySelector('textarea');
       row.sync = () => { if (inp.value !== obj[def.id]) inp.value = obj[def.id]; };
       inp.addEventListener('input', () => { obj[def.id] = inp.value; onChange(def); });
     } else if (def.type === 'toggle') {
@@ -1151,7 +1158,7 @@ var GlyphCore = (function () {
   }
 
   function hudText() {
-    const chars = Array.from(state.p.text || '');
+    const chars = Array.from(state.p.text || '').filter((c) => c !== '\n' && c !== '\r');
     const bad = [...new Set(chars.filter((c) => !C.supported(c)))];
     return bad.length ? `Нет в шрифте (станут пустыми ячейками): ${bad.join(' ')}` : 'ЛКМ — вращение, колесо — зум, ПКМ — панорама';
   }
