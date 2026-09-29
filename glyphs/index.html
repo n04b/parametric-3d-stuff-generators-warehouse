@@ -181,7 +181,7 @@
       <div class="gtitle">Текст</div>
       <div id="grp-text"></div>
       <div class="chips" id="presets"></div>
-      <p class="hint">Пробел — пустая ячейка на уровне основания, <b>^</b> — пирамида, <b>~</b> — воронка. Латиница A–Z, цифры 0–9 и дефис.</p>
+      <p class="hint">Пробел — плоская ячейка (высота задаётся ниже, 0 — уровень основания), <b>^</b> — пирамида, <b>~</b> — воронка. Латиница A–Z, цифры 0–9 и дефис.</p>
     </section>
 
     <section class="group">
@@ -195,7 +195,7 @@
     </section>
 
     <section class="group">
-      <div class="gtitle">Пирамиды и воронки</div>
+      <div class="gtitle">Пробел, пирамиды и воронки</div>
       <div id="grp-blank"></div>
     </section>
 
@@ -469,6 +469,7 @@ var GlyphCore = (function () {
       ['none', 'Нет'], ['flip', 'Случайно 0° / 180°'], ['rot', 'Случайно на 90°'], ['mirror', 'Случайное зеркало'], ['both', 'Поворот + зеркало']] },
   ];
   const BLANK = [
+    { id: 'spaceH', label: 'Высота пробела над основанием', type: 'range', min: 0, max: 60, step: 0.1, value: 0, unit: 'мм' },
     { id: 'pyr', label: 'Высота пирамиды ^ и воронки ~', type: 'range', min: 0.2, max: 60, step: 0.1, value: 7, unit: 'мм' },
   ];
   const SCHEMA = { text: TEXT, grid: GRID, glyph: GLYPH, blank: BLANK };
@@ -497,7 +498,7 @@ var GlyphCore = (function () {
       T, gap, pitch, cols, rows, bw, drop, sw, w: sw / 2, S, emboss,
       depth: p.depth, profile: p.profile, wall: p.wall, square: p.ends === 'square',
       fold, slope: Math.tan(clamp(p.angle, 5, 89) * D2R),
-      pyr: p.pyr, base: p.base, H: p.H, border: p.border, W, D, top0,
+      pyr: p.pyr, spaceH: Math.min(p.spaceH || 0, p.H), base: p.base, H: p.H, border: p.border, W, D, top0,
       top: top0 + (emboss ? p.depth : 0),
     };
   }
@@ -552,8 +553,12 @@ var GlyphCore = (function () {
   // Height of one tile at local (lx, ly) in [0,T]², bottom of the tile at z = 0.
   function tileZ(P, t, lx, ly) {
     const T = P.T, h = T / 2, bw = P.bw;
-    if (t.shape === 'empty') return P.base;
     const dE = Math.min(lx, ly, T - lx, T - ly);
+    if (t.shape === 'empty') {                                 // space: a flat tile of its own height
+      if (P.spaceH <= 0) return P.base;
+      const st = P.base + P.spaceH, sd = Math.min(P.drop, P.spaceH);
+      return bw > 0 && dE < bw ? st - sd * (1 - dE / bw) : st;
+    }
     const top = P.top0 - t.dz;
     let z = top;
     if (bw > 0 && dE < bw) z = top - P.drop * (1 - dE / bw);
@@ -822,7 +827,7 @@ var GlyphCore = (function () {
   function uniqueTiles(L) {
     const seen = new Map();
     for (const t of L.tiles) {
-      if (t.shape === 'empty') continue;
+      if (t.shape === 'empty' && L.P.spaceH <= 0) continue;
       const k = tileKey(t);
       if (seen.has(k)) seen.get(k).count++;
       else seen.set(k, { key: k, tile: t, count: 1 });
@@ -838,7 +843,7 @@ var GlyphCore = (function () {
   function layoutText(L) {
     const P = L.P, lines = [];
     lines.push(`Glyph Tiles: ${P.cols} x ${P.rows} tiles, tile ${P.T} mm, pitch ${P.pitch} mm, panel ${+P.W.toFixed(2)} x ${+P.D.toFixed(2)} mm`);
-    lines.push('Each cell: character, rotation counter-clockwise (90/180/270), m = mirrored; ^ pyramid, ~ pit, . empty cell (no tile).');
+    lines.push('Each cell: character, rotation counter-clockwise (90/180/270), m = mirrored; ^ pyramid, ~ pit, . space.');
     lines.push('');
     for (let r = 0; r < P.rows; r++) {
       const cells = [];
