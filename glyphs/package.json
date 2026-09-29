@@ -1,0 +1,12 @@
+{
+  "name": "glyph-tiles",
+  "version": "0.1.0",
+  "description": "Параметрический генератор стены из буквенных бетонных плиток с экспортом в STL",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes http-server -c-1 -p 8082 .",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
