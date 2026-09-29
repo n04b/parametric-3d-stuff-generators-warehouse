@@ -463,9 +463,9 @@ var GlyphCore = (function () {
     { id: 'depth', label: 'Глубина реза', type: 'range', min: 0.2, max: 40, step: 0.1, value: 3.5, unit: 'мм', showIf: (v) => v.mode !== 'fold' },
     { id: 'reach', label: 'Скаты', type: 'select', value: 'angle', showIf: (v) => v.mode === 'fold', options: [
       ['angle', 'Под углом, до основания'], ['edge', 'До самого края плитки']] },
-    { id: 'crest', label: 'Скругление гребня', type: 'range', min: 0, max: 3, step: 0.05, value: 0.5, unit: 'мм', showIf: (v) => v.mode === 'fold' },
     { id: 'angle', label: 'Уклон скатов', type: 'range', min: 10, max: 80, step: 1, value: 42, unit: '°', showIf: (v) => v.mode === 'fold' && v.reach !== 'edge' },
     { id: 'profile', label: 'Профиль', type: 'select', value: 'chisel', options: [['chisel', 'Плоские грани'], ['round', 'Вогнутый (чаша)']] },
+    { id: 'crest', label: 'Скругление гребня (0 — выкл.)', type: 'range', min: 0, max: 3, step: 0.05, value: 0.5, unit: 'мм', showIf: (v) => v.mode === 'fold' && v.profile === 'round' },
     { id: 'wall', label: 'Скос стенок', type: 'range', min: 0.05, max: 1, step: 0.01, value: 0.5, showIf: (v) => v.profile === 'chisel' && v.mode !== 'fold' },
     { id: 'ends', label: 'Концы штрихов', type: 'select', value: 'square', options: [['square', 'Прямые (гранёные)'], ['round', 'Круглые']] },
     { id: 'rot', label: 'Поворот плиток', type: 'select', value: 'none', options: [
@@ -500,7 +500,7 @@ var GlyphCore = (function () {
     return {
       T, gap, pitch, cols, rows, bw, drop, sw, w: sw / 2, S, emboss,
       depth: p.depth, profile: p.profile, wall: p.wall, square: p.ends === 'square',
-      fold, slope: Math.tan(clamp(p.angle, 5, 89) * D2R), toEdge: p.reach === 'edge', crest: Math.max(0, p.crest || 0),
+      fold, slope: Math.tan(clamp(p.angle, 5, 89) * D2R), toEdge: p.reach === 'edge', crest: p.profile === 'round' ? Math.max(0, p.crest || 0) : 0,   // bowl only: flat faces stay knife-sharp
       pyr: p.pyr, spaceH: Math.min(p.spaceH || 0, p.H), base: p.base, H: p.H, border: p.border, W, D, top0,
       top: top0 + (emboss ? p.depth : 0),
     };
