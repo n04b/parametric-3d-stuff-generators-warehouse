@@ -5,8 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "npx --yes http-server -c-1 -p 8082 .",
-    "test": "node --test"
+    "start": "npx --yes http-server -c-1 -p 8082 ."
   },
   "license": "MIT"
 }

@@ -171,14 +171,14 @@
   <aside id="panel">
     <header class="head">
       <h1>Glyph Tiles</h1>
-      <p>Стена из бетонных плиток с вырезанными буквами. Текст идёт по сетке, каждая буква — своя плитка. Размеры в миллиметрах, экспорт в STL.</p>
+      <p>Стена из бетонных плиток-букв. Буква — излом-гребень на верху плитки, от него плоские скаты идут до основания; читается светотенью граней. Размеры в миллиметрах, экспорт в STL.</p>
     </header>
 
     <section class="group">
       <div class="gtitle">Текст</div>
       <div id="grp-text"></div>
       <div class="chips" id="presets"></div>
-      <p class="hint">Пробел — пустая плитка (форма ниже), <b>^</b> — пирамида, <b>~</b> — воронка. Латиница, кириллица, цифры и простые знаки.</p>
+      <p class="hint">Пробел — пустая плитка (форма ниже), <b>^</b> — пирамида, <b>~</b> — воронка. Латиница A–Z, цифры 0–9 и дефис.</p>
     </section>
 
     <section class="group">
@@ -301,51 +301,7 @@ var GlyphCore = (function () {
     8: 'a .5,.76 .24 0 360 | a .5,.26 .26 0 360',
     9: 'a .5,.7 .3 0 360 | .7598,.55 .4423,0',
 
-    'Б': '1,1 0,1 0,0 .55,0 | 0,.55 .55,.55 | a .55,.275 .275 -90 90',
-    'Г': '1,1 0,1 0,0',
-    'Д': '.12,.18 .25,1 .85,1 .85,.18 | 0,0 0,.18 1,.18 1,0',
-    'Ё': '1,.7 0,.7 0,0 1,0 | 0,.35 .75,.35 | p .3,1 | p .7,1',
-    'Ж': '.5,0 .5,1 | 0,1 .5,.5 1,1 | 0,0 .5,.5 1,0',
-    'И': '0,1 0,0 1,1 1,0',
-    'Й': '0,.72 0,0 1,.72 1,0 | .3,1 .7,1',
-    'Л': '0,0 .3,1 1,1 1,0',
-    'П': '0,0 0,1 1,1 1,0',
-    'У': '0,1 .52,.4 | 1,1 .2,0',
-    'Ф': 'a .5,.55 .38 0 360 | .5,0 .5,1',
-    'Ц': '0,1 0,.2 .8,.2 .8,1 | .8,.2 1,.2 1,0',
-    'Ч': '0,1 0,.55 1,.55 | 1,1 1,0',
-    'Ш': '0,1 0,0 1,0 1,1 | .5,1 .5,0',
-    'Щ': '0,1 0,.2 .8,.2 .8,1 | .4,1 .4,.2 | .8,.2 1,.2 1,0',
-    'Ъ': '0,1 .25,1 .25,0 .7,0 | .25,.55 .7,.55 | a .7,.275 .275 -90 90',
-    'Ы': '0,1 0,0 .45,0 | 0,.55 .45,.55 | a .45,.275 .275 -90 90 | 1,1 1,0',
-    'Ь': '.1,1 .1,0 .6,0 | .1,.55 .6,.55 | a .6,.275 .275 -90 90',
-    'Э': 'a .5,.5 .5 -140 140 | .4,.5 1,.5',
-    'Ю': '0,0 0,1 | 0,.5 .36,.5 | a .68,.5 .32 0 360',
-    'Я': '1,0 1,1 .45,1 | 1,.45 .45,.45 | a .45,.725 .275 90 270 | .5,.45 0,0',
-
     '-': '.2,.5 .8,.5',
-    '_': '0,0 1,0',
-    '.': 'p .5,.05',
-    ',': '.55,.2 .4,0',
-    ':': 'p .5,.2 | p .5,.8',
-    '!': '.5,1 .5,.35 | p .5,0',
-    '?': 'a .5,.72 .28 -60 165 | .64,.4775 .5,.38 | p .5,0',
-    "'": '.5,1 .5,.7',
-    '"': '.35,1 .35,.7 | .65,1 .65,.7',
-    '+': '.5,.15 .5,.85 | .15,.5 .85,.5',
-    '=': '.15,.35 .85,.35 | .15,.65 .85,.65',
-    '/': '.15,0 .85,1',
-    '*': '.5,.1 .5,.9 | .15,.3 .85,.7 | .15,.7 .85,.3',
-    '<': '.8,.9 .2,.5 .8,.1',
-    '>': '.2,.9 .8,.5 .2,.1',
-    '(': 'a .95,.5 .6 124 236',
-    ')': 'a .05,.5 .6 -56 56',
-    '#': '.35,0 .35,1 | .65,0 .65,1 | 0,.35 1,.35 | 0,.65 1,.65',
-  };
-  // Cyrillic letters that share a Latin (or digit) shape.
-  const ALIAS = {
-    'А': 'A', 'В': 'B', 'Е': 'E', 'З': '3', 'К': 'K', 'М': 'M', 'Н': 'H', 'О': 'O',
-    'Р': 'P', 'С': 'C', 'Т': 'T', 'Х': 'X',
   };
   // Characters that are not letters but whole-tile shapes.
   const SHAPE_CHARS = { ' ': null, '^': 'pyramid', '~': 'pit' };
@@ -418,7 +374,6 @@ var GlyphCore = (function () {
     for (const q of prims) {
       if (q.k === 's') { grow(q.ax, q.ay, 0); grow(q.bx, q.by, 0); }
       else if (q.k === 'p') grow(q.x, q.y, 0);
-      else if (q.full) grow(q.cx, q.cy, q.r);
       else for (let k = 0; k <= 64; k++) {
         const a = q.a0 + (q.span * k) / 64;
         grow(q.cx + q.r * Math.cos(a), q.cy + q.r * Math.sin(a), 0);
@@ -434,12 +389,12 @@ var GlyphCore = (function () {
   function glyphFor(ch) {
     const c = ch.toUpperCase();
     if (c in SHAPE_CHARS) return { shape: SHAPE_CHARS[c] };
-    const g = GLYPHS[c] || GLYPHS[ALIAS[c]];
+    const g = GLYPHS[c];
     return g ? { glyph: g } : { shape: null };
   }
   const supported = (ch) => {
     const c = ch.toUpperCase();
-    return c in SHAPE_CHARS || !!GLYPHS[c] || !!GLYPHS[ALIAS[c]];
+    return c in SHAPE_CHARS || !!GLYPHS[c];
   };
 
   // Distance from (x,y) to the glyph's cut centre line, unit-box units.
@@ -490,19 +445,21 @@ var GlyphCore = (function () {
     { id: 'gap', label: 'Шов', type: 'range', min: 0, max: 10, step: 0.1, value: 1.2, unit: 'мм' },
     { id: 'border', label: 'Поле по краю', type: 'range', min: 0, max: 40, step: 0.5, value: 0, unit: 'мм' },
     { id: 'base', label: 'Основание', type: 'range', min: 0.6, max: 30, step: 0.1, value: 3, unit: 'мм' },
-    { id: 'H', label: 'Высота плитки', type: 'range', min: 1, max: 60, step: 0.1, value: 6, unit: 'мм' },
-    { id: 'bevelW', label: 'Фаска: ширина', type: 'range', min: 0, max: 30, step: 0.1, value: 2.6, unit: 'мм' },
-    { id: 'bevelDrop', label: 'Фаска: глубина', type: 'range', min: 0, max: 60, step: 0.1, value: 2.4, unit: 'мм' },
+    { id: 'H', label: 'Высота плитки', type: 'range', min: 1, max: 60, step: 0.1, value: 7, unit: 'мм' },
+    { id: 'bevelW', label: 'Фаска: ширина', type: 'range', min: 0, max: 30, step: 0.1, value: 2.5, unit: 'мм' },
+    { id: 'bevelDrop', label: 'Фаска: глубина', type: 'range', min: 0, max: 60, step: 0.1, value: 7, unit: 'мм' },
     { id: 'jitter', label: 'Разброс выноса', type: 'range', min: 0, max: 20, step: 0.1, value: 0, unit: 'мм' },
     { id: 'seed', label: 'Сид', type: 'seed', min: 1, max: 99999, step: 1, value: 1971 },
   ];
   const GLYPH = [
-    { id: 'mode', label: 'Буква', type: 'select', value: 'carve', options: [['carve', 'Вырезана (углублена)'], ['emboss', 'Выпуклая']] },
-    { id: 'weight', label: 'Толщина штриха', type: 'range', min: 0.03, max: 0.35, step: 0.005, value: 0.16, unit: '×' },
-    { id: 'margin', label: 'Отступ от фаски', type: 'range', min: 0, max: 0.35, step: 0.005, value: 0.02, unit: '×' },
-    { id: 'depth', label: 'Глубина резьбы', type: 'range', min: 0.2, max: 40, step: 0.1, value: 3.5, unit: 'мм' },
-    { id: 'profile', label: 'Профиль реза', type: 'select', value: 'chisel', options: [['chisel', 'Долото (V / трапеция)'], ['round', 'Полукруглый']] },
-    { id: 'wall', label: 'Скос стенок', type: 'range', min: 0.05, max: 1, step: 0.01, value: 0.5, showIf: (v) => v.profile === 'chisel' },
+    { id: 'mode', label: 'Построение буквы', type: 'select', value: 'fold', options: [
+      ['fold', 'Излом: буква — гребень, скаты до основания'], ['carve', 'Штрих вырезан'], ['emboss', 'Штрих выпуклый']] },
+    { id: 'weight', showIf: (v) => v.mode !== 'fold', label: 'Толщина штриха', type: 'range', min: 0.03, max: 0.35, step: 0.005, value: 0.12, unit: '×' },
+    { id: 'margin', label: 'Отступ от фаски', type: 'range', min: 0, max: 0.35, step: 0.005, value: 0.08, unit: '×' },
+    { id: 'depth', label: 'Глубина реза', type: 'range', min: 0.2, max: 40, step: 0.1, value: 3.5, unit: 'мм', showIf: (v) => v.mode !== 'fold' },
+    { id: 'angle', label: 'Уклон скатов', type: 'range', min: 10, max: 80, step: 1, value: 42, unit: '°', showIf: (v) => v.mode === 'fold' },
+    { id: 'profile', label: 'Профиль', type: 'select', value: 'chisel', options: [['chisel', 'Плоские грани'], ['round', 'Вогнутый (чаша)']] },
+    { id: 'wall', label: 'Скос стенок', type: 'range', min: 0.05, max: 1, step: 0.01, value: 0.5, showIf: (v) => v.profile === 'chisel' && v.mode !== 'fold' },
     { id: 'ends', label: 'Концы штрихов', type: 'select', value: 'square', options: [['square', 'Прямые (гранёные)'], ['round', 'Круглые']] },
     { id: 'rot', label: 'Поворот плиток', type: 'select', value: 'none', options: [
       ['none', 'Нет'], ['flip', 'Случайно 0° / 180°'], ['rot', 'Случайно на 90°'], ['mirror', 'Случайное зеркало'], ['both', 'Поворот + зеркало']] },
@@ -510,7 +467,7 @@ var GlyphCore = (function () {
   const BLANK = [
     { id: 'blank', label: 'Форма пустой плитки', type: 'select', value: 'pyramid', options: [
       ['flat', 'Плоская'], ['pyramid', 'Пирамида'], ['pit', 'Воронка'], ['roof', 'Двускатная'], ['dome', 'Купол']] },
-    { id: 'pyr', label: 'Высота формы', type: 'range', min: 0.2, max: 60, step: 0.1, value: 4, unit: 'мм', showIf: (v) => v.blank !== 'flat' },
+    { id: 'pyr', label: 'Высота формы', type: 'range', min: 0.2, max: 60, step: 0.1, value: 7, unit: 'мм', showIf: (v) => v.blank !== 'flat' },
   ];
   const SCHEMA = { text: TEXT, grid: GRID, glyph: GLYPH, blank: BLANK };
   const ALL = [].concat(TEXT, GRID, GLYPH, BLANK);
@@ -527,7 +484,8 @@ var GlyphCore = (function () {
     const T = p.tile, gap = p.gap, pitch = T + gap, cols = p.cols | 0, rows = p.rows | 0;
     const bw = Math.min(p.bevelW, T * 0.45), drop = Math.min(p.bevelDrop, p.H);
     const face = T - 2 * bw;
-    const sw = Math.min(p.weight * T, face * 0.9);
+    const fold = p.mode === 'fold';
+    const sw = fold ? 0 : Math.min(p.weight * T, face * 0.9);
     const box = face * (1 - 2 * p.margin);
     const S = Math.max(box - sw, sw * 0.5, 0.05);           // glyph unit box -> mm
     const emboss = p.mode === 'emboss';
@@ -536,6 +494,7 @@ var GlyphCore = (function () {
     return {
       T, gap, pitch, cols, rows, bw, drop, sw, w: sw / 2, S, emboss,
       depth: p.depth, profile: p.profile, wall: p.wall, square: p.ends === 'square',
+      fold, slope: Math.tan(clamp(p.angle, 5, 89) * D2R),
       blank: p.blank, pyr: p.pyr, base: p.base, H: p.H, border: p.border, W, D, top0,
       top: top0 + (emboss ? p.depth : 0),
     };
@@ -614,6 +573,18 @@ var GlyphCore = (function () {
       return Math.max(P.base, z);
     }
     const g = t.glyph, S = P.S, gx = ux / S + 0.5, gy = uy / S + 0.5, wu = P.w / S, b = g.box;
+    if (P.fold) {
+      // The letter is a crease at the top of the tile; from every point of it a plane
+      // falls to the base. Where the falls from two strokes meet, a valley forms;
+      // where they meet the frame chamfer, the tile edge. Nothing is left flat.
+      const bx = Math.max(b[0] - gx, 0, gx - b[2]), by = Math.max(b[1] - gy, 0, gy - b[3]);
+      const run = P.H / P.slope;                               // horizontal length of a full fall
+      let d = Math.hypot(bx, by) * S;                          // lower bound of the distance to the letter
+      if (d < run) d = glyphDist(g, gx, gy, P.square) * S;
+      const k = Math.min(1, d / run);
+      const f = P.profile === 'round' ? Math.sqrt(1 - (1 - k) * (1 - k)) : k;
+      return Math.max(P.base, Math.min(z, top - P.H * f));
+    }
     if (gx < b[0] - wu || gx > b[2] + wu || gy < b[1] - wu || gy > b[3] + wu) return Math.max(P.base, z);
     const c = cutDepth(P, glyphDist(g, gx, gy, P.square) * S);
     if (c <= 0) return Math.max(P.base, z);
@@ -859,7 +830,7 @@ var GlyphCore = (function () {
   const SHAPE_NAMES = { flat: 'flat', pyramid: 'pyramid', pit: 'pit', roof: 'roof', dome: 'dome' };
   function tileFileName(t) {
     if (!t.glyph) return `blank-${SHAPE_NAMES[t.shape] || 'flat'}`;
-    const safe = /^[0-9A-ZА-ЯЁ]$/.test(t.ch) ? t.ch : 'u' + t.ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
+    const safe = /^[0-9A-Z]$/.test(t.ch) ? t.ch : 'u' + t.ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
     return `tile-${safe}${t.mir ? '-mirror' : ''}`;
   }
   // Assembly map: rows top to bottom, one cell per tile.
@@ -881,7 +852,7 @@ var GlyphCore = (function () {
   }
 
   return {
-    SCHEMA, ALL, FONT, ALIAS, GLYPHS, defaults, resolve, layout, glyphFor, supported, compileGlyph, glyphDist,
+    SCHEMA, ALL, FONT, GLYPHS, defaults, resolve, layout, glyphFor, supported, compileGlyph, glyphDist,
     tileZ, heightAt, tileAt, axis, panelAxes, sample, samplePanel, sampleTile, heightfieldMesh, meshTris,
     toSTL, crc32, zip, heightmapPNG, uniqueTiles, tileFileName, layoutText, hash3, vnoise, fbm,
   };
@@ -898,16 +869,14 @@ var GlyphCore = (function () {
 
   const PRESETS = [
     ['THE UNION', { text: 'THE UNION-', flow: 'shift', shift: 3, blank: 'pyramid' }],
-    ['БЕТОН', { text: 'БЕТОН ', flow: 'shift', shift: 2, blank: 'pyramid' }],
-    ['МИР ТРУД МАЙ', { text: 'МИР^ТРУД~МАЙ ', flow: 'rows', blank: 'dome' }],
+    ['CONCRETE 1971', { text: 'CONCRETE^1971~', flow: 'rows', blank: 'pyramid' }],
     ['A–Z', { text: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', flow: 'rows', blank: 'flat' }],
-    ['А–Я', { text: 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', flow: 'rows', blank: 'flat' }],
     ['0–9', { text: '0123456789', flow: 'snake', blank: 'flat' }],
   ];
 
   const VIEW = [
     { id: 'az', label: 'Азимут света', type: 'range', min: 0, max: 360, step: 1, value: 135, unit: '°' },
-    { id: 'el', label: 'Высота света', type: 'range', min: 4, max: 90, step: 1, value: 38, unit: '°' },
+    { id: 'el', label: 'Высота света', type: 'range', min: 4, max: 90, step: 1, value: 40, unit: '°' },
     { id: 'material', label: 'Материал', type: 'select', value: 'concrete', options: [
       ['concrete', 'Бетон'], ['dark', 'Тёмный бетон'], ['white', 'Белый бетон'], ['print', 'Пластик (превью печати)']] },
     { id: 'texture', label: 'Фактура бетона', type: 'toggle', value: true, showIf: (v) => v.material !== 'print' },
@@ -1110,7 +1079,7 @@ var GlyphCore = (function () {
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.encoding = THREE.sRGBEncoding;
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    tex.repeat.set(1 / 70, 1 / 70);                          // UVs are in mm: one texture tile = 70 mm
+    tex.repeat.set(1 / 40, 1 / 40);                          // UVs are in mm: one texture tile = 40 mm
     return tex;
   }
   const concrete = makeConcreteTexture();
