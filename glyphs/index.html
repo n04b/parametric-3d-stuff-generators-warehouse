@@ -554,11 +554,7 @@ var GlyphCore = (function () {
   function tileZ(P, t, lx, ly) {
     const T = P.T, h = T / 2, bw = P.bw;
     const dE = Math.min(lx, ly, T - lx, T - ly);
-    if (t.shape === 'empty') {                                 // space: a flat tile of its own height
-      if (P.spaceH <= 0) return P.base;
-      const st = P.base + P.spaceH, sd = Math.min(P.drop, P.spaceH);
-      return bw > 0 && dE < bw ? st - sd * (1 - dE / bw) : st;
-    }
+    if (t.shape === 'empty') return P.base + P.spaceH;       // space: flat, no chamfer
     const top = P.top0 - t.dz;
     let z = top;
     if (bw > 0 && dE < bw) z = top - P.drop * (1 - dE / bw);
