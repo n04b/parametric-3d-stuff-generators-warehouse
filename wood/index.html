@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Текстура дерева</title>
+  <style>
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --accent-text: #ffffff;
+  --view: #d9d9d6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --panel: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9b9a94;
+    --line: #34332f;
+    --accent: #5b92ec;
+    --view: #2a2a28;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --panel: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #9b9a94;
+  --line: #34332f;
+  --accent: #5b92ec;
+  --view: #2a2a28;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 100vh;
+}
+
+#panel {
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+h1 { font-size: 18px; margin: 0 0 4px; }
+
+details { border-top: 1px solid var(--line); padding: 4px 0 8px; }
+summary {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 10px 0 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hint { color: var(--muted); margin: 0; font-size: 13px; }
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.field > span { font-size: 13px; }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+.field.bool { grid-template-columns: 1fr auto; }
+#panel > .field { grid-template-columns: 1fr 180px; margin: 16px 0; }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: progress; }
+.group-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+#stats {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+#stats dt { color: var(--muted); }
+#stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+#stats .warn { color: #c9582b; }
+
+.actions { display: flex; gap: 8px; margin: 16px 0 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; }
+
+#viewport { position: relative; background: var(--view); min-height: 0; overflow: hidden; }
+#viewport canvas { display: block; width: 100%; height: 100%; }
+
+#busy {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.view-tools {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
+  #viewport { grid-row: 1; height: 55vh; }
+  #panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+}
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>Текстура дерева</h1>
+      <p class="hint">Годичные кольца, сучки, трещины. Размеры в миллиметрах, экспорт в STL.</p>
+    </header>
+
+    <label class="field">
+      <span>Пресет</span>
+      <select id="preset"></select>
+    </label>
+
+    <div id="groups"></div>
+
+    <section id="stats"></section>
+
+    <div class="actions">
+      <button id="export" type="button" class="primary">Скачать STL</button>
+      <button id="share" type="button">Скопировать ссылку</button>
+    </div>
+    <p id="message" class="hint" role="status"></p>
+  </aside>
+
+  <main id="viewport">
+    <div id="busy" hidden>Генерация…</div>
+    <div class="view-tools">
+      <label><input type="checkbox" id="dark" checked> Тёмное дерево</label>
+      <label><input type="checkbox" id="wire"> Сетка</label>
+      <button id="reset-view" type="button">Сбросить вид</button>
+    </div>
+  </main>
+
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===== noise =====
+
+// Seeded 2D simplex noise (after Stefan Gustavson), fbm and integer hashing.
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const F2 = 0.5 * (Math.sqrt(3) - 1);
+const G2 = (3 - Math.sqrt(3)) / 6;
+const GRAD2 = new Float64Array([1, 1, -1, 1, 1, -1, -1, -1, 1, 0, -1, 0, 0, 1, 0, -1]);
+
+function createNoise2D(seed = 1) {
+  const rand = mulberry32(seed);
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const t = p[i];
+    p[i] = p[j];
+    p[j] = t;
+  }
+  const perm = new Uint8Array(512);
+  for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+
+  // Returns a value in roughly [-1, 1].
+  return function noise2D(x, y) {
+    const s = (x + y) * F2;
+    const i = Math.floor(x + s);
+    const j = Math.floor(y + s);
+    const t = (i + j) * G2;
+    const x0 = x - i + t;
+    const y0 = y - j + t;
+    const i1 = x0 > y0 ? 1 : 0;
+    const j1 = 1 - i1;
+    const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2;
+    const x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2;
+    const ii = i & 255, jj = j & 255;
+    let n = 0;
+    let t0 = 0.5 - x0 * x0 - y0 * y0;
+    if (t0 > 0) {
+      const g = (perm[ii + perm[jj]] & 7) * 2;
+      t0 *= t0;
+      n += t0 * t0 * (GRAD2[g] * x0 + GRAD2[g + 1] * y0);
+    }
+    let t1 = 0.5 - x1 * x1 - y1 * y1;
+    if (t1 > 0) {
+      const g = (perm[ii + i1 + perm[jj + j1]] & 7) * 2;
+      t1 *= t1;
+      n += t1 * t1 * (GRAD2[g] * x1 + GRAD2[g + 1] * y1);
+    }
+    let t2 = 0.5 - x2 * x2 - y2 * y2;
+    if (t2 > 0) {
+      const g = (perm[ii + 1 + perm[jj + 1]] & 7) * 2;
+      t2 *= t2;
+      n += t2 * t2 * (GRAD2[g] * x2 + GRAD2[g + 1] * y2);
+    }
+    return 70 * n;
+  };
+}
+
+// Fractal Brownian motion, normalised by the RMS of the octave amplitudes.
+function fbm(noise, x, y, octaves) {
+  let sum = 0;
+  let amp = 1;
+  let norm = 0;
+  let f = 1;
+  for (let o = 0; o < octaves; o++) {
+    sum += amp * noise(x * f + o * 17.3, y * f - o * 9.1);
+    norm += amp * amp;
+    amp *= 0.5;
+    f *= 2;
+  }
+  return sum / Math.sqrt(norm);
+}
+
+function hashInt(a, b, c) {
+  let h = a ^ Math.imul(b, 0x8da6b343) ^ Math.imul(c, 0xd8163841);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+const hash01 = (a, b, c = 0) => hashInt(a, b, c) / 4294967296;
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const smoothstep = (a, b, x) => {
+  const t = clamp01((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
+
+// Distance in mm to the nearest border of an anisotropic Voronoi diagram.
+// (su, sv) are coordinates already divided by the cell size (lu, lv) mm.
+// Each border survives with probability `keep`; dropped ones return Infinity.
+function voronoiBorder(seed, su, sv, lu, lv, keep) {
+  const xi = Math.floor(su), yi = Math.floor(sv);
+  let d1 = 1e9, d2 = 1e9;
+  let p1u = 0, p1v = 0, p2u = 0, p2v = 0, h1 = 0, h2 = 0;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const cx = xi + dx, cy = yi + dy;
+      const h = hashInt(seed, cx, cy);
+      const pu = cx + (h & 1023) / 1024;
+      const pv = cy + ((h >>> 10) & 1023) / 1024;
+      const d = (pu - su) * (pu - su) + (pv - sv) * (pv - sv);
+      if (d < d1) {
+        d2 = d1; p2u = p1u; p2v = p1v; h2 = h1;
+        d1 = d; p1u = pu; p1v = pv; h1 = h;
+      } else if (d < d2) {
+        d2 = d; p2u = pu; p2v = pv; h2 = h;
+      }
+    }
+  }
+  if (keep < 1) {
+    const lo = Math.min(h1, h2), hi = Math.max(h1, h2);
+    if (hash01(seed + 1, lo, hi) >= keep) return Infinity;
+  }
+  // The border is the bisector of p1 and p2 in scaled space; its gradient
+  // in real millimetres is (a_u / lu, a_v / lv).
+  const au = (p2u - p1u) / lu, av = (p2v - p1v) / lv;
+  return (d2 - d1) / (2 * Math.sqrt(au * au + av * av));
+}
+
+// ===== params =====
+
+const TAU = Math.PI * 2;
+
+const GROUPS = {
+  board: 'Доска',
+  grain: 'Годичные кольца',
+  relief: 'Рельеф',
+  knots: 'Сучки',
+  cracks: 'Трещины',
+};
+
+const hasKnots = (s) => s.knots > 0;
+const hasCracks = (s) => s.cracks;
+const hasChecks = (s) => s.cracks && s.checks;
+const hasSplits = (s) => s.cracks && s.splits;
+
+const PARAMS = [
+  { key: 'width', group: 'board', label: 'Ширина, мм', type: 'number', min: 10, max: 2000, step: 1, value: 140 },
+  { key: 'height', group: 'board', label: 'Длина, мм', type: 'number', min: 10, max: 2000, step: 1, value: 260 },
+  { key: 'base', group: 'board', label: 'Толщина основания, мм', type: 'number', min: 0.4, max: 100, step: 0.1, value: 3 },
+  { key: 'resolution', group: 'board', label: 'Шаг сетки, мм', type: 'number', min: 0.05, max: 5, step: 0.05, value: 0.3 },
+
+  { key: 'seed', group: 'grain', label: 'Сид', type: 'int', min: 0, max: 99999, step: 1, value: 11 },
+  { key: 'angle', group: 'grain', label: 'Направление волокон, °', type: 'number', min: 0, max: 180, step: 1, value: 90 },
+  { key: 'ringSpacing', group: 'grain', label: 'Ширина годичного кольца, мм', type: 'number', min: 0.5, max: 30, step: 0.1, value: 3 },
+  { key: 'ringVar', group: 'grain', label: 'Неравномерность колец', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5 },
+  { key: 'cutDepth', group: 'grain', label: 'Расстояние до сердцевины, мм', type: 'number', min: 0, max: 600, step: 1, value: 30 },
+  { key: 'pithOffset', group: 'grain', label: 'Смещение сердцевины, мм', type: 'number', min: -600, max: 600, step: 1, value: -25 },
+  { key: 'tilt', group: 'grain', label: 'Наклон ствола, °', type: 'number', min: 0, max: 20, step: 0.1, value: 4 },
+  { key: 'warpAmp', group: 'grain', label: 'Изгиб волокон, мм', type: 'number', min: 0, max: 60, step: 0.5, value: 4 },
+  { key: 'warpScale', group: 'grain', label: 'Масштаб изгибов, мм', type: 'number', min: 5, max: 600, step: 1, value: 60 },
+  { key: 'stretch', group: 'grain', label: 'Вытянутость изгибов', type: 'number', min: 1, max: 12, step: 0.1, value: 5 },
+  { key: 'swirl', group: 'grain', label: 'Завихрения', type: 'number', min: 0, max: 4, step: 0.05, value: 0.4 },
+
+  { key: 'ringDepth', group: 'relief', label: 'Глубина колец, мм', type: 'number', min: 0, max: 20, step: 0.1, value: 2 },
+  { key: 'latewood', group: 'relief', label: 'Ширина гребня (доля кольца)', type: 'number', min: 0.05, max: 0.9, step: 0.01, value: 0.3 },
+  { key: 'groove', group: 'relief', label: 'Форма впадины (V ↔ U)', type: 'number', min: 0.2, max: 5, step: 0.05, value: 1.6 },
+  { key: 'asym', group: 'relief', label: 'Асимметрия впадины', type: 'number', min: -1, max: 1, step: 0.05, value: 0.4 },
+  { key: 'ridgeVar', group: 'relief', label: 'Разброс высоты гребней', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4 },
+  { key: 'wear', group: 'relief', label: 'Неравномерный износ', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
+  { key: 'fibers', group: 'relief', label: 'Волокна, мм', type: 'number', min: 0, max: 3, step: 0.05, value: 0.25 },
+  { key: 'fiberWidth', group: 'relief', label: 'Толщина волокна, мм', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6 },
+  { key: 'swell', group: 'relief', label: 'Крупные волны, мм', type: 'number', min: 0, max: 30, step: 0.1, value: 1 },
+  { key: 'swellScale', group: 'relief', label: 'Размер волн, мм', type: 'number', min: 10, max: 800, step: 1, value: 120 },
+  { key: 'blur', group: 'relief', label: 'Сглаживание, мм', type: 'number', min: 0, max: 5, step: 0.05, value: 0 },
+
+  { key: 'knots', group: 'knots', label: 'Количество', type: 'int', min: 0, max: 20, step: 1, value: 2 },
+  { key: 'knotSeed', group: 'knots', label: 'Сид сучков', type: 'int', min: 0, max: 99999, step: 1, value: 3, when: hasKnots },
+  { key: 'knotSize', group: 'knots', label: 'Радиус, мм', type: 'number', min: 1, max: 100, step: 0.5, value: 14, when: hasKnots },
+  { key: 'knotSizeVar', group: 'knots', label: 'Разброс размера', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4, when: hasKnots },
+  { key: 'knotAspect', group: 'knots', label: 'Вытянутость вдоль волокон', type: 'number', min: 1, max: 5, step: 0.05, value: 1.6, when: hasKnots },
+  { key: 'knotFlow', group: 'knots', label: 'Обтекание кольцами', type: 'number', min: 0, max: 1, step: 0.01, value: 0.9, when: hasKnots },
+  { key: 'knotReach', group: 'knots', label: 'Зона обтекания, × радиус', type: 'number', min: 1.2, max: 10, step: 0.1, value: 4, when: hasKnots },
+  { key: 'knotRings', group: 'knots', label: 'Шаг колец сучка, мм', type: 'number', min: 0.3, max: 15, step: 0.1, value: 1.4, when: hasKnots },
+  { key: 'knotHeight', group: 'knots', label: 'Высота сучка, мм', type: 'number', min: -20, max: 20, step: 0.1, value: 0.5, when: hasKnots },
+  { key: 'knotCracks', group: 'knots', label: 'Радиальные трещины, шт', type: 'int', min: 0, max: 12, step: 1, value: 4, when: (s) => hasKnots(s) && hasCracks(s) },
+  { key: 'knotRim', group: 'knots', label: 'Трещина по контуру', type: 'bool', value: true, when: (s) => hasKnots(s) && hasCracks(s) },
+  { key: 'knotCrackDepth', group: 'knots', label: 'Глубина трещин сучка, мм', type: 'number', min: 0, max: 20, step: 0.1, value: 1.5, when: (s) => hasKnots(s) && hasCracks(s) && (s.knotCracks > 0 || s.knotRim) },
+
+  { key: 'cracks', group: 'cracks', label: 'Трещины (все, включая сучки)', type: 'bool', value: true },
+  { key: 'crackWidth', group: 'cracks', label: 'Ширина трещин, мм', type: 'number', min: 0.1, max: 6, step: 0.05, value: 0.8, when: hasCracks },
+  { key: 'crackJag', group: 'cracks', label: 'Рваность', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5, when: hasCracks },
+  { key: 'checks', group: 'cracks', label: 'Поперечные', type: 'bool', value: true, when: hasCracks },
+  { key: 'checkDepth', group: 'cracks', label: 'Поперечные: глубина, мм', type: 'number', min: 0, max: 20, step: 0.1, value: 1.2, when: hasChecks },
+  { key: 'checkSpacing', group: 'cracks', label: 'Поперечные: шаг вдоль волокон, мм', type: 'number', min: 2, max: 300, step: 0.5, value: 14, when: hasChecks },
+  { key: 'checkLength', group: 'cracks', label: 'Поперечные: длина, мм', type: 'number', min: 2, max: 300, step: 0.5, value: 20, when: hasChecks },
+  { key: 'checkCover', group: 'cracks', label: 'Поперечные: доля', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5, when: hasChecks },
+  { key: 'splits', group: 'cracks', label: 'Продольные', type: 'bool', value: true, when: hasCracks },
+  { key: 'splitDepth', group: 'cracks', label: 'Продольные: глубина, мм', type: 'number', min: 0, max: 20, step: 0.1, value: 1.2, when: hasSplits },
+  { key: 'splitDensity', group: 'cracks', label: 'Продольные: доля колец', type: 'number', min: 0, max: 1, step: 0.01, value: 0.15, when: hasSplits },
+  { key: 'splitLength', group: 'cracks', label: 'Продольные: длина, мм', type: 'number', min: 5, max: 800, step: 1, value: 60, when: hasSplits },
+];
+
+const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
+
+// Starting points modelled on the reference photos; unlisted keys keep defaults.
+const PRESETS = [
+  {
+    name: 'Обожжённая доска с сучками',
+    params: {},
+  },
+  {
+    name: 'Тёмная доска со свилью',
+    params: {
+      width: 150, height: 270, angle: 0, seed: 4,
+      ringSpacing: 2.2, ringVar: 0.6, cutDepth: 0, pithOffset: -320, tilt: 0,
+      warpAmp: 9, warpScale: 110, stretch: 3, swirl: 0.7,
+      ringDepth: 1.1, latewood: 0.22, groove: 1.3, asym: 0.5, ridgeVar: 0.5, wear: 0.4,
+      fibers: 0.2, fiberWidth: 0.5, swell: 7, swellScale: 110,
+      knots: 1, knotSeed: 8, knotSize: 22, knotSizeVar: 0, knotAspect: 3, knotFlow: 1, knotReach: 5,
+      knotRings: 2.2, knotHeight: -1, knotCracks: 0, knotRim: false,
+      crackWidth: 0.5, crackJag: 0.6, checkDepth: 0.8, checkSpacing: 7, checkLength: 14, checkCover: 0.35,
+      splits: false,
+    },
+  },
+  {
+    name: 'Выветренная коряга',
+    params: {
+      width: 180, height: 240, angle: 70, seed: 27,
+      ringSpacing: 4, ringVar: 0.7, cutDepth: 10, pithOffset: -60, tilt: 1,
+      warpAmp: 12, warpScale: 150, stretch: 2.5, swirl: 0.5,
+      ringDepth: 3.5, latewood: 0.18, groove: 0.6, asym: 0, ridgeVar: 0.5, wear: 0.5,
+      fibers: 0.35, fiberWidth: 0.9, swell: 5, swellScale: 140, blur: 0.2,
+      knots: 2, knotSeed: 5, knotSize: 9, knotSizeVar: 0.3, knotAspect: 1.4, knotFlow: 1, knotReach: 5,
+      knotRings: 1.2, knotHeight: 1, knotCracks: 3, knotRim: false, knotCrackDepth: 2,
+      crackWidth: 1.2, crackJag: 0.7, checkDepth: 1.5, checkSpacing: 12, checkLength: 10, checkCover: 0.3,
+      splitDepth: 3, splitDensity: 0.3, splitLength: 50,
+    },
+  },
+  {
+    name: 'Строганая доска (арки)',
+    params: {
+      width: 120, height: 300, seed: 2,
+      ringSpacing: 4, ringVar: 0.4, cutDepth: 80, pithOffset: 8, tilt: 3,
+      warpAmp: 3, warpScale: 90, stretch: 6, swirl: 0.2,
+      ringDepth: 0.8, latewood: 0.3, groove: 1.5, ridgeVar: 0.2, wear: 0, fibers: 0.1, swell: 0,
+      knots: 1, knotSeed: 12, knotSize: 8, knotHeight: 0.2, knotCracks: 0, knotRim: false,
+      cracks: false,
+    },
+  },
+];
+
+// ===== heightmap =====
+
+// Wood model: a log whose axis runs along the grain (u) is cut by a plane at
+// `cutDepth` from the pith. Growth rings are iso-lines of the distance to the
+// axis, bent by noise; knots push the rings aside like potential flow past an
+// obstacle and carry rings of their own. Everything is sampled on a regular
+// grid (mm) and turned into a height above the base.
+
+function placeKnots(p, grainV, ca, sa) {
+  const rand = mulberry32(p.knotSeed * 31 + 17);
+  const asp = p.knotAspect;
+  const knots = [];
+  for (let k = 0; k < p.knots; k++) {
+    const R = p.knotSize * (1 - p.knotSizeVar * rand());
+    for (let attempt = 0; attempt < 80; attempt++) {
+      const x = (rand() - 0.5) * p.width * 0.92;
+      const y = (rand() - 0.5) * p.height * 0.92;
+      const u = x * ca + y * sa;
+      const v = grainV(u, -x * sa + y * ca);
+      const clear = knots.every((o) => Math.hypot((u - o.u) / asp, v - o.v) > (R + o.R) * 1.5);
+      if (!clear) continue;
+      const cracks = [];
+      const nc = p.knotCracks;
+      const phi0 = rand() * TAU;
+      for (let c = 0; c < nc; c++) {
+        const phi = phi0 + (c * TAU) / nc + (rand() - 0.5) * (TAU / nc) * 0.7;
+        const du = Math.cos(phi) * asp, dv = Math.sin(phi);
+        const len = Math.hypot(du, dv);
+        cracks.push({ du: du / len, dv: dv / len, reach: 0.55 + 0.6 * rand() });
+      }
+      knots.push({ u, v, R, cracks, rimPhase: rand() * 100 });
+      break;
+    }
+  }
+  return knots;
+}
+
+function gridSize(p, res) {
+  const step = Math.max(res, 0.02);
+  return {
+    nx: Math.max(2, Math.ceil(p.width / step) + 1),
+    ny: Math.max(2, Math.ceil(p.height / step) + 1),
+  };
+}
+
+function blurGrid(a, nx, ny, sx, sy) {
+  const tmp = new Float32Array(a.length);
+  const kernel = (s) => {
+    const r = Math.max(1, Math.ceil(s * 3));
+    const k = new Float32Array(2 * r + 1);
+    let sum = 0;
+    for (let i = -r; i <= r; i++) sum += k[i + r] = Math.exp(-(i * i) / (2 * s * s));
+    for (let i = 0; i < k.length; i++) k[i] /= sum;
+    return { r, k };
+  };
+  if (sx > 0.35) {
+    const { r, k } = kernel(sx);
+    for (let j = 0; j < ny; j++) {
+      const row = j * nx;
+      for (let i = 0; i < nx; i++) {
+        let acc = 0;
+        for (let t = -r; t <= r; t++) acc += k[t + r] * a[row + Math.min(nx - 1, Math.max(0, i + t))];
+        tmp[row + i] = acc;
+      }
+    }
+  } else tmp.set(a);
+  if (sy > 0.35) {
+    const { r, k } = kernel(sy);
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        let acc = 0;
+        for (let t = -r; t <= r; t++) acc += k[t + r] * tmp[Math.min(ny - 1, Math.max(0, j + t)) * nx + i];
+        a[j * nx + i] = acc;
+      }
+    }
+  } else a.set(tmp);
+}
+
+function buildHeightmap(p, res) {
+  const W = p.width, L = p.height;
+  const { nx, ny } = gridSize(p, res);
+  const dx = W / (nx - 1), dy = L / (ny - 1);
+  const N = nx * ny;
+
+  const seed = p.seed | 0;
+  const nSwirlA = createNoise2D(seed * 8 + 1);
+  const nSwirlB = createNoise2D(seed * 8 + 2);
+  const nWarp = createNoise2D(seed * 8 + 3);
+  const nRing = createNoise2D(seed * 8 + 4);
+  const nFiber = createNoise2D(seed * 8 + 5);
+  const nSwell = createNoise2D(seed * 8 + 6);
+  const nCrack = createNoise2D(seed * 8 + 7);
+
+  const ang = (p.angle * Math.PI) / 180;
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+
+  // Across-grain coordinate after the large-scale bending of the fibres.
+  // A nested domain warp (swirl) lets the bends fold into eddies.
+  const invWS = 1 / p.warpScale, st = Math.max(1, p.stretch);
+  const warpAmp = p.warpAmp, swirl = p.swirl;
+  const grainV = (u0, v0) => {
+    if (warpAmp === 0) return v0;
+    const wu = (u0 * invWS) / st, wv = v0 * invWS;
+    let qu = 0, qv = 0;
+    if (swirl > 0) {
+      qu = swirl * fbm(nSwirlA, wu, wv, 2);
+      qv = swirl * fbm(nSwirlB, wu + 5.2, wv + 1.3, 2);
+    }
+    return v0 + warpAmp * fbm(nWarp, wu + qu, wv + qv, 3);
+  };
+
+  const knots = placeKnots(p, grainV, ca, sa);
+  const asp = p.knotAspect, flow = p.knotFlow, reach = p.knotReach;
+  const knotRingSp = p.knotRings, knotH = p.knotHeight;
+  const halfW = p.crackWidth / 2, jag = p.crackJag;
+  const knotCrackDepth = p.cracks ? p.knotCrackDepth : 0;
+
+  const sp = p.ringSpacing, ringVarA = p.ringVar * 1.1;
+  const tanTilt = Math.tan((p.tilt * Math.PI) / 180);
+  const cut = p.cutDepth, pith = p.pithOffset;
+
+  const fibers = p.fibers, fw = p.fiberWidth;
+  const swell = p.swell, ss = p.swellScale, ssu = ss * Math.sqrt(st);
+  const wear = p.wear, ringDepth = p.ringDepth;
+
+  const checkDepth = p.cracks && p.checks ? p.checkDepth : 0, lu = p.checkSpacing, lv = p.checkLength;
+  const checkSeed = seed * 13 + 5;
+
+  const ringN = new Float64Array(N);  // ring coordinate: 1 per annual ring
+  const across = new Float32Array(N); // bent across-grain coordinate, mm
+  const H = new Float32Array(N);      // height above base, mm
+  const cut_ = new Float32Array(N);   // crack depth to subtract, mm
+  const ringAmp = new Float32Array(N);
+
+  const lift = Math.max(0, -knotH);
+
+  for (let j = 0; j < ny; j++) {
+    const y = -L / 2 + j * dy;
+    for (let i = 0; i < nx; i++) {
+      const x = -W / 2 + i * dx;
+      const k = j * nx + i;
+      const u0 = x * ca + y * sa;
+      const v0 = -x * sa + y * ca;
+      const v1 = grainV(u0, v0);
+
+      // Knots: stream function of flow past an ellipse, windowed to `reach`.
+      let shift = 0, inside = null, insideD = 0, knotMask = 0, crack = 0;
+      for (let q = 0; q < knots.length; q++) {
+        const K = knots[q];
+        const du = (u0 - K.u) / asp, dv = v1 - K.v;
+        const d2 = du * du + dv * dv;
+        const R = K.R, far = R * Math.max(reach, 1.3);
+        if (d2 >= far * far) continue;
+        const d = Math.sqrt(d2);
+        if (d < R) {
+          shift += flow * dv;
+          inside = K;
+          insideD = d;
+        } else if (d < R * reach) {
+          shift += flow * dv * ((R * R) / d2) * (1 - smoothstep(R, R * reach, d));
+        }
+        if (d < R * 1.1) knotMask = Math.max(knotMask, 1 - smoothstep(R * 0.88, R * 1.05, d));
+        if (knotCrackDepth > 0 && d < R * 1.3) {
+          const ru = u0 - K.u, t = d / R;
+          for (const c of K.cracks) {
+            if (ru * c.du + dv * c.dv <= 0 || t > c.reach) continue;
+            const perp = Math.abs(ru * c.dv - dv * c.du);
+            const hw = halfW * (0.3 + 0.7 * Math.min(t, 1)) * (1 - smoothstep(c.reach * 0.6, c.reach, t));
+            if (perp < hw) crack = Math.max(crack, knotCrackDepth * (1 - smoothstep(0, hw, perp)));
+          }
+          if (p.knotRim) {
+            const th = Math.atan2(dv, du);
+            const act = smoothstep(-0.1, 0.35, nCrack(Math.cos(th) * 1.3 + K.rimPhase, Math.sin(th) * 1.3 - K.rimPhase));
+            const hw = halfW * act;
+            const dist = Math.abs(d - R);
+            if (dist < hw) crack = Math.max(crack, knotCrackDepth * act * (1 - smoothstep(0, hw, dist)));
+          }
+        }
+      }
+      const v2 = v1 - shift;
+      across[k] = v2;
+
+      // Growth rings: distance to the (tilted) log axis, with uneven years.
+      const zc = cut + u0 * tanTilt;
+      const dvp = v2 - pith;
+      const r = Math.sqrt(dvp * dvp + zc * zc);
+      let n = (r + ringVarA * sp * nRing(r / (sp * 6), 0.37)) / sp;
+      if (inside) n -= ((1 - insideD / inside.R) * inside.R) / knotRingSp;
+      ringN[k] = n;
+
+      let h = lift + knotH * knotMask;
+      if (fibers > 0) h += fibers * (1 - knotMask) * (0.5 + 0.5 * fbm(nFiber, u0 / (fw * 12), v2 / fw, 2));
+      if (swell > 0) h += swell * (0.5 + 0.5 * fbm(nSwell, u0 / ssu, v0 / ss, 3));
+      H[k] = h;
+      ringAmp[k] = wear > 0
+        ? ringDepth * (1 - wear * (0.5 + 0.5 * fbm(nSwell, u0 / (ssu * 0.6) + 40, v0 / (ss * 0.6) + 17, 2)))
+        : ringDepth;
+
+      // Checks: a sparse anisotropic Voronoi network, short along the grain.
+      // It follows the bent grain (v1) but not the knots, which squeeze v2
+      // to a constant inside them.
+      if (checkDepth > 0) {
+        const ju = jag * lu * 0.12 * nCrack(u0 / (lu * 0.7), v1 / (lv * 0.7));
+        const jv = jag * lv * 0.12 * nCrack(u0 / (lu * 0.7) + 31, v1 / (lv * 0.7) + 9);
+        const wob = jag * halfW * 0.8 * nCrack(u0 / 0.9, v1 / 0.9);
+        const dist = voronoiBorder(checkSeed, (u0 + ju) / lu, (v1 + jv) / lv, lu, lv, p.checkCover) + wob;
+        if (dist < halfW) crack = Math.max(crack, checkDepth * (1 - knotMask) * (1 - smoothstep(0, halfW, Math.max(0, dist))));
+      }
+      cut_[k] = crack;
+    }
+  }
+
+  // Second pass: ring profile and splits (need |grad n| from neighbours).
+  const lw = p.latewood, hl = lw / 2;
+  const mid = hl + (1 - lw) * (0.5 - 0.45 * p.asym);
+  const gp = p.groove, ridgeVar = p.ridgeVar;
+  const splitDepth = p.cracks && p.splits ? p.splitDepth : 0, splitDensity = p.splitDensity, splitLen = p.splitLength;
+  const ringSeed = seed * 7 + 3, splitSeed = seed * 11 + 9;
+
+  let maxH = 0;
+  for (let j = 0; j < ny; j++) {
+    const y = -L / 2 + j * dy;
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      const n = ringN[k];
+      // Ridges (latewood) sit at integer ph; earlywood grooves in between.
+      const ph = n - (1 - hl);
+      const fl = Math.floor(ph);
+      const f = ph - fl;
+      let prof, ring;
+      if (f < mid) {
+        ring = fl;
+        prof = f <= hl ? 1 : Math.pow(1 - (f - hl) / (mid - hl), gp);
+      } else {
+        ring = fl + 1;
+        prof = f >= 1 - hl ? 1 : Math.pow(1 - (1 - hl - f) / (1 - hl - mid), gp);
+      }
+      const amp = 1 - ridgeVar * hash01(ringSeed, ring);
+      let h = H[k] + ringAmp[k] * amp * prof;
+
+      let crack = cut_[k];
+      if (splitDepth > 0) {
+        const ps = ph - hl;
+        const kk = Math.round(ps);
+        if (hash01(splitSeed, kk) < splitDensity) {
+          const x = -W / 2 + i * dx;
+          const u0 = x * ca + y * sa;
+          const act = smoothstep(0, 0.35, nCrack(u0 / splitLen, kk * 1.618));
+          if (act > 0) {
+            const il = i > 0 ? k - 1 : k, ir = i < nx - 1 ? k + 1 : k;
+            const jd = j > 0 ? k - nx : k, ju = j < ny - 1 ? k + nx : k;
+            const gx = (ringN[ir] - ringN[il]) / ((ir - il) * dx || 1);
+            const gy = (ringN[ju] - ringN[jd]) / (((ju - jd) / nx) * dy || 1);
+            const g = Math.max(Math.hypot(gx, gy), 1e-4);
+            const hw = halfW * act;
+            const dist = Math.abs(ps - kk) / g + jag * hw * 0.7 * nCrack(u0 / 1.2 + kk, across[k] / 1.2);
+            if (dist < hw) crack = Math.max(crack, splitDepth * act * (1 - smoothstep(0, hw, Math.max(0, dist))));
+          }
+        }
+      }
+      h = Math.max(0, h - crack);
+      H[k] = h;
+    }
+  }
+
+  if (p.blur > 0) blurGrid(H, nx, ny, p.blur / dx, p.blur / dy);
+  for (let k = 0; k < N; k++) if (H[k] > maxH) maxH = H[k];
+
+  return { nx, ny, dx, dy, H, maxH, knotsPlaced: knots.length };
+}
+
+// ===== mesh =====
+
+// Closed solid: relief on top, flat bottom at z = 0 fanned from the centre,
+// vertical side walls. Triangles are counter-clockwise seen from outside.
+
+function estimateTriangles(p, res) {
+  const { nx, ny } = gridSize(p, res);
+  return 2 * (nx - 1) * (ny - 1) + 3 * (2 * (nx - 1) + 2 * (ny - 1));
+}
+
+function buildMesh(p, res) {
+  const g = buildHeightmap(p, res);
+  const { nx, ny, dx, dy, H } = g;
+  const W = p.width, L = p.height;
+  const nTop = nx * ny;
+
+  const loop = [];
+  for (let i = 0; i < nx - 1; i++) loop.push(i);
+  for (let j = 0; j < ny - 1; j++) loop.push(j * nx + nx - 1);
+  for (let i = nx - 1; i > 0; i--) loop.push((ny - 1) * nx + i);
+  for (let j = ny - 1; j > 0; j--) loop.push(j * nx);
+  const nl = loop.length;
+
+  const positions = new Float32Array((nTop + nl + 1) * 3);
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      positions[k * 3] = -W / 2 + i * dx;
+      positions[k * 3 + 1] = -L / 2 + j * dy;
+      positions[k * 3 + 2] = p.base + H[k];
+    }
+  }
+  for (let m = 0; m < nl; m++) {
+    const src = loop[m] * 3, dst = (nTop + m) * 3;
+    positions[dst] = positions[src];
+    positions[dst + 1] = positions[src + 1];
+    positions[dst + 2] = 0;
+  }
+  const center = nTop + nl; // stays at (0, 0, 0)
+
+  const indices = new Uint32Array(((nx - 1) * (ny - 1) * 2 + nl * 3) * 3);
+  let o = 0;
+  for (let j = 0; j < ny - 1; j++) {
+    for (let i = 0; i < nx - 1; i++) {
+      const a = j * nx + i, b = a + 1, c = a + nx + 1, d = a + nx;
+      indices[o++] = a; indices[o++] = b; indices[o++] = c;
+      indices[o++] = a; indices[o++] = c; indices[o++] = d;
+    }
+  }
+  for (let m = 0; m < nl; m++) {
+    const a = loop[m], b = loop[(m + 1) % nl];
+    const ab = nTop + m, bb = nTop + ((m + 1) % nl);
+    indices[o++] = ab; indices[o++] = bb; indices[o++] = b;
+    indices[o++] = ab; indices[o++] = b; indices[o++] = a;
+    indices[o++] = center; indices[o++] = bb; indices[o++] = ab;
+  }
+  return { positions, indices, maxH: g.maxH, knotsPlaced: g.knotsPlaced };
+}
+
+// ===== stl =====
+
+function meshToSTL({ positions, indices }, header = '3d-textures wood generator') {
+  const triCount = indices.length / 3;
+  const buffer = new ArrayBuffer(84 + triCount * 50);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < Math.min(80, header.length); i++) bytes[i] = header.charCodeAt(i) & 0x7f;
+  view.setUint32(80, triCount, true);
+
+  let o = 84;
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = indices[t] * 3, b = indices[t + 1] * 3, c = indices[t + 2] * 3;
+    const ax = positions[a], ay = positions[a + 1], az = positions[a + 2];
+    const bx = positions[b], by = positions[b + 1], bz = positions[b + 2];
+    const cx = positions[c], cy = positions[c + 1], cz = positions[c + 2];
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    view.setFloat32(o, nx, true); view.setFloat32(o + 4, ny, true); view.setFloat32(o + 8, nz, true);
+    view.setFloat32(o + 12, ax, true); view.setFloat32(o + 16, ay, true); view.setFloat32(o + 20, az, true);
+    view.setFloat32(o + 24, bx, true); view.setFloat32(o + 28, by, true); view.setFloat32(o + 32, bz, true);
+    view.setFloat32(o + 36, cx, true); view.setFloat32(o + 40, cy, true); view.setFloat32(o + 44, cz, true);
+    view.setUint16(o + 48, 0, true);
+    o += 50;
+  }
+  return buffer;
+}
+
+// ===== main =====
+
+const PREVIEW_MAX_TRIANGLES = 600_000;
+const EXPORT_WARN_TRIANGLES = 8_000_000;
+
+const state = { ...DEFAULTS, ...PRESETS[0].params };
+const fromHash = readHash();
+
+const $ = (id) => document.getElementById(id);
+const controlsByKey = new Map();
+
+// ---------- form ----------
+
+function makeControl(p) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  wrap.append(title);
+
+  if (p.type === 'bool') {
+    wrap.classList.add('bool');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => update(p.key, box.checked));
+    wrap.append(box);
+    controlsByKey.set(p.key, { wrap, set: (v) => (box.checked = v) });
+  } else {
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.min = p.min; num.max = p.max; num.step = p.step;
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = p.min; range.max = p.max; range.step = p.step;
+    const parse = (v) => {
+      let x = Number(v);
+      if (!Number.isFinite(x)) return null;
+      if (p.type === 'int') x = Math.round(x);
+      return Math.min(p.max, Math.max(p.min, x));
+    };
+    num.addEventListener('change', () => {
+      const x = parse(num.value);
+      if (x === null) { num.value = state[p.key]; return; }
+      num.value = x; range.value = x;
+      update(p.key, x);
+    });
+    range.addEventListener('input', () => {
+      const x = parse(range.value);
+      num.value = x;
+      update(p.key, x);
+    });
+    wrap.append(num, range);
+    controlsByKey.set(p.key, { wrap, set: (v) => { num.value = v; range.value = v; } });
+  }
+  return wrap;
+}
+
+const groupBodies = {};
+for (const [id, title] of Object.entries(GROUPS)) {
+  const det = document.createElement('details');
+  det.open = true;
+  const sum = document.createElement('summary');
+  sum.textContent = title;
+  det.append(sum);
+  groupBodies[id] = det;
+  $('groups').append(det);
+}
+for (const p of PARAMS) groupBodies[p.group].append(makeControl(p));
+
+function addButton(group, text, onClick) {
+  let row = groupBodies[group].querySelector('.group-actions');
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'group-actions';
+    groupBodies[group].append(row);
+  }
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = text;
+  b.addEventListener('click', onClick);
+  row.append(b);
+  return b;
+}
+const randomize = (key) => () => {
+  update(key, Math.floor(Math.random() * 100000));
+  controlsByKey.get(key).set(state[key]);
+};
+addButton('grain', 'Случайный сид', randomize('seed'));
+const knotReseed = addButton('knots', 'Переставить сучки', randomize('knotSeed'));
+
+PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
+$('preset').add(new Option('— свои настройки —', 'custom'));
+$('preset').value = fromHash ? 'custom' : 0;
+$('preset').addEventListener('change', () => {
+  const pr = PRESETS[Number($('preset').value)];
+  if (!pr) return;
+  Object.assign(state, DEFAULTS, pr.params);
+  syncForm();
+  schedule();
+});
+
+function syncVisibility() {
+  for (const p of PARAMS) controlsByKey.get(p.key).wrap.hidden = p.when ? !p.when(state) : false;
+  knotReseed.hidden = !hasKnots(state);
+}
+
+function syncForm() {
+  for (const p of PARAMS) controlsByKey.get(p.key).set(state[p.key]);
+  syncVisibility();
+}
+
+function update(key, value) {
+  state[key] = value;
+  if (key !== 'resolution') $('preset').value = 'custom';
+  syncVisibility();
+  schedule();
+}
+
+// ---------- scene ----------
+
+const viewport = $('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+viewport.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20000);
+camera.up.set(0, 0, 1);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.1));
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.6);
+keyLight.position.set(-1, 0.7, 0.9);
+scene.add(keyLight);
+const rim = new THREE.DirectionalLight(0xffffff, 0.5);
+rim.position.set(1, -1, 0.4);
+scene.add(rim);
+
+const material = new THREE.MeshStandardMaterial({ roughness: 0.75, metalness: 0 });
+function applyMaterial() {
+  material.color.set($('dark').checked ? 0x3b3531 : 0xf2f1ee);
+  material.wireframe = $('wire').checked;
+}
+applyMaterial();
+$('dark').addEventListener('change', applyMaterial);
+$('wire').addEventListener('change', applyMaterial);
+let object = null;
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewport);
+
+function frameObject() {
+  const size = Math.max(state.width, state.height);
+  const d = size * 1.7;
+  const tilt = 1.05;
+  camera.position.set(0, -d * Math.cos(tilt), d * Math.sin(tilt) + state.base);
+  orbit.target.set(0, 0, state.base);
+  camera.near = size / 200;
+  camera.far = size * 20;
+  camera.updateProjectionMatrix();
+  orbit.update();
+}
+$('reset-view').addEventListener('click', frameObject);
+
+(function loop() {
+  orbit.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+// ---------- generation ----------
+
+// Coarsens the grid step until the preview fits the triangle budget.
+function previewResolution() {
+  let res = state.resolution;
+  const tris = estimateTriangles(state, res);
+  if (tris > PREVIEW_MAX_TRIANGLES) res *= Math.sqrt(tris / PREVIEW_MAX_TRIANGLES);
+  return res;
+}
+
+let timer = 0;
+let lastFrameKey = '';
+function schedule() {
+  clearTimeout(timer);
+  $('busy').hidden = false;
+  timer = setTimeout(regenerate, 60);
+}
+
+function regenerate() {
+  const res = previewResolution();
+  const mesh = buildMesh(state, res);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+  geo.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
+  geo.computeVertexNormals();
+  if (object) { scene.remove(object); object.geometry.dispose(); }
+  object = new THREE.Mesh(geo, material);
+  scene.add(object);
+
+  const frameKey = [state.width, state.height].join();
+  if (frameKey !== lastFrameKey) { frameObject(); lastFrameKey = frameKey; }
+
+  renderStats(res, mesh);
+  writeHash();
+  $('busy').hidden = true;
+}
+
+function renderStats(previewRes, mesh) {
+  const tris = estimateTriangles(state, state.resolution);
+  const mb = (84 + tris * 50) / 1048576;
+  const rows = [
+    ['Габариты, мм', `${state.width} × ${state.height} × ${+(state.base + mesh.maxH).toFixed(1)}`],
+    ['Треугольников в STL', tris.toLocaleString('ru')],
+    ['Размер файла', `${mb.toFixed(1)} МБ`],
+  ];
+  if (state.knots > 0) rows.push(['Сучков', mesh.knotsPlaced < state.knots ? `${mesh.knotsPlaced} из ${state.knots} (не влезли)` : `${mesh.knotsPlaced}`]);
+  if (previewRes > state.resolution * 1.01) rows.push(['Шаг превью', `${previewRes.toFixed(2)} мм`]);
+  $('stats').innerHTML = '<dl style="display:contents">' + rows
+    .map(([k, v]) => `<dt>${k}</dt><dd${tris > EXPORT_WARN_TRIANGLES && k.startsWith('Тре') ? ' class="warn"' : ''}>${v}</dd>`)
+    .join('') + '</dl>';
+}
+
+// ---------- export & sharing ----------
+
+$('export').addEventListener('click', () => {
+  const params = { ...state };
+  const tris = estimateTriangles(params, params.resolution);
+  if (tris > EXPORT_WARN_TRIANGLES &&
+    !confirm(`Будет ${tris.toLocaleString('ru')} треугольников (~${Math.round((tris * 50) / 1048576)} МБ). Продолжить? Можно увеличить шаг сетки.`)) return;
+  const btn = $('export');
+  btn.disabled = true;
+  $('message').textContent = 'Строю сетку для экспорта…';
+  setTimeout(() => {
+    try {
+      const mesh = buildMesh(params, params.resolution);
+      const blob = new Blob([meshToSTL(mesh)], { type: 'model/stl' });
+      const name = `wood-${params.width}x${params.height}-${params.seed}.stl`;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+      $('message').textContent = `Сохранено: ${name}`;
+    } catch (e) {
+      $('message').textContent = `Ошибка: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  }, 30);
+});
+
+function writeHash() {
+  const q = new URLSearchParams();
+  for (const p of PARAMS) if (state[p.key] !== p.value) q.set(p.key, state[p.key]);
+  history.replaceState(null, '', `#${q}`);
+}
+
+function readHash() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (![...q.keys()].length) return false;
+  Object.assign(state, DEFAULTS);
+  for (const p of PARAMS) {
+    if (!q.has(p.key)) continue;
+    const raw = q.get(p.key);
+    if (p.type === 'bool') state[p.key] = raw === 'true';
+    else if (Number.isFinite(Number(raw))) state[p.key] = Math.min(p.max, Math.max(p.min, Number(raw)));
+  }
+  return true;
+}
+
+$('share').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('message').textContent = 'Ссылка с параметрами скопирована.';
+  } catch {
+    $('message').textContent = 'Скопируйте адрес страницы: параметры сохранены в нём.';
+  }
+});
+
+syncForm();
+resize();
+regenerate();
+  </script>
+</body>
+</html>
