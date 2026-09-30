@@ -1,0 +1,1541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Faceted Stones</title>
+  <style>
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --accent-text: #ffffff;
+  --view: #d9d9d6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --panel: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9b9a94;
+    --line: #34332f;
+    --accent: #5b92ec;
+    --view: #2a2a28;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --panel: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #9b9a94;
+  --line: #34332f;
+  --accent: #5b92ec;
+  --view: #2a2a28;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 100vh;
+}
+
+#panel {
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+h1 { font-size: 18px; margin: 0 0 4px; }
+
+details { border-top: 1px solid var(--line); padding: 4px 0 8px; }
+summary {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 10px 0 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hint { color: var(--muted); margin: 0; font-size: 13px; }
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.field > span { font-size: 13px; }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+.field.bool { grid-template-columns: 1fr auto; }
+#panel > .field { grid-template-columns: 1fr 180px; margin: 16px 0; }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: progress; }
+.group-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+#stats {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+#stats dt { color: var(--muted); }
+#stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+#stats .warn { color: #c9582b; }
+
+.actions { display: flex; gap: 8px; margin: 16px 0 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; }
+
+#viewport { position: relative; background: var(--view); min-height: 0; overflow: hidden; }
+#viewport canvas { display: block; width: 100%; height: 100%; }
+
+#busy {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.view-tools {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
+  #viewport { grid-row: 1; height: 55vh; }
+  #panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+}
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>Faceted Stones</h1>
+      <p class="hint">Chiselled stones with rounded edges, separated by joints. Dimensions in millimetres, export to STL.</p>
+    </header>
+
+    <label class="field">
+      <span>Preset</span>
+      <select id="preset"></select>
+    </label>
+
+    <div id="groups"></div>
+
+    <section id="stats"></section>
+
+    <div class="actions">
+      <button id="export" type="button" class="primary">Download STL</button>
+      <button id="share" type="button">Copy link</button>
+    </div>
+    <p id="message" class="hint" role="status"></p>
+  </aside>
+
+  <main id="viewport">
+    <div id="busy" hidden>Generating…</div>
+    <div class="view-tools">
+      <label><input type="checkbox" id="dark"> Dark material</label>
+      <label><input type="checkbox" id="shadows" checked> Shadows</label>
+      <label><input type="checkbox" id="raking" checked> Raking light</label>
+      <label><input type="checkbox" id="wire"> Wireframe</label>
+      <button id="reset-view" type="button">Reset view</button>
+    </div>
+  </main>
+
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===== noise =====
+
+// Seeded 2D simplex noise (after Stefan Gustavson), fbm, integer hashing and
+// the smooth minimum that rounds creases.
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const F2 = 0.5 * (Math.sqrt(3) - 1);
+const G2 = (3 - Math.sqrt(3)) / 6;
+const GRAD2 = new Float64Array([1, 1, -1, 1, 1, -1, -1, -1, 1, 0, -1, 0, 0, 1, 0, -1]);
+
+function createNoise2D(seed = 1) {
+  const rand = mulberry32(seed);
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const t = p[i];
+    p[i] = p[j];
+    p[j] = t;
+  }
+  const perm = new Uint8Array(512);
+  for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+
+  // Returns a value in roughly [-1, 1].
+  return function noise2D(x, y) {
+    const s = (x + y) * F2;
+    const i = Math.floor(x + s);
+    const j = Math.floor(y + s);
+    const t = (i + j) * G2;
+    const x0 = x - i + t;
+    const y0 = y - j + t;
+    const i1 = x0 > y0 ? 1 : 0;
+    const j1 = 1 - i1;
+    const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2;
+    const x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2;
+    const ii = i & 255, jj = j & 255;
+    let n = 0;
+    let t0 = 0.5 - x0 * x0 - y0 * y0;
+    if (t0 > 0) {
+      const g = (perm[ii + perm[jj]] & 7) * 2;
+      t0 *= t0;
+      n += t0 * t0 * (GRAD2[g] * x0 + GRAD2[g + 1] * y0);
+    }
+    let t1 = 0.5 - x1 * x1 - y1 * y1;
+    if (t1 > 0) {
+      const g = (perm[ii + i1 + perm[jj + j1]] & 7) * 2;
+      t1 *= t1;
+      n += t1 * t1 * (GRAD2[g] * x1 + GRAD2[g + 1] * y1);
+    }
+    let t2 = 0.5 - x2 * x2 - y2 * y2;
+    if (t2 > 0) {
+      const g = (perm[ii + 1 + perm[jj + 1]] & 7) * 2;
+      t2 *= t2;
+      n += t2 * t2 * (GRAD2[g] * x2 + GRAD2[g + 1] * y2);
+    }
+    return 70 * n;
+  };
+}
+
+// Fractal Brownian motion, normalised by the RMS of the octave amplitudes.
+function fbm(noise, x, y, octaves) {
+  let sum = 0;
+  let amp = 1;
+  let norm = 0;
+  let f = 1;
+  for (let o = 0; o < octaves; o++) {
+    sum += amp * noise(x * f + o * 17.3, y * f - o * 9.1);
+    norm += amp * amp;
+    amp *= 0.5;
+    f *= 2;
+  }
+  return sum / Math.sqrt(norm);
+}
+
+function hashInt(a, b, c) {
+  let h = a ^ Math.imul(b, 0x8da6b343) ^ Math.imul(c, 0xd8163841);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const smoothstep = (a, b, x) => {
+  const t = clamp01((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
+
+// Minimum of a and b with the corner rounded where |a - b| < k.
+function smin(a, b, k) {
+  const m = a < b ? a : b;
+  if (k <= 0) return m;
+  const h = k - Math.abs(a - b);
+  return h > 0 ? m - (h * h) / (4 * k) : m;
+}
+
+// ===== params =====
+
+const GROUPS = {
+  panel: 'Panel',
+  layout: 'Stone layout',
+  joints: 'Joints and edges',
+  height: 'Stone height',
+  facets: 'Facets',
+  folds: 'Folds and scoops',
+  surface: 'Surface',
+};
+
+const hasCuts = (s) => s.cuts > 0;
+
+const PARAMS = [
+  { key: 'width', group: 'panel', label: 'Width, mm', type: 'number', min: 10, max: 2000, step: 1, value: 160 },
+  { key: 'height', group: 'panel', label: 'Height, mm', type: 'number', min: 10, max: 2000, step: 1, value: 350 },
+  { key: 'base', group: 'panel', label: 'Base thickness, mm', type: 'number', min: 0.4, max: 100, step: 0.1, value: 4 },
+  { key: 'border', group: 'panel', label: 'Joint along the panel edge', type: 'bool', value: true },
+  { key: 'resolution', group: 'panel', label: 'Mesh step, mm', type: 'number', min: 0.05, max: 5, step: 0.05, value: 0.4 },
+
+  { key: 'seed', group: 'layout', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 12 },
+  { key: 'size', group: 'layout', label: 'Stone size, mm', type: 'number', min: 5, max: 500, step: 0.5, value: 50 },
+  { key: 'sizeVar', group: 'layout', label: 'Size spread', type: 'number', min: 0, max: 1, step: 0.01, value: 0.6 },
+  { key: 'stretch', group: 'layout', label: 'Elongation', type: 'number', min: 1, max: 4, step: 0.05, value: 1.2 },
+  { key: 'angle', group: 'layout', label: 'Elongation direction, °', type: 'number', min: 0, max: 180, step: 1, value: 0, when: (s) => s.stretch > 1 },
+  { key: 'bend', group: 'layout', label: 'Edge curvature, mm', type: 'number', min: 0, max: 30, step: 0.1, value: 0 },
+
+  { key: 'gap', group: 'joints', label: 'Joint width, mm', type: 'number', min: 0, max: 30, step: 0.05, value: 1.2 },
+  { key: 'draft', group: 'joints', label: 'Wall slope, °', type: 'number', min: 0, max: 60, step: 0.5, value: 2 },
+  { key: 'edgeRadius', group: 'joints', label: 'Edge rounding, mm', type: 'number', min: 0, max: 30, step: 0.1, value: 3 },
+  { key: 'cornerRadius', group: 'joints', label: 'Corner rounding in plan, mm', type: 'number', min: 0, max: 100, step: 0.5, value: 2 },
+
+  { key: 'relief', group: 'height', label: 'Relief height, mm', type: 'number', min: 1, max: 200, step: 0.5, value: 22 },
+  { key: 'edgeHeight', group: 'height', label: 'Lowest point of a stone, mm', type: 'number', min: 0, max: 200, step: 0.5, value: 5 },
+  { key: 'heightVar', group: 'height', label: 'Height spread', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
+  { key: 'tilt', group: 'height', label: 'Tilt, °', type: 'number', min: 0, max: 45, step: 0.5, value: 10 },
+  { key: 'pillow', group: 'height', label: 'Pillow (convex top)', type: 'number', min: 0, max: 1, step: 0.01, value: 0.1 },
+
+  { key: 'cuts', group: 'facets', label: 'Facets per stone', type: 'number', min: 0, max: 10, step: 0.1, value: 3 },
+  { key: 'cutWidth', group: 'facets', label: 'Facet width', type: 'number', min: 0.05, max: 1.5, step: 0.01, value: 0.7, when: hasCuts },
+  { key: 'cutAngle', group: 'facets', label: 'Facet angle, °', type: 'number', min: 0, max: 70, step: 0.5, value: 28, when: hasCuts },
+  { key: 'crease', group: 'facets', label: 'Crease rounding, mm', type: 'number', min: 0, max: 20, step: 0.05, value: 2 },
+
+  { key: 'valleys', group: 'folds', label: 'Folds per stone', type: 'number', min: 0, max: 4, step: 0.1, value: 0.7 },
+  { key: 'valleyAngle', group: 'folds', label: 'Fold angle, °', type: 'number', min: 0, max: 60, step: 0.5, value: 16, when: (s) => s.valleys > 0 },
+  { key: 'valleyLength', group: 'folds', label: 'Fold length', type: 'number', min: 0.1, max: 1.5, step: 0.01, value: 0.8, when: (s) => s.valleys > 0 },
+  { key: 'dents', group: 'folds', label: 'Scoops per stone', type: 'number', min: 0, max: 4, step: 0.1, value: 0.3 },
+  { key: 'dentSize', group: 'folds', label: 'Scoop size', type: 'number', min: 0.1, max: 1.5, step: 0.01, value: 0.9, when: (s) => s.dents > 0 },
+  { key: 'dentDepth', group: 'folds', label: 'Scoop depth', type: 'number', min: 0, max: 1, step: 0.01, value: 0.35, when: (s) => s.dents > 0 },
+
+  { key: 'grain', group: 'surface', label: 'Roughness, mm', type: 'number', min: 0, max: 2, step: 0.01, value: 0 },
+  { key: 'grainSize', group: 'surface', label: 'Roughness size, mm', type: 'number', min: 0.2, max: 50, step: 0.1, value: 3, when: (s) => s.grain > 0 },
+];
+
+const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
+
+// Starting points modelled on the reference photos; unlisted keys keep defaults.
+const PRESETS = [
+  {
+    name: 'Plaster stones',
+    params: {},
+  },
+  {
+    name: 'Cut pebbles',
+    params: {
+      width: 180, height: 260, seed: 4, size: 52, sizeVar: 0.1, stretch: 1.4, angle: 60,
+      gap: 4, draft: 8, edgeRadius: 7, cornerRadius: 10,
+      relief: 22, edgeHeight: 9, heightVar: 0.05, tilt: 8, pillow: 0,
+      cuts: 3, cutWidth: 0.55, cutAngle: 38, crease: 0.8,
+      valleys: 1, valleyAngle: 26, valleyLength: 0.6, dents: 0,
+    },
+  },
+  {
+    name: 'Soft cells',
+    params: {
+      seed: 8, size: 55, sizeVar: 0.35, stretch: 1.1, bend: 3,
+      gap: 0.8, edgeRadius: 4, cornerRadius: 2,
+      heightVar: 0.45, tilt: 8, pillow: 0.4,
+      cuts: 2, cutWidth: 0.5, cutAngle: 22, crease: 4,
+      valleys: 0.3, valleyAngle: 12, dents: 1, dentSize: 0.6, dentDepth: 0.7,
+    },
+  },
+  {
+    name: 'Crystal shards',
+    params: {
+      seed: 21, size: 45, sizeVar: 0.7, stretch: 1,
+      gap: 1.5, draft: 1, edgeRadius: 1, cornerRadius: 0,
+      relief: 24, edgeHeight: 4, heightVar: 0.5, tilt: 16, pillow: 0,
+      cuts: 5, cutWidth: 0.8, cutAngle: 35, crease: 0.3,
+      valleys: 0.8, valleyAngle: 25, dents: 0,
+    },
+  },
+  {
+    name: 'Flagstones',
+    params: {
+      seed: 5, size: 60, sizeVar: 0.8, stretch: 1.3, angle: 20, bend: 1.5,
+      gap: 5, draft: 12, edgeRadius: 2, cornerRadius: 4,
+      relief: 7, edgeHeight: 3.5, heightVar: 0.3, tilt: 3, pillow: 0.3,
+      cuts: 1, cutWidth: 0.5, cutAngle: 10, crease: 3,
+      valleys: 0, dents: 0, grain: 0.15, grainSize: 2.5,
+    },
+  },
+];
+
+// ===== layout =====
+
+// Stones are the cells of a power (Laguerre) diagram of a random packing of
+// circles with mixed radii: big and small stones mix like in a laid wall, and
+// every cell contains its circle, so there are no slivers. The packing lives
+// in q = A·x, where stones are round: A squeezes the elongation direction by
+// √stretch and widens the other one (area is kept), so the cells come out
+// elongated in x. Mapped back with M = A⁻¹ they stay convex polygons.
+
+const MAX_STONES = 20000;
+
+function layoutTransform(p) {
+  const a = (p.angle * Math.PI) / 180, k = Math.sqrt(p.stretch);
+  const c = Math.cos(a), s = Math.sin(a);
+  return { A: [c / k, s / k, -s * k, c * k], M: [c * k, -s / k, s * k, c / k] };
+}
+
+// Grows a packing of nearly touching circles from the panel centre (Bridson's
+// Poisson disk sampling with a radius per sample). Each attempt draws a random
+// radius; later attempts around the same circle draw smaller ones, so small
+// stones fill the gaps between big ones.
+function packCircles(p, A, M) {
+  const rand = mulberry32(hashInt(p.seed | 0, 0x2f1, 7));
+  const W = p.width, L = p.height;
+  const ratio = 1 + 3 * p.sizeVar;
+  const rMean = 0.42 * p.size;
+  const rMin = rMean / Math.sqrt(ratio), rMax = rMean * Math.sqrt(ratio);
+
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const x = (sx * W) / 2, y = (sy * L) / 2;
+    const qx = A[0] * x + A[1] * y, qy = A[2] * x + A[3] * y;
+    x0 = Math.min(x0, qx); x1 = Math.max(x1, qx);
+    y0 = Math.min(y0, qy); y1 = Math.max(y1, qy);
+  }
+  // Without a border joint the pattern runs past the panel and gets cut;
+  // it has to cover the bent outlines too.
+  const pad = p.border ? 0 : 2 * rMax + 2 * p.bend * Math.sqrt(p.stretch);
+  x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+
+  // A q-circle of radius r is an ellipse in x reaching r·ex along x and r·ey along y.
+  const ex = Math.hypot(M[0], M[1]), ey = Math.hypot(M[2], M[3]);
+  // With a border joint a stone may stick out of the panel by 45 % of its size.
+  const inside = p.border
+    ? (qx, qy, r) => {
+      const x = M[0] * qx + M[1] * qy, y = M[2] * qx + M[3] * qy;
+      return Math.abs(x) <= W / 2 - 0.55 * r * ex && Math.abs(y) <= L / 2 - 0.55 * r * ey;
+    }
+    : (qx, qy) => qx >= x0 && qx <= x1 && qy >= y0 && qy <= y1;
+
+  const cs = 2 * rMax;
+  const gnx = Math.max(1, Math.ceil((x1 - x0) / cs)), gny = Math.max(1, Math.ceil((y1 - y0) / cs));
+  const buckets = Array.from({ length: gnx * gny }, () => []);
+  const cx = [], cy = [], cr = [];
+
+  const fits = (qx, qy, r) => {
+    if (!inside(qx, qy, r)) return false;
+    const i0 = Math.floor((qx - x0) / cs), j0 = Math.floor((qy - y0) / cs);
+    for (let j = Math.max(0, j0 - 1); j <= Math.min(gny - 1, j0 + 1); j++) {
+      for (let i = Math.max(0, i0 - 1); i <= Math.min(gnx - 1, i0 + 1); i++) {
+        for (const c of buckets[j * gnx + i]) {
+          const dx = qx - cx[c], dy = qy - cy[c], rr = r + cr[c];
+          if (dx * dx + dy * dy < rr * rr) return false;
+        }
+      }
+    }
+    return true;
+  };
+  const add = (qx, qy, r) => {
+    const i = Math.min(gnx - 1, Math.max(0, Math.floor((qx - x0) / cs)));
+    const j = Math.min(gny - 1, Math.max(0, Math.floor((qy - y0) / cs)));
+    cx.push(qx); cy.push(qy); cr.push(r);
+    buckets[j * gnx + i].push(cx.length - 1);
+    return cx.length - 1;
+  };
+
+  // The first stone sits in the middle and always fits.
+  let r0 = rMean;
+  if (p.border) r0 = Math.min(r0, W / (1.1 * ex), L / (1.1 * ey));
+  const active = [add(0, 0, r0)];
+  const tries = 30, jitter = 0.3 * rMin;
+  while (active.length && cx.length < MAX_STONES) {
+    const ai = Math.floor(rand() * active.length);
+    const c = active[ai];
+    let placed = false;
+    for (let t = 0; t < tries && !placed; t++) {
+      const r = rMin * Math.pow(ratio, rand() * (1 - t / tries));
+      const a = rand() * 2 * Math.PI;
+      const d = cr[c] + r + jitter * rand();
+      const qx = cx[c] + d * Math.cos(a), qy = cy[c] + d * Math.sin(a);
+      if (fits(qx, qy, r)) {
+        active.push(add(qx, qy, r));
+        placed = true;
+      }
+    }
+    if (!placed) {
+      active[ai] = active[active.length - 1];
+      active.pop();
+    }
+  }
+
+  // Buckets as flat arrays for the per-sample lookup.
+  const start = new Int32Array(gnx * gny + 1);
+  const items = new Int32Array(cx.length);
+  let o = 0;
+  for (let b = 0; b < gnx * gny; b++) {
+    start[b] = o;
+    for (const c of buckets[b]) items[o++] = c;
+  }
+  start[gnx * gny] = o;
+  return {
+    n: cx.length,
+    cx: Float64Array.from(cx), cy: Float64Array.from(cy), cr: Float64Array.from(cr), rMax,
+    grid: { x0, y0, cs, gnx, gny, start, items },
+    box: [[x0 - cs, y0 - cs], [x1 + cs, y0 - cs], [x1 + cs, y1 + cs], [x0 - cs, y1 + cs]],
+  };
+}
+
+// Convex polygons are arrays of {x, y, l}: a vertex and the label of the edge
+// that starts at it (neighbour circle id, -1 panel border, -2 layout box).
+// They run counter-clockwise, so the inside is to the left of every edge.
+
+// Keeps the part where ax·x + ay·y <= b; the new edge gets `label`.
+function clipPoly(poly, ax, ay, b, label) {
+  const out = [];
+  const n = poly.length;
+  for (let m = 0; m < n; m++) {
+    const P = poly[m], Q = poly[m + 1 === n ? 0 : m + 1];
+    const dp = ax * P.x + ay * P.y - b, dq = ax * Q.x + ay * Q.y - b;
+    if (dp <= 0) out.push(P);
+    if ((dp <= 0) !== (dq <= 0)) {
+      const t = dp / (dp - dq);
+      out.push({ x: P.x + t * (Q.x - P.x), y: P.y + t * (Q.y - P.y), l: dp <= 0 ? label : P.l });
+    }
+  }
+  return out;
+}
+
+function polyArea(poly) {
+  let a = 0, cx = 0, cy = 0;
+  for (let m = 0, n = poly.length; m < n; m++) {
+    const P = poly[m], Q = poly[(m + 1) % n];
+    const c = P.x * Q.y - Q.x * P.y;
+    a += c;
+    cx += (P.x + Q.x) * c;
+    cy += (P.y + Q.y) * c;
+  }
+  a /= 2;
+  if (a > 1e-12) return { area: a, cx: cx / (6 * a), cy: cy / (6 * a) };
+  cx = 0; cy = 0;
+  for (const v of poly) { cx += v.x; cy += v.y; }
+  return { area: 0, cx: cx / poly.length, cy: cy / poly.length };
+}
+
+// The polygon with every edge moved inwards by d, or null if nothing is left.
+function insetPoly(poly, d) {
+  let out = poly;
+  const n = poly.length;
+  for (let m = 0; m < n; m++) {
+    const P = poly[m], Q = poly[(m + 1) % n];
+    const ex = Q.x - P.x, ey = Q.y - P.y, len = Math.hypot(ex, ey);
+    if (len < 1e-9) continue;
+    const nx = -ey / len, ny = ex / len;
+    out = clipPoly(out, -nx, -ny, -(nx * P.x + ny * P.y + d), 0);
+    if (out.length < 3) return null;
+  }
+  return out;
+}
+
+// Power cell of circle i: the box cut by the radical axis with every
+// neighbour. Circles farther than twice the cell's reach cannot cut it.
+function powerCell(pk, i) {
+  const { cx, cy, cr, grid } = pk;
+  const { x0, y0, cs, gnx, gny, start, items } = grid;
+  let poly = pk.box.map(([x, y]) => ({ x, y, l: -2 }));
+  const pi = cx[i] * cx[i] + cy[i] * cy[i] - cr[i] * cr[i];
+  const gi = Math.floor((cx[i] - x0) / cs), gj = Math.floor((cy[i] - y0) / cs);
+  let R = 2;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let j = Math.max(0, gj - R); j <= Math.min(gny - 1, gj + R); j++) {
+      for (let ii = Math.max(0, gi - R); ii <= Math.min(gnx - 1, gi + R); ii++) {
+        const b = j * gnx + ii;
+        for (let m = start[b]; m < start[b + 1]; m++) {
+          const c = items[m];
+          if (c === i) continue;
+          const pc = cx[c] * cx[c] + cy[c] * cy[c] - cr[c] * cr[c];
+          poly = clipPoly(poly, 2 * (cx[c] - cx[i]), 2 * (cy[c] - cy[i]), pc - pi, c);
+          if (poly.length < 3) return poly;
+        }
+      }
+    }
+    let far = 0;
+    for (const v of poly) far = Math.max(far, Math.hypot(v.x - cx[i], v.y - cy[i]));
+    const need = Math.ceil((2 * far + pk.rMax) / cs);
+    if (need <= R) break;
+    R = Math.min(need, 8);
+  }
+  return poly;
+}
+
+// Power-nearest circle to q, searched ring by ring on the packing grid.
+function searchOwner(pk, qx, qy) {
+  const { cx, cy, cr, grid } = pk;
+  const { x0, y0, cs, gnx, gny, start, items } = grid;
+  const gi = Math.min(gnx - 1, Math.max(0, Math.floor((qx - x0) / cs)));
+  const gj = Math.min(gny - 1, Math.max(0, Math.floor((qy - y0) / cs)));
+  const r2 = pk.rMax * pk.rMax;
+  let best = -1, bestP = Infinity;
+  for (let R = 1; R <= 6; R++) {
+    for (let j = gj - R; j <= gj + R; j++) {
+      if (j < 0 || j >= gny) continue;
+      const edgeRow = j === gj - R || j === gj + R;
+      for (let i = gi - R; i <= gi + R; i++) {
+        if (i < 0 || i >= gnx) continue;
+        if (R > 1 && !edgeRow && i !== gi - R && i !== gi + R) continue;
+        const b = j * gnx + i;
+        for (let m = start[b]; m < start[b + 1]; m++) {
+          const c = items[m];
+          const dx = qx - cx[c], dy = qy - cy[c];
+          const pw = dx * dx + dy * dy - cr[c] * cr[c];
+          if (pw < bestP) { bestP = pw; best = c; }
+        }
+      }
+    }
+    // Circles outside the searched block are at least R cells away.
+    if (best >= 0 && bestP <= R * R * cs * cs - r2) break;
+  }
+  return best;
+}
+
+// The same, walking from circle c to the neighbour that is nearer in power:
+// q is in c's cell once no neighbour beats c. Neighbouring samples almost
+// always share a cell, so this is a few comparisons.
+function findOwner(pk, qx, qy, c) {
+  if (c < 0) return searchOwner(pk, qx, qy);
+  const { cx, cy, cr, adj } = pk;
+  for (let steps = 0; steps < 64; steps++) {
+    let dx = qx - cx[c], dy = qy - cy[c];
+    let best = dx * dx + dy * dy - cr[c] * cr[c], next = -1;
+    const nb = adj[c];
+    for (let m = 0; m < nb.length; m++) {
+      const j = nb[m];
+      dx = qx - cx[j];
+      dy = qy - cy[j];
+      const pw = dx * dx + dy * dy - cr[j] * cr[j];
+      if (pw < best) { best = pw; next = j; }
+    }
+    if (next < 0) return c;
+    c = next;
+  }
+  return searchOwner(pk, qx, qy);
+}
+
+// ===== stones =====
+
+// A stone is its cell shrunk by half a joint, with the corners rounded in
+// plan: the footprint is Q ⊕ disc(rc), where Q is the cell inset by
+// gap/2 + rc, and e = rc − sdist(x, Q) is the signed distance to the outline
+// in mm (positive inside). The top is a tilted plane carved by chisel cuts
+// (planes falling outwards), folds (V-shaped valleys) and scoops (elliptic
+// bowls), blended with a smooth minimum so that the creases are rounded.
+// Slopes are set by angles, so big and small stones are cut alike; the shape
+// is squeezed only if its range over the footprint does not fit between the
+// stone's top and the lowest point.
+
+// Flat arrays for fast signed distance to a convex polygon.
+function prepPoly(poly) {
+  const pts = [];
+  for (const v of poly) {
+    const last = pts[pts.length - 1];
+    if (!last || Math.hypot(v.x - last.x, v.y - last.y) > 1e-9) pts.push(v);
+  }
+  while (pts.length > 1 && Math.hypot(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) <= 1e-9) pts.pop();
+  const n = pts.length;
+  const px = new Float64Array(n), py = new Float64Array(n);
+  const ex = new Float64Array(n), ey = new Float64Array(n);
+  const il = new Float64Array(n), iee = new Float64Array(n);
+  for (let m = 0; m < n; m++) {
+    const P = pts[m], Q = pts[(m + 1) % n];
+    px[m] = P.x; py[m] = P.y;
+    ex[m] = Q.x - P.x; ey[m] = Q.y - P.y;
+    const ee = ex[m] * ex[m] + ey[m] * ey[m];
+    il[m] = ee > 0 ? 1 / Math.sqrt(ee) : 0;
+    iee[m] = ee > 0 ? 1 / ee : 0;
+  }
+  return { n, px, py, ex, ey, il, iee, solid: n >= 3 && polyArea(pts).area > 1e-6 };
+}
+
+// Signed distance to the polygon, negative inside.
+function sdist(G, x, y) {
+  const { n, px, py, ex, ey, il, iee } = G;
+  if (G.solid) {
+    let dIn = Infinity;
+    for (let m = 0; m < n; m++) {
+      const s = (ex[m] * (y - py[m]) - ey[m] * (x - px[m])) * il[m];
+      if (s < dIn) dIn = s;
+    }
+    if (dIn >= 0) return -dIn;
+  }
+  let d2 = Infinity;
+  for (let m = 0; m < n; m++) {
+    const wx = x - px[m], wy = y - py[m];
+    let t = (wx * ex[m] + wy * ey[m]) * iee[m];
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const qx = wx - ex[m] * t, qy = wy - ey[m] * t;
+    const dd = qx * qx + qy * qy;
+    if (dd < d2) d2 = dd;
+  }
+  return Math.sqrt(d2);
+}
+
+function makeStone(p, id, poly) {
+  const cell = polyArea(poly);
+  if (!(cell.area > 1e-6)) return null;
+  const st = { id, poly, vanished: false, nbrs: [] };
+  const half = p.gap / 2;
+  let rc = p.cornerRadius;
+  let Q = insetPoly(poly, half + rc);
+  if (!Q) {
+    // Too small for the requested rounding: take the deepest inset there is.
+    let lo = 0, hi = half + rc;
+    for (let it = 0; it < 30; it++) {
+      const mid = 0.5 * (lo + hi);
+      if (insetPoly(poly, mid)) lo = mid; else hi = mid;
+    }
+    rc = lo - half;
+    Q = rc > 1e-3 ? insetPoly(poly, lo) : null;
+    if (!Q) {
+      st.vanished = true;
+      return st;
+    }
+  }
+  st.rc = rc;
+  Object.assign(st, prepPoly(Q));
+  const qa = polyArea(Q);
+  st.cx = qa.cx;
+  st.cy = qa.cy;
+  let perimeter = 0;
+  for (let m = 0; m < st.n; m++) perimeter += st.il[m] > 0 ? 1 / st.il[m] : 0;
+  const R = Math.sqrt((qa.area + perimeter * rc + Math.PI * rc * rc) / Math.PI);
+  st.R = R;
+
+  // Sample points over the footprint: a grid plus the outline.
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  for (let m = 0; m < st.n; m++) {
+    bx0 = Math.min(bx0, st.px[m]); bx1 = Math.max(bx1, st.px[m]);
+    by0 = Math.min(by0, st.py[m]); by1 = Math.max(by1, st.py[m]);
+  }
+  bx0 -= rc; by0 -= rc; bx1 += rc; by1 += rc;
+  st.bbox = [bx0, by0, bx1, by1];
+  const pts = [];
+  const sample = (x, y) => {
+    const e = rc - sdist(st, x, y);
+    if (e > -1e-6) pts.push(x, y, Math.max(e, 0));
+  };
+  const G = 16;
+  for (let a = 0; a <= G; a++) {
+    for (let b = 0; b <= G; b++) sample(bx0 + ((bx1 - bx0) * a) / G, by0 + ((by1 - by0) * b) / G);
+  }
+  for (let m = 0; m < st.n; m++) {
+    for (let k = 0; k < 12; k++) {
+      const t = (k / 12) * 2 * Math.PI;
+      sample(st.px[m] + rc * Math.cos(t), st.py[m] + rc * Math.sin(t));
+    }
+    const ox = st.ey[m] * st.il[m] * rc, oy = -st.ex[m] * st.il[m] * rc;
+    for (let k = 1; k < 4; k++) sample(st.px[m] + (st.ex[m] * k) / 4 + ox, st.py[m] + (st.ey[m] * k) / 4 + oy);
+  }
+  sample(st.cx, st.cy);
+  let eMax = 0;
+  for (let m = 2; m < pts.length; m += 3) eMax = Math.max(eMax, pts[m]);
+  st.eMax = eMax;
+  st.invEMax = 1 / Math.max(eMax, 1e-3);
+
+  // Separate random streams, so that e.g. adding a facet keeps the folds.
+  const stream = (k) => mulberry32(hashInt(p.seed | 0, id + 1, k));
+  const rh = stream(1), rv = stream(2), rk = stream(3), rd = stream(4);
+  const count = (mean, rand) => Math.floor(mean * (0.4 + 1.2 * rand()) + rand());
+  // Distance from the centre to the outline along (nx, ny).
+  const reach = (nx, ny) => {
+    let s = -Infinity;
+    for (let m = 0; m < st.n; m++) s = Math.max(s, nx * (st.px[m] - st.cx) + ny * (st.py[m] - st.cy));
+    return Math.max(s + rc, 0.05 * R, 1e-3);
+  };
+  const cw = p.crease;
+  st.cw = cw;
+
+  const slope = (deg) => Math.tan((Math.min(deg, 80) * Math.PI) / 180);
+  const top = p.relief * (1 - p.heightVar * rh());
+  const low = Math.min(p.edgeHeight, top);
+  const ta = rh() * 2 * Math.PI, tm = slope(p.tilt * (0.3 + 0.7 * rh()));
+  st.tx = tm * Math.cos(ta);
+  st.ty = tm * Math.sin(ta);
+  st.pillow = p.pillow * (top - low);
+
+  // Folds: a V-shaped valley entering from an edge along (mx, my). Its
+  // bottom rises inwards, so it closes to a point after `len`, like the
+  // chevrons on cut pebbles; a long fold crosses the whole stone. The
+  // flanks mostly run out to the edges, so the top reads as two planes.
+  const V = [];
+  for (let k = count(p.valleys, rv); k > 0; k--) {
+    const a = rv() * 2 * Math.PI;
+    const mx = Math.cos(a), my = Math.sin(a);
+    const fwd = reach(mx, my), back = reach(-mx, -my);
+    const side = reach(-my, mx), other = reach(my, -mx);
+    const t = -other + (side + other) * (0.3 + 0.4 * rv());
+    const s = slope(p.valleyAngle * (0.6 + 0.6 * rv()));
+    const w = 0.5 * (side + other) * (0.9 + 0.8 * rv());
+    const len = p.valleyLength * (fwd + back) * (0.6 + 0.6 * rv());
+    V.push(mx, my, t, fwd, s * w, (s * w) / len, s, cw * s);
+  }
+
+  // Facets: planes falling outwards from a line `span` in from the outline.
+  // Their directions are spread around the stone, so it gets cut on all
+  // sides like a chipped rock rather than on one.
+  const C = [];
+  const nc = count(p.cuts, rk), a0 = rk() * 2 * Math.PI;
+  for (let k = 0; k < nc; k++) {
+    const a = a0 + (2 * Math.PI * (k + 0.8 * (rk() - 0.5))) / nc;
+    const nx = Math.cos(a), ny = Math.sin(a);
+    const fwd = reach(nx, ny);
+    const span = Math.max(0.05, p.cutWidth * (0.45 + 0.8 * rk())) * fwd;
+    const s = slope(p.cutAngle * (0.5 + 0.7 * rk()));
+    C.push(nx, ny, fwd - span, s, cw * s);
+  }
+
+  // Scoops: elliptic bowls near the middle; depth sets the slope at the rim.
+  const D = [];
+  for (let k = count(p.dents, rd); k > 0; k--) {
+    const r0 = 0.45 * R * Math.sqrt(rd()), a0 = rd() * 2 * Math.PI;
+    const ra = p.dentSize * R * (0.6 + 0.5 * rd());
+    const rb = ra * (0.45 + 0.55 * rd());
+    const o = rd() * Math.PI;
+    const s = p.dentDepth * (0.6 + 0.6 * rd());
+    D.push(r0 * Math.cos(a0), r0 * Math.sin(a0), Math.cos(o), Math.sin(o), 1 / (ra * ra), 1 / (rb * rb), 0.5 * s * rb, cw * s);
+  }
+  st.valleys = Float64Array.from(V);
+  st.cuts = Float64Array.from(C);
+  st.dents = Float64Array.from(D);
+
+  // Squeeze the shape between the top and the lowest point only if it does not fit.
+  let lo = Infinity, hi = -Infinity;
+  for (let m = 0; m < pts.length; m += 3) {
+    const f = stoneShape(st, pts[m], pts[m + 1], pts[m + 2]);
+    if (f < lo) lo = f;
+    if (f > hi) hi = f;
+  }
+  st.t1 = hi - lo > top - low ? (top - low) / (hi - lo) : 1;
+  st.t0 = top - hi * st.t1;
+  return st;
+}
+
+// Shape of the stone top at (x, y), e mm inside the outline.
+function stoneShape(st, x, y, e) {
+  const dx = x - st.cx, dy = y - st.cy;
+  const base = st.tx * dx + st.ty * dy;
+  let f = base;
+  if (st.pillow > 0) {
+    const t = 1 - (e < st.eMax ? e : st.eMax) * st.invEMax;
+    f -= st.pillow * t * t;
+  }
+  const cw = st.cw;
+  const V = st.valleys;
+  for (let m = 0; m < V.length; m += 8) {
+    const along = V[m] * dx + V[m + 1] * dy, u = V[m] * dy - V[m + 1] * dx - V[m + 2];
+    const v = base - V[m + 4] + V[m + 5] * (V[m + 3] - along) + V[m + 6] * (Math.sqrt(u * u + cw * cw) - cw);
+    f = smin(f, v, V[m + 7]);
+  }
+  const C = st.cuts;
+  for (let m = 0; m < C.length; m += 5) {
+    const u = C[m] * dx + C[m + 1] * dy - C[m + 2];
+    f = smin(f, base - C[m + 3] * u, C[m + 4]);
+  }
+  const D = st.dents;
+  for (let m = 0; m < D.length; m += 8) {
+    const ux = dx - D[m], uy = dy - D[m + 1];
+    const a = ux * D[m + 2] + uy * D[m + 3], b = uy * D[m + 2] - ux * D[m + 3];
+    f = smin(f, base - D[m + 6] * (1 - a * a * D[m + 4] - b * b * D[m + 5]), D[m + 7]);
+  }
+  return f;
+}
+
+const stoneTop = (st, x, y, e) => st.t0 + st.t1 * stoneShape(st, x, y, e);
+
+function buildLayout(p) {
+  const { A, M } = layoutTransform(p);
+  const pk = packCircles(p, A, M);
+  const W = p.width, L = p.height;
+  const pad = 2 * pk.rMax * Math.sqrt(p.stretch) + 2 * p.bend;
+  const stoneOf = new Array(pk.n).fill(null);
+  const stones = [];
+  pk.adj = new Array(pk.n);
+  for (let i = 0; i < pk.n; i++) {
+    const qpoly = powerCell(pk, i);
+    pk.adj[i] = Int32Array.from(new Set(qpoly.filter((v) => v.l >= 0).map((v) => v.l)));
+    if (qpoly.length < 3) continue;
+    let poly = qpoly.map((v) => ({ x: M[0] * v.x + M[1] * v.y, y: M[2] * v.x + M[3] * v.y, l: v.l }));
+    if (p.border) {
+      for (const [ax, ay, b] of [[1, 0, W / 2], [-1, 0, W / 2], [0, 1, L / 2], [0, -1, L / 2]]) {
+        poly = clipPoly(poly, ax, ay, b, -1);
+        if (poly.length < 3) break;
+      }
+      if (poly.length < 3) continue;
+    } else {
+      let ok = false;
+      for (const v of poly) if (Math.abs(v.x) < W / 2 + pad && Math.abs(v.y) < L / 2 + pad) ok = true;
+      if (!ok) continue;
+    }
+    const st = makeStone(p, i, poly);
+    if (!st) continue;
+    stoneOf[i] = st;
+    stones.push(st);
+  }
+  for (const st of stones) {
+    const ids = new Set();
+    for (const v of st.poly) if (v.l >= 0) ids.add(v.l);
+    st.nbrs = [...ids].map((c) => stoneOf[c]).filter((s) => s && !s.vanished);
+  }
+  // Stones that actually show on the panel.
+  const shown = stones.filter((s) => !s.vanished && s.bbox[2] > -W / 2 && s.bbox[0] < W / 2 && s.bbox[3] > -L / 2 && s.bbox[1] < L / 2).length;
+  return { A, pk, stoneOf, shown };
+}
+
+// ===== heightmap =====
+
+// Each sample belongs to the stone whose power cell holds it. Its height is
+// the stone top minus the edge profile: a round-over of the edge radius that
+// runs into a straight wall leaning out by the wall slope, down to the floor
+// (the top of the base). Near a joint the neighbours' walls count too, the
+// highest wins, so walls that meet above the floor form a clean V.
+
+// Tent filter over [-1, 1]: tap offsets and weights.
+const TAP = [-5 / 6, -3 / 6, -1 / 6, 1 / 6, 3 / 6, 5 / 6];
+const TAP_W = [1 / 18, 3 / 18, 5 / 18, 5 / 18, 3 / 18, 1 / 18];
+
+function gridSize(p, res) {
+  const step = Math.max(res, 0.02);
+  return {
+    nx: Math.max(2, Math.ceil(p.width / step) + 1),
+    ny: Math.max(2, Math.ceil(p.height / step) + 1),
+  };
+}
+
+function buildHeightmap(p, res, lay = buildLayout(p)) {
+  const W = p.width, L = p.height;
+  const { nx, ny } = gridSize(p, res);
+  const dx = W / (nx - 1), dy = L / (ny - 1);
+  const H = new Float32Array(nx * ny);
+  const { A, pk, stoneOf } = lay;
+
+  const r = p.edgeRadius;
+  const k = 1 / Math.tan((Math.max(p.draft, 0.05) * Math.PI) / 180);
+  const kc = 1 / Math.sqrt(1 + k * k);
+  const aMax = r * k * kc, z0 = r - r * kc;
+  // Height at e mm inside the outline (outside if negative) of a stone whose top is T there.
+  const profile = (T, e) => {
+    if (e >= aMax) return T;
+    if (e >= 0) {
+      const a = aMax - e;
+      return T - r + Math.sqrt(r * r - a * a);
+    }
+    return T - z0 + e * k;
+  };
+  // The profile averaged across the outline over ±one grid step (a tent
+  // filter). A wall steeper than the grid can show, sampled as it is, lands
+  // between the nodes differently in every row and shows up as a comb;
+  // averaged, it becomes a clean ramp two steps wide.
+  const fw = Math.max(dx, dy);
+  const edge = (T, e) => {
+    if (e >= aMax + fw) return T;
+    let s = 0;
+    for (let q = 0; q < 6; q++) {
+      const v = profile(T, e + TAP[q] * fw);
+      if (v > 0) s += TAP_W[q] * v;
+    }
+    return s;
+  };
+  // How far out a wall still stands above the floor.
+  const reach = Math.max(0, p.relief + p.grain - z0) / k + fw;
+  const gap = p.gap;
+
+  const seed = p.seed | 0;
+  const nGrain = createNoise2D(seed * 4 + 3);
+  const grain = p.grain, igs = 1 / p.grainSize, soft = Math.max(r, 0.5);
+
+  // Curved joints: the outlines are looked up at a point displaced by
+  // noise. The noise is smooth on the scale of a stone, so it is sampled on
+  // a coarse grid and interpolated.
+  const bend = p.bend;
+  // The joint along the panel edge stays straight: the bend fades out there.
+  const bendFade = p.border ? 2 * bend + gap : 0;
+  let bnx = 0, bny = 0, bdx = 1, bdy = 1, bendX = null, bendY = null;
+  if (bend > 0) {
+    const nBendX = createNoise2D(seed * 4 + 1), nBendY = createNoise2D(seed * 4 + 2);
+    const iws = 1 / p.size, step = Math.max(p.size / 10, 0.5);
+    bnx = Math.ceil(W / step) + 1;
+    bny = Math.ceil(L / step) + 1;
+    bdx = W / (bnx - 1);
+    bdy = L / (bny - 1);
+    bendX = new Float32Array(bnx * bny);
+    bendY = new Float32Array(bnx * bny);
+    for (let j = 0; j < bny; j++) {
+      for (let i = 0; i < bnx; i++) {
+        const x = -W / 2 + i * bdx, y = -L / 2 + j * bdy;
+        bendX[j * bnx + i] = fbm(nBendX, x * iws, y * iws, 2);
+        bendY[j * bnx + i] = fbm(nBendY, x * iws + 7.3, y * iws - 4.1, 2);
+      }
+    }
+  }
+
+  let owner = -1, rowOwner = -1;
+  for (let j = 0; j < ny; j++) {
+    const y = -L / 2 + j * dy;
+    owner = rowOwner;
+    for (let i = 0; i < nx; i++) {
+      const x = -W / 2 + i * dx;
+      let wx = x, wy = y;
+      if (bend > 0) {
+        const amp = bendFade > 0 ? bend * smoothstep(0, bendFade, Math.min(W / 2 - Math.abs(x), L / 2 - Math.abs(y))) : bend;
+        const fx = Math.min((x + W / 2) / bdx, bnx - 1.000001), fy = Math.min((y + L / 2) / bdy, bny - 1.000001);
+        const i0 = Math.floor(fx), j0 = Math.floor(fy), tx = fx - i0, ty = fy - j0;
+        const b = j0 * bnx + i0;
+        const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
+        wx += amp * (w00 * bendX[b] + w10 * bendX[b + 1] + w01 * bendX[b + bnx] + w11 * bendX[b + bnx + 1]);
+        wy += amp * (w00 * bendY[b] + w10 * bendY[b + 1] + w01 * bendY[b + bnx] + w11 * bendY[b + bnx + 1]);
+      }
+      owner = findOwner(pk, A[0] * wx + A[1] * wy, A[2] * wx + A[3] * wy, owner);
+      if (i === 0) rowOwner = owner;
+      const st = stoneOf[owner];
+      let h = 0, e = -Infinity;
+      if (st) {
+        if (!st.vanished) {
+          e = st.rc - sdist(st, wx, wy);
+          h = edge(stoneTop(st, x, y, e), e);
+        }
+        // Neighbour walls can only reach this far into the cell.
+        if (e < reach - gap) {
+          for (const nb of st.nbrs) {
+            const en = nb.rc - sdist(nb, wx, wy);
+            if (en <= -reach) continue;
+            const hn = edge(stoneTop(nb, x, y, en), en);
+            if (hn > h) h = hn;
+          }
+        }
+      }
+      if (grain > 0 && e > 0) h += grain * fbm(nGrain, x * igs, y * igs, 3) * smoothstep(0, soft, e);
+      H[j * nx + i] = h > 0 ? h : 0;
+    }
+  }
+
+  let maxH = 0;
+  for (let q = 0; q < H.length; q++) if (H[q] > maxH) maxH = H[q];
+  return { nx, ny, dx, dy, H, maxH, stones: lay.shown };
+}
+
+// ===== mesh =====
+
+// Closed solid: relief on top, flat bottom at z = 0 fanned from the centre,
+// vertical side walls. Triangles are counter-clockwise seen from outside.
+
+function estimateTriangles(p, res) {
+  const { nx, ny } = gridSize(p, res);
+  return 2 * (nx - 1) * (ny - 1) + 3 * (2 * (nx - 1) + 2 * (ny - 1));
+}
+
+function buildMesh(p, res) {
+  const g = buildHeightmap(p, res);
+  const { nx, ny, dx, dy, H } = g;
+  const W = p.width, L = p.height;
+  const nTop = nx * ny;
+
+  const loop = [];
+  for (let i = 0; i < nx - 1; i++) loop.push(i);
+  for (let j = 0; j < ny - 1; j++) loop.push(j * nx + nx - 1);
+  for (let i = nx - 1; i > 0; i--) loop.push((ny - 1) * nx + i);
+  for (let j = ny - 1; j > 0; j--) loop.push(j * nx);
+  const nl = loop.length;
+
+  const positions = new Float32Array((nTop + nl + 1) * 3);
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      positions[k * 3] = -W / 2 + i * dx;
+      positions[k * 3 + 1] = -L / 2 + j * dy;
+      positions[k * 3 + 2] = p.base + H[k];
+    }
+  }
+  for (let m = 0; m < nl; m++) {
+    const src = loop[m] * 3, dst = (nTop + m) * 3;
+    positions[dst] = positions[src];
+    positions[dst + 1] = positions[src + 1];
+    positions[dst + 2] = 0;
+  }
+  const center = nTop + nl; // stays at (0, 0, 0)
+
+  const indices = new Uint32Array(((nx - 1) * (ny - 1) * 2 + nl * 3) * 3);
+  let o = 0;
+  for (let j = 0; j < ny - 1; j++) {
+    for (let i = 0; i < nx - 1; i++) {
+      const a = j * nx + i, b = a + 1, c = a + nx + 1, d = a + nx;
+      // Split each quad along the diagonal that bends less, so ridges stay
+      // straight. Near-ties (walls along the grid) keep one diagonal, or the
+      // flip-flopping shows up as stripes.
+      const dac = Math.abs(H[a] - H[c]), dbd = Math.abs(H[b] - H[d]);
+      if (dbd >= dac - 0.05 * (dac + dbd) - 1e-4) {
+        indices[o++] = a; indices[o++] = b; indices[o++] = c;
+        indices[o++] = a; indices[o++] = c; indices[o++] = d;
+      } else {
+        indices[o++] = a; indices[o++] = b; indices[o++] = d;
+        indices[o++] = b; indices[o++] = c; indices[o++] = d;
+      }
+    }
+  }
+  for (let m = 0; m < nl; m++) {
+    const a = loop[m], b = loop[(m + 1) % nl];
+    const ab = nTop + m, bb = nTop + ((m + 1) % nl);
+    indices[o++] = ab; indices[o++] = bb; indices[o++] = b;
+    indices[o++] = ab; indices[o++] = b; indices[o++] = a;
+    indices[o++] = center; indices[o++] = bb; indices[o++] = ab;
+  }
+  return { positions, indices, heightmap: g, maxH: g.maxH, stones: g.stones };
+}
+
+// ===== stl =====
+
+function meshToSTL({ positions, indices }, header = '3d-textures stones generator') {
+  const triCount = indices.length / 3;
+  const buffer = new ArrayBuffer(84 + triCount * 50);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < Math.min(80, header.length); i++) bytes[i] = header.charCodeAt(i) & 0x7f;
+  view.setUint32(80, triCount, true);
+
+  let o = 84;
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = indices[t] * 3, b = indices[t + 1] * 3, c = indices[t + 2] * 3;
+    const ax = positions[a], ay = positions[a + 1], az = positions[a + 2];
+    const bx = positions[b], by = positions[b + 1], bz = positions[b + 2];
+    const cx = positions[c], cy = positions[c + 1], cz = positions[c + 2];
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    view.setFloat32(o, nx, true); view.setFloat32(o + 4, ny, true); view.setFloat32(o + 8, nz, true);
+    view.setFloat32(o + 12, ax, true); view.setFloat32(o + 16, ay, true); view.setFloat32(o + 20, az, true);
+    view.setFloat32(o + 24, bx, true); view.setFloat32(o + 28, by, true); view.setFloat32(o + 32, bz, true);
+    view.setFloat32(o + 36, cx, true); view.setFloat32(o + 40, cy, true); view.setFloat32(o + 44, cz, true);
+    view.setUint16(o + 48, 0, true);
+    o += 50;
+  }
+  return buffer;
+}
+
+// ===== main =====
+
+const PREVIEW_MAX_TRIANGLES = 800_000;
+const EXPORT_WARN_TRIANGLES = 8_000_000;
+
+const state = { ...DEFAULTS, ...PRESETS[0].params };
+const fromHash = readHash();
+
+const $ = (id) => document.getElementById(id);
+const controlsByKey = new Map();
+
+// ---------- form ----------
+
+function makeControl(p) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  wrap.append(title);
+
+  if (p.type === 'bool') {
+    wrap.classList.add('bool');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => update(p.key, box.checked));
+    wrap.append(box);
+    controlsByKey.set(p.key, { wrap, set: (v) => (box.checked = v) });
+  } else {
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.min = p.min; num.max = p.max; num.step = p.step;
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = p.min; range.max = p.max; range.step = p.step;
+    const parse = (v) => {
+      let x = Number(v);
+      if (!Number.isFinite(x)) return null;
+      if (p.type === 'int') x = Math.round(x);
+      return Math.min(p.max, Math.max(p.min, x));
+    };
+    num.addEventListener('change', () => {
+      const x = parse(num.value);
+      if (x === null) { num.value = state[p.key]; return; }
+      num.value = x; range.value = x;
+      update(p.key, x);
+    });
+    range.addEventListener('input', () => {
+      const x = parse(range.value);
+      num.value = x;
+      update(p.key, x);
+    });
+    wrap.append(num, range);
+    controlsByKey.set(p.key, { wrap, set: (v) => { num.value = v; range.value = v; } });
+  }
+  return wrap;
+}
+
+const groupBodies = {};
+for (const [id, title] of Object.entries(GROUPS)) {
+  const det = document.createElement('details');
+  det.open = true;
+  const sum = document.createElement('summary');
+  sum.textContent = title;
+  det.append(sum);
+  groupBodies[id] = det;
+  $('groups').append(det);
+}
+for (const p of PARAMS) groupBodies[p.group].append(makeControl(p));
+
+const reseed = document.createElement('div');
+reseed.className = 'group-actions';
+const reseedBtn = document.createElement('button');
+reseedBtn.type = 'button';
+reseedBtn.textContent = 'Random seed';
+reseedBtn.addEventListener('click', () => {
+  update('seed', Math.floor(Math.random() * 100000));
+  controlsByKey.get('seed').set(state.seed);
+});
+reseed.append(reseedBtn);
+groupBodies.layout.append(reseed);
+
+PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
+$('preset').add(new Option('— custom settings —', 'custom'));
+$('preset').value = fromHash ? 'custom' : 0;
+$('preset').addEventListener('change', () => {
+  const pr = PRESETS[Number($('preset').value)];
+  if (!pr) return;
+  Object.assign(state, DEFAULTS, pr.params);
+  syncForm();
+  schedule();
+});
+
+function syncVisibility() {
+  for (const p of PARAMS) controlsByKey.get(p.key).wrap.hidden = p.when ? !p.when(state) : false;
+}
+
+function syncForm() {
+  for (const p of PARAMS) controlsByKey.get(p.key).set(state[p.key]);
+  syncVisibility();
+}
+
+function update(key, value) {
+  state[key] = value;
+  if (key !== 'resolution') $('preset').value = 'custom';
+  syncVisibility();
+  schedule();
+}
+
+// ---------- scene ----------
+
+const viewport = $('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+viewport.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20000);
+camera.up.set(0, 0, 1);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.1);
+scene.add(hemi);
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.6);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(4096, 4096);
+scene.add(keyLight, keyLight.target);
+const rim = new THREE.DirectionalLight(0xffffff, 0.5);
+rim.position.set(1, -1, 0.4);
+scene.add(rim);
+
+const material = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0 });
+function applyView() {
+  material.color.set($('dark').checked ? 0x3a3a3c : 0xf4f3f0);
+  material.wireframe = $('wire').checked;
+  // Raking light comes low from the upper left, like the photos.
+  const size = Math.max(state.width, state.height);
+  const dir = $('raking').checked ? new THREE.Vector3(-1, 0.9, 0.75) : new THREE.Vector3(-0.6, 0.5, 1.2);
+  keyLight.position.copy(dir.normalize().multiplyScalar(size * 2));
+  keyLight.intensity = $('raking').checked ? 3.2 : 2.6;
+  hemi.intensity = $('raking').checked ? 0.7 : 1.1;
+  keyLight.castShadow = $('shadows').checked;
+  const cam = keyLight.shadow.camera;
+  cam.left = cam.bottom = -size * 0.75;
+  cam.right = cam.top = size * 0.75;
+  cam.near = size * 0.5;
+  cam.far = size * 4;
+  cam.updateProjectionMatrix();
+  // About two shadow-map texels, against acne on steep walls.
+  keyLight.shadow.bias = -0.0002;
+  keyLight.shadow.normalBias = (3 * size) / keyLight.shadow.mapSize.x;
+}
+applyView();
+for (const id of ['dark', 'wire', 'raking', 'shadows']) $(id).addEventListener('change', applyView);
+let object = null;
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewport);
+
+function frameObject() {
+  const size = Math.max(state.width, state.height);
+  const d = size * 1.6;
+  const tilt = 1.25;
+  camera.position.set(0, -d * Math.cos(tilt), d * Math.sin(tilt) + state.base);
+  orbit.target.set(0, 0, state.base);
+  camera.near = size / 200;
+  camera.far = size * 20;
+  camera.updateProjectionMatrix();
+  orbit.update();
+}
+$('reset-view').addEventListener('click', frameObject);
+
+(function loop() {
+  orbit.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+// ---------- generation ----------
+
+// Coarsens the grid step until the preview fits the triangle budget.
+function previewResolution() {
+  let res = state.resolution;
+  const tris = estimateTriangles(state, res);
+  if (tris > PREVIEW_MAX_TRIANGLES) res *= Math.sqrt(tris / PREVIEW_MAX_TRIANGLES);
+  return res;
+}
+
+// Preview only: darkens joints and hollows (height below its blurred
+// surroundings), a cheap stand-in for ambient occlusion. The height itself
+// is blurred a little too: vertex colours that jump across a wall a couple
+// of grid steps wide land on different vertices in every row and show up
+// as a comb.
+function cavityColors(g, count) {
+  const { nx, ny, dx, dy, H } = g;
+  const near = Float32Array.from(H), far = Float32Array.from(H);
+  const s = Math.max(1.2, 2.5 * Math.max(dx, dy));
+  blurGrid(near, nx, ny, s / dx, s / dy);
+  blurGrid(far, nx, ny, (3 * s) / dx, (3 * s) / dy);
+  const col = new Float32Array(count * 3).fill(1);
+  const scale = 1 / Math.max(0.5, 0.2 * state.relief);
+  for (let k = 0; k < nx * ny; k++) {
+    const c = clamp01(1 + (near[k] - far[k]) * scale);
+    col[k * 3] = col[k * 3 + 1] = col[k * 3 + 2] = 0.3 + 0.7 * c * c;
+  }
+  return col;
+}
+
+function blurGrid(a, nx, ny, sx, sy) {
+  const tmp = new Float32Array(a.length);
+  const kernel = (s) => {
+    const r = Math.max(1, Math.ceil(s * 3));
+    const k = new Float32Array(2 * r + 1);
+    let sum = 0;
+    for (let i = -r; i <= r; i++) sum += k[i + r] = Math.exp(-(i * i) / (2 * s * s));
+    for (let i = 0; i < k.length; i++) k[i] /= sum;
+    return { r, k };
+  };
+  {
+    const { r, k } = kernel(sx);
+    for (let j = 0; j < ny; j++) {
+      const row = j * nx;
+      for (let i = 0; i < nx; i++) {
+        let acc = 0;
+        for (let t = -r; t <= r; t++) acc += k[t + r] * a[row + Math.min(nx - 1, Math.max(0, i + t))];
+        tmp[row + i] = acc;
+      }
+    }
+  }
+  {
+    const { r, k } = kernel(sy);
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        let acc = 0;
+        for (let t = -r; t <= r; t++) acc += k[t + r] * tmp[Math.min(ny - 1, Math.max(0, j + t)) * nx + i];
+        a[j * nx + i] = acc;
+      }
+    }
+  }
+}
+
+let timer = 0;
+let lastFrameKey = '';
+function schedule() {
+  clearTimeout(timer);
+  $('busy').hidden = false;
+  timer = setTimeout(regenerate, 60);
+}
+
+function regenerate() {
+  const res = previewResolution();
+  const mesh = buildMesh(state, res);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(cavityColors(mesh.heightmap, mesh.positions.length / 3), 3));
+  geo.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
+  geo.computeVertexNormals();
+  material.vertexColors = true;
+  if (object) { scene.remove(object); object.geometry.dispose(); }
+  object = new THREE.Mesh(geo, material);
+  object.castShadow = object.receiveShadow = true;
+  scene.add(object);
+
+  const frameKey = [state.width, state.height].join();
+  if (frameKey !== lastFrameKey) { applyView(); frameObject(); lastFrameKey = frameKey; }
+
+  renderStats(res, mesh);
+  writeHash();
+  $('busy').hidden = true;
+}
+
+function renderStats(previewRes, mesh) {
+  const tris = estimateTriangles(state, state.resolution);
+  const mb = (84 + tris * 50) / 1048576;
+  const rows = [
+    ['Dimensions, mm', `${state.width} × ${state.height} × ${+(state.base + mesh.maxH).toFixed(1)}`],
+    ['Stones', `${mesh.stones}`],
+    ['Triangles in STL', tris.toLocaleString('en-US')],
+    ['File size', `${mb.toFixed(1)} MB`],
+  ];
+  if (previewRes > state.resolution * 1.01) rows.push(['Preview step', `${previewRes.toFixed(2)} mm`]);
+  $('stats').innerHTML = '<dl style="display:contents">' + rows
+    .map(([k, v]) => `<dt>${k}</dt><dd${tris > EXPORT_WARN_TRIANGLES && k.startsWith('Tri') ? ' class="warn"' : ''}>${v}</dd>`)
+    .join('') + '</dl>';
+}
+
+// ---------- export & sharing ----------
+
+$('export').addEventListener('click', () => {
+  const params = { ...state };
+  const tris = estimateTriangles(params, params.resolution);
+  if (tris > EXPORT_WARN_TRIANGLES &&
+    !confirm(`This will produce ${tris.toLocaleString('en-US')} triangles (~${Math.round((tris * 50) / 1048576)} MB). Continue? You can increase the mesh step.`)) return;
+  const btn = $('export');
+  btn.disabled = true;
+  $('message').textContent = 'Building export mesh…';
+  setTimeout(() => {
+    try {
+      const mesh = buildMesh(params, params.resolution);
+      const blob = new Blob([meshToSTL(mesh)], { type: 'model/stl' });
+      const name = `stones-${params.width}x${params.height}-${params.seed}.stl`;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+      $('message').textContent = `Saved: ${name}`;
+    } catch (e) {
+      $('message').textContent = `Error: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  }, 30);
+});
+
+function writeHash() {
+  const q = new URLSearchParams();
+  for (const p of PARAMS) if (state[p.key] !== p.value) q.set(p.key, state[p.key]);
+  history.replaceState(null, '', `#${q}`);
+}
+
+function readHash() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (![...q.keys()].length) return false;
+  Object.assign(state, DEFAULTS);
+  for (const p of PARAMS) {
+    if (!q.has(p.key)) continue;
+    const raw = q.get(p.key);
+    if (p.type === 'bool') state[p.key] = raw === 'true';
+    else if (Number.isFinite(Number(raw))) state[p.key] = Math.min(p.max, Math.max(p.min, Number(raw)));
+  }
+  return true;
+}
+
+$('share').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('message').textContent = 'Link with parameters copied.';
+  } catch {
+    $('message').textContent = 'Copy the page URL: the parameters are saved in it.';
+  }
+});
+
+syncForm();
+resize();
+regenerate();
+  </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # 3D Textures
 
-Eight parametric generators of relief 3D textures with STL export.
+Nine parametric generators of relief 3D textures with STL export.
 All dimensions are in millimetres.
 
 | Folder | What it does | How to run |
@@ -13,5 +13,6 @@ All dimensions are in millimetres.
 | [`glyphs/`](glyphs/) | A wall of concrete letter tiles: each letter is a crease ridge with slopes running down to the base. Text (Latin letters, digits) is laid out on a grid; a space is a flat cell of adjustable height, `^` and `~` are a pyramid and a funnel. Export: STL of the whole panel, a ZIP with every unique tile and a layout map, a 16-bit heightmap. | Open `glyphs/index.html` in a browser |
 | [`wood/`](wood/) | Wood relief: growth rings modelled as a cut through a log (quarter-sawn, cathedral arches, figure), knots with rings flowing around them and radial checks, cross and lengthwise cracks, charring/weathering. | Open `wood/index.html` in a browser |
 | [`layers/`](layers/) | Overlapping wavy plates: stripes, rings or contours bent by noise. Shingles or terraces, rounded edges, shadow gap, lip, pinch-out, fibres and fine lines. | Open `layers/index.html` in a browser |
+| [`stones/`](stones/) | Faceted stones: irregular stones of mixed size with rounded edges, separated by joints. Tops carved with facets, V-folds (chevrons) and scoops. From plaster wall panels to cut pebbles and flagstones. | Open `stones/index.html` in a browser |
 
 See the README in each folder for details.
