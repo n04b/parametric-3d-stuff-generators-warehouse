@@ -588,7 +588,8 @@ const SHAPE_PARAMS = [
   { key: 'diameter', label: 'Diameter, mm', type: 'number', min: 5, max: 2000, step: 1, value: 120, shapes: ['disk', 'sphere'] },
   { key: 'base', label: 'Base thickness, mm', type: 'number', min: 0.2, max: 100, step: 0.1, value: 2, shapes: ['rect', 'disk'] },
   { key: 'depth', label: 'Relief depth, mm', type: 'number', min: 0, max: 100, step: 0.1, value: 4 },
-  { key: 'margin', label: 'Smooth edge, mm', type: 'number', min: 0, max: 200, step: 0.5, value: 0, shapes: ['rect', 'disk'] },
+  { key: 'margin', label: 'Edge fade, mm', type: 'number', min: 0, max: 200, step: 0.5, value: 0, shapes: ['rect', 'disk'] },
+  { key: 'edgeLevel', label: 'Edge level (relief bottom ↔ top)', type: 'number', min: 0, max: 1, step: 0.01, value: 0, shapes: ['rect', 'disk'], when: (s) => s.margin > 0 },
   { key: 'resolution', label: 'Mesh step, mm', type: 'number', min: 0.05, max: 10, step: 0.05, value: 0.4 },
 ];
 
@@ -603,6 +604,10 @@ const edgeRamp = (a, b, x) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
+
+// Relief height at a point with the edge fade applied: towards the edge the
+// field eases to a flat margin at `edgeLevel` of the relief depth.
+const fadedHeight = (s, f, fall) => s.base + s.depth * (s.edgeLevel + (f - s.edgeLevel) * fall);
 
 function gridCounts(s, resolution) {
   const res = Math.max(resolution, 1e-3);
@@ -680,8 +685,9 @@ function buildRect(s, field, res) {
       const k = j * nx + i;
       xy[k * 2] = x;
       xy[k * 2 + 1] = y;
-      const edge = Math.min(x + W / 2, W / 2 - x, y + H / 2, H / 2 - y);
-      z[k] = s.base + s.depth * field(x, y, 0) * edgeRamp(0, s.margin, edge);
+      // The product of the two falloffs rounds the corners.
+      const fall = edgeRamp(0, s.margin, Math.min(x + W / 2, W / 2 - x)) * edgeRamp(0, s.margin, Math.min(y + H / 2, H / 2 - y));
+      z[k] = fadedHeight(s, field(x, y, 0), fall);
     }
   }
   const tris = new Uint32Array((nx - 1) * (ny - 1) * 6);
@@ -707,7 +713,7 @@ function buildDisk(s, field, res) {
   const n = 1 + rings * segs;
   const xy = new Float64Array(n * 2);
   const z = new Float64Array(n);
-  z[0] = s.base + s.depth * field(0, 0, 0) * edgeRamp(0, s.margin, R);
+  z[0] = fadedHeight(s, field(0, 0, 0), edgeRamp(0, s.margin, R));
   for (let k = 1; k <= rings; k++) {
     const r = (R * k) / rings;
     const fall = edgeRamp(0, s.margin, R - r);
@@ -717,7 +723,7 @@ function buildDisk(s, field, res) {
       const idx = 1 + (k - 1) * segs + m;
       xy[idx * 2] = x;
       xy[idx * 2 + 1] = y;
-      z[idx] = s.base + s.depth * field(x, y, 0) * fall;
+      z[idx] = fadedHeight(s, field(x, y, 0), fall);
     }
   }
   const ring = (k, m) => 1 + (k - 1) * segs + (m % segs);
@@ -946,7 +952,7 @@ function syncForm() {
   for (const p of ALL_PARAMS) {
     const c = controlsByKey.get(p.key);
     c.set(state[p.key]);
-    const visible = (!p.shapes || p.shapes.includes(state.shape)) && (!p.patterns || p.patterns.includes(state.pattern));
+    const visible = (!p.shapes || p.shapes.includes(state.shape)) && (!p.patterns || p.patterns.includes(state.pattern)) && (!p.when || p.when(state));
     c.wrap.hidden = !visible;
   }
 }
@@ -954,7 +960,7 @@ function syncForm() {
 function update(key, value) {
   state[key] = value;
   if (key !== 'resolution') $('preset').value = 'custom';
-  if (key === 'shape' || key === 'pattern') syncForm();
+  if (key === 'shape' || key === 'pattern' || key === 'margin') syncForm();
   schedule();
 }
 

@@ -13,7 +13,10 @@ No build step or server needed, three.js is loaded from a CDN (internet connecti
 
 **Surface**: rectangular panel (width × height), round panel (diameter)
 or sphere (diameter). For panels you set the base thickness and relief depth,
-as well as a "smooth edge" where the relief fades out smoothly. The mesh step
+as well as an "edge fade": over the given width from the edge the relief
+smoothly settles to a flat field, and the corners of a rectangular panel are rounded.
+"Edge level" sets where that field ends up: 0 — at the level of the deepest points
+of the relief, 1 — flush with the peaks. The mesh step
 defines the STL detail; the preview is built coarser if needed.
 
 **Patterns**:
