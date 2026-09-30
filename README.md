@@ -1,17 +1,17 @@
 # 3D Textures
 
-Восемь параметрических генераторов рельефных 3D-текстур с экспортом в STL.
-Размеры задаются в миллиметрах.
+Eight parametric generators of relief 3D textures with STL export.
+All dimensions are in millimetres.
 
-| Папка | Что делает | Запуск |
+| Folder | What it does | How to run |
 | --- | --- | --- |
-| [`relief/`](relief/) | Шумовые паттерны: топография (террасы), изолинии, волокна, дюны, ячейки Вороного, кольца. Панель, круг или шар. Есть CLI. | `cd relief && npm start`, затем http://localhost:8080 |
-| [`waves/`](waves/) | Интерференция круговых волн от нескольких источников (эффект муара). | Открыть `waves/index.html` в браузере |
-| [`tiles/`](tiles/) | Модульные настенные инсталляции из отдельных деталей: пирамиды, шипы, наклонные блоки, цилиндры, капли. Прямоугольная, радиальная и шестигранная сетка. Экспорт всей инсталляции, каждой детали или по столам принтера + схема сборки 1:1. | Открыть `tiles/index.html` в браузере |
-| [`ornament/`](ornament/) | Рельефная декоративная плитка: квадрат, соты, восьмиугольник, круг. Орнамент из слоёв-мотивов (розетки, завитки, листья, звёзды, гирих, рамки, рифление, грани). Массив плиток с поворотами и затуханием рельефа к краям. Экспорт одной плитки, всего массива или каждой плитки в ZIP. | Открыть `ornament/index.html` в браузере |
-| [`brutalist/`](brutalist/) | Бруталистский бетонный рельеф с точными гранями: обломки, блоки, пирамиды, рёбра, складки. Экспорт: STL (монолит или точные тела) и 16-битная карта высот. | Открыть `brutalist/index.html` в браузере |
-| [`glyphs/`](glyphs/) | Стена из бетонных плиток-букв: буква — излом-гребень, от которого скаты идут до основания. Текст (латиница, цифры) раскладывается по сетке, пробел — плоская ячейка регулируемой высоты, `^` и `~` — пирамида и воронка. Экспорт: STL всей панели, ZIP с каждой уникальной плиткой и схемой раскладки, 16-битная карта высот. | Открыть `glyphs/index.html` в браузере |
-| [`wood/`](wood/) | Рельеф древесины: годичные кольца по модели среза бревна (радиальный распил, арки, свиль), сучки с обтеканием колец и радиальными трещинами, поперечные и продольные трещины, обжиг/выветривание. | Открыть `wood/index.html` в браузере |
-| [`layers/`](layers/) | Волнистые пластины внахлёст: полосы, кольца или горизонтали, изогнутые шумом. Черепица или террасы, скруглённые кромки, теневой шов, бортик, выклинивание, волокна и тонкие линии. | Открыть `layers/index.html` в браузере |
+| [`relief/`](relief/) | Noise patterns: topography (terraces), contour lines, fibres, dunes, Voronoi cells, rings. Panel, disc or sphere. Has a CLI. | `cd relief && npm start`, then http://localhost:8080 |
+| [`waves/`](waves/) | Interference of circular waves from several sources (moiré effect). | Open `waves/index.html` in a browser |
+| [`tiles/`](tiles/) | Modular wall installations made of separate pieces: pyramids, spikes, tilted blocks, cylinders, drops. Rectangular, radial and hexagonal grids. Export the whole installation, each piece, or per printer bed, plus a 1:1 assembly map. | Open `tiles/index.html` in a browser |
+| [`ornament/`](ornament/) | Relief decorative tiles: square, hexagon, octagon, circle. The ornament is built from motif layers (rosettes, scrolls, leaves, stars, girih, frames, fluting, facets). Tile arrays with rotations and relief fade towards the edges. Export a single tile, the whole array, or every tile in a ZIP. | Open `ornament/index.html` in a browser |
+| [`brutalist/`](brutalist/) | Brutalist concrete relief with crisp faces: rubble, blocks, pyramids, ribs, folds. Export: STL (monolith or exact solids) and a 16-bit heightmap. | Open `brutalist/index.html` in a browser |
+| [`glyphs/`](glyphs/) | A wall of concrete letter tiles: each letter is a crease ridge with slopes running down to the base. Text (Latin letters, digits) is laid out on a grid; a space is a flat cell of adjustable height, `^` and `~` are a pyramid and a funnel. Export: STL of the whole panel, a ZIP with every unique tile and a layout map, a 16-bit heightmap. | Open `glyphs/index.html` in a browser |
+| [`wood/`](wood/) | Wood relief: growth rings modelled as a cut through a log (quarter-sawn, cathedral arches, figure), knots with rings flowing around them and radial checks, cross and lengthwise cracks, charring/weathering. | Open `wood/index.html` in a browser |
+| [`layers/`](layers/) | Overlapping wavy plates: stripes, rings or contours bent by noise. Shingles or terraces, rounded edges, shadow gap, lip, pinch-out, fibres and fine lines. | Open `layers/index.html` in a browser |
 
-Подробности в README каждой папки.
+See the README in each folder for details.

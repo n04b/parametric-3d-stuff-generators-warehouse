@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ornament — генератор рельефной плитки</title>
+<title>Ornament — relief tile generator</title>
 <style>
   :root {
     --bg: #d9d6cf;
@@ -92,7 +92,7 @@
   .presets button { text-align: left; padding: 7px 9px; }
   .hint { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 6px 0 0; }
 
-  /* Слои */
+  /* Layers */
   .layer { border: 1px solid var(--line); border-radius: 8px; background: #fff; margin: 8px 0; }
   .layer.off { opacity: .55; }
   .layer > .lhead { display: flex; align-items: center; gap: 6px; padding: 6px 8px; cursor: pointer; user-select: none; }
@@ -119,32 +119,32 @@
 <body>
 <div id="app">
   <div id="view">
-    <div id="hud"><b>Ornament</b> · вращение — ЛКМ · зум — колесо · сдвиг — ПКМ</div>
+    <div id="hud"><b>Ornament</b> · rotate — left mouse · zoom — wheel · pan — right mouse</div>
     <div id="views">
-      <button data-mode="tile">Плитка</button>
-      <button data-mode="array">Массив</button>
+      <button data-mode="tile">Tile</button>
+      <button data-mode="array">Array</button>
       <span style="width:8px"></span>
-      <button data-view="front">Анфас</button>
+      <button data-view="front">Front</button>
       <button data-view="angle">3/4</button>
-      <button data-view="graze">Скользящий свет</button>
+      <button data-view="graze">Grazing light</button>
     </div>
     <div id="stats"></div>
-    <div id="busy">Считаю…</div>
+    <div id="busy">Computing…</div>
   </div>
 
   <div id="panel">
     <div class="head">
-      <h1>Генератор рельефной плитки</h1>
-      <p>Квадрат, соты, восьмиугольник, круг. Орнамент из слоёв-мотивов. Все размеры — в миллиметрах. Экспорт в STL.</p>
+      <h1>Relief Tile Generator</h1>
+      <p>Square, hexagon, octagon, circle. Ornament built from motif layers. All dimensions are in millimetres. Export to STL.</p>
     </div>
 
     <div class="group" id="g-presets">
-      <div class="title">Пресеты <span class="chev">▾</span></div>
+      <div class="title">Presets <span class="chev">▾</span></div>
       <div class="body">
         <div class="presets" id="presets"></div>
         <div class="btnrow">
-          <button id="rnd-sq">Случайная: квадрат</button>
-          <button id="rnd-hex">Случайная: соты</button>
+          <button id="rnd-sq">Random: square</button>
+          <button id="rnd-hex">Random: hexagon</button>
         </div>
       </div>
     </div>
@@ -162,7 +162,7 @@ const OC = OrnamentCore, { PRESETS, randomDesign } = OrnamentPresets;
 const STORE_KEY = 'ornament-design-v1';
 
 /* =========================================================================
-   СХЕМЫ ПАРАМЕТРОВ
+   PARAMETER SCHEMAS
    ========================================================================= */
 const is = (k, ...vals) => (p) => vals.includes(p[k]);
 const not = (k, ...vals) => (p) => !vals.includes(p[k]);
@@ -171,149 +171,149 @@ const I_ = (k, l, min, max, show) => ({ k, t: 'range', l, min, max, step: 1, int
 const S_ = (k, l, opts, show) => ({ k, t: 'select', l, opts, show });
 const C_ = (k, l, show) => ({ k, t: 'check', l, show });
 
-const SHAPES = [['square', 'Квадрат'], ['hexFlat', 'Шестиугольник, гранью вверх'], ['hexPointy', 'Шестиугольник, углом вверх'], ['octagon', 'Восьмиугольник'], ['circle', 'Круг']];
+const SHAPES = [['square', 'Square'], ['hexFlat', 'Hexagon, flat side up'], ['hexPointy', 'Hexagon, corner up'], ['octagon', 'Octagon'], ['circle', 'Circle']];
 const isHex = (p) => p.shape === 'hexFlat' || p.shape === 'hexPointy';
 
 const SECTIONS = [
-  { title: 'Плитка', items: [
-    S_('shape', 'Форма', SHAPES),
-    R_('size', 'Размер (между гранями / диаметр)', 30, 400, 1, 'мм'),
-    C_('scaleLink', 'Масштабировать узор вместе с плиткой'),
-    R_('T', 'Толщина основания', 1, 40, 0.1, 'мм'),
-    R_('reliefScale', 'Масштаб высоты рельефа', 0, 4, 0.01),
-    R_('edgeR', 'Скругление верхней кромки', 0, 10, 0.1, 'мм'),
-    { k: 'bg', t: 'color', l: 'Цвет фона (превью)' },
+  { title: 'Tile', items: [
+    S_('shape', 'Shape', SHAPES),
+    R_('size', 'Size (across flats / diameter)', 30, 400, 1, 'mm'),
+    C_('scaleLink', 'Scale pattern with tile'),
+    R_('T', 'Base thickness', 1, 40, 0.1, 'mm'),
+    R_('reliefScale', 'Relief height scale', 0, 4, 0.01),
+    R_('edgeR', 'Top edge rounding', 0, 10, 0.1, 'mm'),
+    { k: 'bg', t: 'color', l: 'Background colour (preview)' },
   ] },
-  { title: 'Слои орнамента', id: 'g-layers', layers: true },
-  { title: 'Поверхность и глазурь', items: [
-    R_('blur', 'Заплыв глазури (сглаживание)', 0, 3, 0.05, 'мм'),
-    { sub: 'Кракелюр (сетка трещин)' },
-    R_('crackSize', 'Размер ячеек (0 — выкл.)', 0, 40, 0.5, 'мм'),
-    R_('crackDepth', 'Глубина трещин', 0, 1, 0.01, 'мм', (p) => p.crackSize > 0),
-    R_('crackW', 'Ширина трещин', 0.05, 2, 0.01, 'мм', (p) => p.crackSize > 0),
-    { sub: 'Шагрень (фактура)' },
-    R_('grain', 'Амплитуда (0 — выкл.)', 0, 2, 0.01, 'мм'),
-    R_('grainSize', 'Размер зерна', 0.2, 10, 0.1, 'мм', (p) => p.grain > 0),
+  { title: 'Ornament layers', id: 'g-layers', layers: true },
+  { title: 'Surface and glaze', items: [
+    R_('blur', 'Glaze pooling (smoothing)', 0, 3, 0.05, 'mm'),
+    { sub: 'Craquelure (crack network)' },
+    R_('crackSize', 'Cell size (0 — off)', 0, 40, 0.5, 'mm'),
+    R_('crackDepth', 'Crack depth', 0, 1, 0.01, 'mm', (p) => p.crackSize > 0),
+    R_('crackW', 'Crack width', 0.05, 2, 0.01, 'mm', (p) => p.crackSize > 0),
+    { sub: 'Shagreen (texture)' },
+    R_('grain', 'Amplitude (0 — off)', 0, 2, 0.01, 'mm'),
+    R_('grainSize', 'Grain size', 0.2, 10, 0.1, 'mm', (p) => p.grain > 0),
     I_('seed', 'Seed', 1, 9999),
   ] },
-  { title: 'Массив плиток', items: [
-    I_('cols', 'Колонок', 1, 30),
-    I_('rows', 'Рядов', 1, 30),
-    R_('gap', 'Шов между плитками', 0, 20, 0.1, 'мм'),
-    S_('rotMode', 'Поворот плиток', [['none', 'Нет'], ['checker', 'Шахматы'], ['pinwheel', 'Вертушка 2×2'], ['rows', 'По рядам'], ['cols', 'По колонкам'], ['random', 'Случайно']]),
-    { sub: 'Затухание рельефа к краям массива' },
-    S_('fade', 'Затухание', [['none', 'Нет'], ['edges', 'К краям (прямоугольник)'], ['radial', 'От центра (эллипс)'], ['side', 'С одной стороны (градиент)']]),
-    R_('fadeW', 'Ширина зоны затухания', 5, 2000, 1, 'мм', not('fade', 'none')),
-    R_('fadeMin', 'Остаток рельефа на краю', 0, 1, 0.01, '', not('fade', 'none')),
-    R_('fadeCurve', 'Кривая (гамма)', 0.2, 4, 0.05, '', not('fade', 'none')),
-    R_('fadeAng', 'Направление нарастания', -180, 180, 1, '°', is('fade', 'side')),
-    R_('fadeNoise', 'Рваная граница', 0, 1, 0.01, '', not('fade', 'none')),
+  { title: 'Tile array', items: [
+    I_('cols', 'Columns', 1, 30),
+    I_('rows', 'Rows', 1, 30),
+    R_('gap', 'Joint between tiles', 0, 20, 0.1, 'mm'),
+    S_('rotMode', 'Tile rotation', [['none', 'None'], ['checker', 'Checkerboard'], ['pinwheel', 'Pinwheel 2×2'], ['rows', 'By rows'], ['cols', 'By columns'], ['random', 'Random']]),
+    { sub: 'Relief fade towards array edges' },
+    S_('fade', 'Fade', [['none', 'None'], ['edges', 'To edges (rectangle)'], ['radial', 'From centre (ellipse)'], ['side', 'From one side (gradient)']]),
+    R_('fadeW', 'Fade zone width', 5, 2000, 1, 'mm', not('fade', 'none')),
+    R_('fadeMin', 'Relief remaining at edge', 0, 1, 0.01, '', not('fade', 'none')),
+    R_('fadeCurve', 'Curve (gamma)', 0.2, 4, 0.05, '', not('fade', 'none')),
+    R_('fadeAng', 'Rise direction', -180, 180, 1, '°', is('fade', 'side')),
+    R_('fadeNoise', 'Ragged boundary', 0, 1, 0.01, '', not('fade', 'none')),
   ] },
-  { title: 'Предпросмотр', collapsed: true, items: [
-    R_('stepPreview', 'Шаг сетки превью', 0.2, 3, 0.05, 'мм'),
-    R_('gloss', 'Блеск глазури', 0, 1, 0.01),
-    R_('lightAz', 'Направление света', -180, 180, 1, '°'),
-    R_('lightEl', 'Высота света', 5, 90, 1, '°'),
+  { title: 'Preview', collapsed: true, items: [
+    R_('stepPreview', 'Preview mesh step', 0.2, 3, 0.05, 'mm'),
+    R_('gloss', 'Glaze gloss', 0, 1, 0.01),
+    R_('lightAz', 'Light direction', -180, 180, 1, '°'),
+    R_('lightEl', 'Light elevation', 5, 90, 1, '°'),
   ] },
-  { title: 'Экспорт', id: 'g-export', items: [
-    R_('stepExport', 'Шаг сетки STL (меньше — точнее и тяжелее)', 0.1, 2, 0.05, 'мм'),
+  { title: 'Export', id: 'g-export', items: [
+    R_('stepExport', 'STL mesh step (smaller — more accurate and heavier)', 0.1, 2, 0.05, 'mm'),
     { html: `
-      <div class="btnrow"><button class="primary" id="ex-tile">STL — одна плитка</button></div>
+      <div class="btnrow"><button class="primary" id="ex-tile">STL — single tile</button></div>
       <div class="btnrow">
-        <button id="ex-array">STL — весь массив</button>
-        <button id="ex-zip">ZIP — каждая плитка</button>
+        <button id="ex-array">STL — whole array</button>
+        <button id="ex-zip">ZIP — every tile</button>
       </div>
       <div class="btnrow">
-        <button id="ex-json">Сохранить параметры</button>
-        <button id="im-json">Загрузить…</button>
+        <button id="ex-json">Save parameters</button>
+        <button id="im-json">Load…</button>
         <input type="file" id="im-file" accept=".json,application/json" hidden />
       </div>
-      <p class="hint">Каждая плитка — замкнутое тело, дно на z = 0, рельеф вверх. «Одна плитка» — без затухания.
-      При затухании все плитки массива разные, поэтому ZIP содержит отдельный файл на каждую (R — ряд, C — колонка).
-      Без затухания плитки одинаковые: в ZIP одна плитка и схема раскладки.</p>
+      <p class="hint">Each tile is a closed solid, bottom at z = 0, relief facing up. "Single tile" is without fade.
+      With fade, every tile in the array is different, so the ZIP contains a separate file for each (R — row, C — column).
+      Without fade the tiles are identical: the ZIP contains one tile and a layout map.</p>
       <p class="hint" id="ex-est"></p>` },
   ] },
 ];
 
-const MODE_OPTS = [['raise', 'Наплыв (объединение)'], ['add', 'Наложение (поверх)'], ['cut', 'Вырезать (углубление)']];
-const PROF_OPTS = [['round', 'Скруглённый'], ['chamfer', 'Фаска (грани)'], ['smooth', 'Плавный'], ['cove', 'Вогнутый']];
+const MODE_OPTS = [['raise', 'Blend (union)'], ['add', 'Overlay (on top)'], ['cut', 'Cut (recess)']];
+const PROF_OPTS = [['round', 'Rounded'], ['chamfer', 'Chamfer (facets)'], ['smooth', 'Smooth'], ['cove', 'Concave']];
 const MOTIF_ITEMS = {
   petal: [
-    R_('len', 'Длина', 0.5, 250, 0.1, 'мм'), R_('wid', 'Ширина', 0.2, 150, 0.1, 'мм'),
-    R_('bend', 'Изгиб', -360, 360, 1, '°'),
-    S_('shape', 'Контур', [['curve', 'Плавный'], ['straight', 'Прямой (ромб / воздушный змей)']]),
-    R_('tipS', 'Острота кончика', 0, 1, 0.01, '', is('shape', 'curve')),
-    R_('baseS', 'Острота основания', 0, 1, 0.01, '', is('shape', 'curve')),
-    R_('bulge', 'Положение самого широкого места', 0.05, 0.95, 0.01),
-    R_('notch', 'Вырез на кончике (сердечко)', 0, 1, 0.01),
-    R_('vein', 'Глубина прожилки', 0, 5, 0.05, 'мм'),
-    R_('veinW', 'Ширина прожилки', 0.2, 6, 0.05, 'мм', (p) => p.vein > 0),
+    R_('len', 'Length', 0.5, 250, 0.1, 'mm'), R_('wid', 'Width', 0.2, 150, 0.1, 'mm'),
+    R_('bend', 'Bend', -360, 360, 1, '°'),
+    S_('shape', 'Outline', [['curve', 'Smooth'], ['straight', 'Straight (rhombus / kite)']]),
+    R_('tipS', 'Tip sharpness', 0, 1, 0.01, '', is('shape', 'curve')),
+    R_('baseS', 'Base sharpness', 0, 1, 0.01, '', is('shape', 'curve')),
+    R_('bulge', 'Position of widest point', 0.05, 0.95, 0.01),
+    R_('notch', 'Tip notch (heart)', 0, 1, 0.01),
+    R_('vein', 'Vein depth', 0, 5, 0.05, 'mm'),
+    R_('veinW', 'Vein width', 0.2, 6, 0.05, 'mm', (p) => p.vein > 0),
   ],
-  disc: [R_('rad', 'Радиус', 0.3, 200, 0.1, 'мм'), R_('ring', 'Ширина кольца (0 — сплошной)', 0, 100, 0.1, 'мм'), R_('sector', 'Сектор', 1, 360, 1, '°')],
-  rect: [R_('rw', 'Длина (вдоль оси)', 0.5, 400, 0.1, 'мм'), R_('rh', 'Ширина', 0.5, 400, 0.1, 'мм'), R_('rr', 'Скругление углов', 0, 100, 0.1, 'мм')],
+  disc: [R_('rad', 'Radius', 0.3, 200, 0.1, 'mm'), R_('ring', 'Ring width (0 — solid)', 0, 100, 0.1, 'mm'), R_('sector', 'Sector', 1, 360, 1, '°')],
+  rect: [R_('rw', 'Length (along axis)', 0.5, 400, 0.1, 'mm'), R_('rh', 'Width', 0.5, 400, 0.1, 'mm'), R_('rr', 'Corner rounding', 0, 100, 0.1, 'mm')],
   scroll: [
-    R_('r1', 'Внешний радиус спирали', 0.5, 80, 0.1, 'мм'), R_('r0', 'Внутренний радиус', 0, 40, 0.1, 'мм'),
-    R_('turns', 'Витков', 0.1, 5, 0.01), R_('w0', 'Толщина у начала спирали', 0.2, 20, 0.1, 'мм'),
-    R_('w1', 'Толщина в центре', 0.2, 20, 0.1, 'мм'), R_('tail', 'Длина хвоста', 0, 200, 0.5, 'мм'),
-    R_('wt', 'Толщина конца хвоста', 0.2, 20, 0.1, 'мм', (p) => p.tail > 0),
-    R_('tailBend', 'Изгиб хвоста', -360, 360, 1, '°', (p) => p.tail > 0),
-    R_('knob', 'Шарик в центре', 0, 15, 0.1, 'мм'),
+    R_('r1', 'Spiral outer radius', 0.5, 80, 0.1, 'mm'), R_('r0', 'Inner radius', 0, 40, 0.1, 'mm'),
+    R_('turns', 'Turns', 0.1, 5, 0.01), R_('w0', 'Thickness at spiral start', 0.2, 20, 0.1, 'mm'),
+    R_('w1', 'Thickness at centre', 0.2, 20, 0.1, 'mm'), R_('tail', 'Tail length', 0, 200, 0.5, 'mm'),
+    R_('wt', 'Tail end thickness', 0.2, 20, 0.1, 'mm', (p) => p.tail > 0),
+    R_('tailBend', 'Tail bend', -360, 360, 1, '°', (p) => p.tail > 0),
+    R_('knob', 'Ball in centre', 0, 15, 0.1, 'mm'),
   ],
   curve: [
-    R_('x0', 'Начало X', -200, 200, 0.5, 'мм'), R_('y0', 'Начало Y', -200, 200, 0.5, 'мм'),
-    R_('x1', 'Опора 1 X', -200, 200, 0.5, 'мм'), R_('y1', 'Опора 1 Y', -200, 200, 0.5, 'мм'),
-    R_('x2', 'Опора 2 X', -200, 200, 0.5, 'мм'), R_('y2', 'Опора 2 Y', -200, 200, 0.5, 'мм'),
-    R_('x3', 'Конец X', -200, 200, 0.5, 'мм'), R_('y3', 'Конец Y', -200, 200, 0.5, 'мм'),
-    R_('w0', 'Толщина в начале', 0.2, 30, 0.1, 'мм'), R_('w1', 'Толщина в конце', 0.2, 30, 0.1, 'мм'),
-    R_('knob0', 'Шарик в начале', 0, 15, 0.1, 'мм'), R_('knob1', 'Шарик в конце', 0, 15, 0.1, 'мм'),
+    R_('x0', 'Start X', -200, 200, 0.5, 'mm'), R_('y0', 'Start Y', -200, 200, 0.5, 'mm'),
+    R_('x1', 'Control 1 X', -200, 200, 0.5, 'mm'), R_('y1', 'Control 1 Y', -200, 200, 0.5, 'mm'),
+    R_('x2', 'Control 2 X', -200, 200, 0.5, 'mm'), R_('y2', 'Control 2 Y', -200, 200, 0.5, 'mm'),
+    R_('x3', 'End X', -200, 200, 0.5, 'mm'), R_('y3', 'End Y', -200, 200, 0.5, 'mm'),
+    R_('w0', 'Start thickness', 0.2, 30, 0.1, 'mm'), R_('w1', 'End thickness', 0.2, 30, 0.1, 'mm'),
+    R_('knob0', 'Start ball', 0, 15, 0.1, 'mm'), R_('knob1', 'End ball', 0, 15, 0.1, 'mm'),
   ],
-  arc: [R_('rad', 'Радиус', 0.5, 250, 0.1, 'мм'), R_('a0', 'Начальный угол', -180, 180, 1, '°'), R_('sweep', 'Длина дуги', 1, 360, 1, '°'), R_('aw', 'Толщина', 0.2, 40, 0.1, 'мм')],
-  line: [R_('len', 'Длина', 0.5, 500, 0.5, 'мм'), R_('lwid', 'Толщина', 0.2, 60, 0.1, 'мм')],
-  star: [I_('pts', 'Лучей', 2, 40), R_('rad', 'Радиус', 0.5, 250, 0.1, 'мм'), R_('inner', 'Внутренний радиус (доля)', 0.02, 1, 0.005)],
-  polygram: [I_('pts', 'Вершин n', 3, 48), I_('skip', 'Шаг k', 1, 23), R_('rad', 'Радиус', 0.5, 250, 0.1, 'мм'), R_('gw', 'Толщина линий', 0.2, 12, 0.1, 'мм')],
-  lobed: [R_('rad', 'Радиус', 0.5, 250, 0.1, 'мм'), I_('lobes', 'Лопастей', 1, 32), R_('amp', 'Глубина выемок', 0, 1, 0.01), R_('sharp', 'Форма лопасти', 0.05, 3, 0.01)],
-  frame: [R_('inset', 'Отступ от края', 0, 100, 0.1, 'мм'), R_('fw', 'Ширина рамки', 0.3, 200, 0.1, 'мм')],
+  arc: [R_('rad', 'Radius', 0.5, 250, 0.1, 'mm'), R_('a0', 'Start angle', -180, 180, 1, '°'), R_('sweep', 'Arc length', 1, 360, 1, '°'), R_('aw', 'Thickness', 0.2, 40, 0.1, 'mm')],
+  line: [R_('len', 'Length', 0.5, 500, 0.5, 'mm'), R_('lwid', 'Thickness', 0.2, 60, 0.1, 'mm')],
+  star: [I_('pts', 'Rays', 2, 40), R_('rad', 'Radius', 0.5, 250, 0.1, 'mm'), R_('inner', 'Inner radius (fraction)', 0.02, 1, 0.005)],
+  polygram: [I_('pts', 'Vertices n', 3, 48), I_('skip', 'Step k', 1, 23), R_('rad', 'Radius', 0.5, 250, 0.1, 'mm'), R_('gw', 'Line thickness', 0.2, 12, 0.1, 'mm')],
+  lobed: [R_('rad', 'Radius', 0.5, 250, 0.1, 'mm'), I_('lobes', 'Lobes', 1, 32), R_('amp', 'Notch depth', 0, 1, 0.01), R_('sharp', 'Lobe shape', 0.05, 3, 0.01)],
+  frame: [R_('inset', 'Inset from edge', 0, 100, 0.1, 'mm'), R_('fw', 'Frame width', 0.3, 200, 0.1, 'mm')],
 };
 const notFrame = (p) => p.type !== 'frame';
 const grid = (p) => notFrame(p) && p.rep === 'grid';
 const COMMON_ITEMS = [
-  { sub: 'Рельеф' },
-  S_('mode', 'Режим', MODE_OPTS),
-  R_('H', 'Высота / глубина', 0, 40, 0.05, 'мм'),
-  S_('prof', 'Профиль склона', PROF_OPTS),
-  R_('bevel', 'Ширина склона', 0.05, 60, 0.05, 'мм'),
-  S_('style', 'Заливка', [['fill', 'Сплошная'], ['outline', 'Только контур']]),
-  R_('lw', 'Толщина контура', 0.2, 20, 0.1, 'мм', is('style', 'outline')),
-  R_('tiltX', 'Наклон вдоль оси мотива', -60, 60, 0.5, '°'),
-  R_('tiltY', 'Наклон поперёк оси', -60, 60, 0.5, '°'),
-  S_('stripe', 'Рифление', [['none', 'Нет'], ['linear', 'Параллельные полосы'], ['rings', 'Кольца'], ['rays', 'Лучи'], ['contour', 'По контуру (вложенные)']]),
-  R_('sPer', 'Шаг рифления', 0.3, 40, 0.05, 'мм', (p) => ['linear', 'rings', 'contour'].includes(p.stripe)),
-  R_('sAng', 'Угол полос', -180, 180, 1, '°', is('stripe', 'linear')),
-  I_('sRays', 'Лучей на круг', 2, 360, is('stripe', 'rays')),
-  R_('sDepth', 'Глубина рифления', 0, 20, 0.05, 'мм', not('stripe', 'none')),
-  S_('sWave', 'Форма рифления', [['tri', 'Треугольная (гребни)'], ['sine', 'Синусоида'], ['step', 'Ступени']], not('stripe', 'none')),
-  { k: 'color', t: 'color', l: 'Цвет (превью)' },
-  { sub: 'Размещение', show: notFrame },
-  S_('rep', 'Размножение', [['radial', 'Вокруг центра плитки'], ['grid', 'По решётке']], notFrame),
-  S_('lat', 'Решётка', [['square', 'Квадратная'], ['hex', 'Шестиугольная']], grid),
-  R_('P', 'Шаг решётки', 2, 300, 0.1, 'мм', grid),
-  R_('latRot', 'Поворот решётки', -180, 180, 1, '°', grid),
-  C_('latOff', 'Сдвинуть решётку на полшага', grid),
-  I_('n', 'Копий по кругу', 1, 72, notFrame),
-  C_('mirror', 'Зеркальные пары', notFrame),
-  R_('ang', 'Угол первой копии', -180, 180, 0.5, '°', notFrame),
-  R_('R', 'Расстояние от центра', 0, 300, 0.1, 'мм', notFrame),
-  I_('ln', 'Веер: копий', 1, 72, notFrame),
-  R_('span', 'Веер: раскрытие', 1, 360, 1, '°', (p) => notFrame(p) && p.ln > 1),
-  R_('lrot', 'Поворот веера / смещение от оси', -180, 180, 0.5, '°', notFrame),
-  R_('lr', 'Вынос мотива от центра веера', 0, 300, 0.1, 'мм', notFrame),
-  R_('rot', 'Поворот мотива', -180, 180, 0.5, '°', notFrame),
-  C_('flip', 'Отразить мотив', notFrame),
-  R_('scale', 'Масштаб мотива', 0.05, 5, 0.01, '', notFrame),
+  { sub: 'Relief' },
+  S_('mode', 'Mode', MODE_OPTS),
+  R_('H', 'Height / depth', 0, 40, 0.05, 'mm'),
+  S_('prof', 'Slope profile', PROF_OPTS),
+  R_('bevel', 'Slope width', 0.05, 60, 0.05, 'mm'),
+  S_('style', 'Fill', [['fill', 'Solid'], ['outline', 'Outline only']]),
+  R_('lw', 'Outline thickness', 0.2, 20, 0.1, 'mm', is('style', 'outline')),
+  R_('tiltX', 'Tilt along motif axis', -60, 60, 0.5, '°'),
+  R_('tiltY', 'Tilt across axis', -60, 60, 0.5, '°'),
+  S_('stripe', 'Fluting', [['none', 'None'], ['linear', 'Parallel stripes'], ['rings', 'Rings'], ['rays', 'Rays'], ['contour', 'Along outline (nested)']]),
+  R_('sPer', 'Fluting step', 0.3, 40, 0.05, 'mm', (p) => ['linear', 'rings', 'contour'].includes(p.stripe)),
+  R_('sAng', 'Stripe angle', -180, 180, 1, '°', is('stripe', 'linear')),
+  I_('sRays', 'Rays per circle', 2, 360, is('stripe', 'rays')),
+  R_('sDepth', 'Fluting depth', 0, 20, 0.05, 'mm', not('stripe', 'none')),
+  S_('sWave', 'Fluting shape', [['tri', 'Triangular (ridges)'], ['sine', 'Sine'], ['step', 'Steps']], not('stripe', 'none')),
+  { k: 'color', t: 'color', l: 'Colour (preview)' },
+  { sub: 'Placement', show: notFrame },
+  S_('rep', 'Replication', [['radial', 'Around tile centre'], ['grid', 'On a lattice']], notFrame),
+  S_('lat', 'Lattice', [['square', 'Square'], ['hex', 'Hexagonal']], grid),
+  R_('P', 'Lattice step', 2, 300, 0.1, 'mm', grid),
+  R_('latRot', 'Lattice rotation', -180, 180, 1, '°', grid),
+  C_('latOff', 'Shift lattice by half a step', grid),
+  I_('n', 'Copies around circle', 1, 72, notFrame),
+  C_('mirror', 'Mirror pairs', notFrame),
+  R_('ang', 'First copy angle', -180, 180, 0.5, '°', notFrame),
+  R_('R', 'Distance from centre', 0, 300, 0.1, 'mm', notFrame),
+  I_('ln', 'Fan: copies', 1, 72, notFrame),
+  R_('span', 'Fan: spread', 1, 360, 1, '°', (p) => notFrame(p) && p.ln > 1),
+  R_('lrot', 'Fan rotation / offset from axis', -180, 180, 0.5, '°', notFrame),
+  R_('lr', 'Motif offset from fan centre', 0, 300, 0.1, 'mm', notFrame),
+  R_('rot', 'Motif rotation', -180, 180, 0.5, '°', notFrame),
+  C_('flip', 'Mirror motif', notFrame),
+  R_('scale', 'Motif scale', 0.05, 5, 0.01, '', notFrame),
 ];
 
 /* =========================================================================
-   СОСТОЯНИЕ
+   STATE
    ========================================================================= */
 const VIEW_DEFAULTS = { scaleLink: true, lightAz: -135, lightEl: 38, viewMode: 'tile' };
 let D = loadStored() || fresh(PRESETS[0].d, 'tile');
@@ -324,7 +324,7 @@ function fresh(d, mode) {
 }
 
 /* =========================================================================
-   ПАНЕЛЬ
+   PANEL
    ========================================================================= */
 const controls = [];
 function makeControl(it, getObj, onSet) {
@@ -384,9 +384,9 @@ function buildPanel() {
     if (sec.layers) {
       body.innerHTML = `<div id="layers"></div>
         <div class="addrow"><select id="add-type">${Object.entries(OC.MOTIF_NAMES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
-        <button id="add-layer" class="primary">+ Слой</button></div>
-        <p class="hint">Слои применяются сверху вниз. «Наплыв» берёт максимум высот, «Наложение» ставит мотив поверх того, что уже есть, «Вырезать» делает углубление.
-        Мотив лежит вдоль своей оси (0° — вправо). Копии: сначала по кругу вокруг центра плитки (или по решётке), затем веером вокруг точки на расстоянии от центра.</p>`;
+        <button id="add-layer" class="primary">+ Layer</button></div>
+        <p class="hint">Layers are applied top to bottom. "Blend" takes the maximum of heights, "Overlay" places the motif on top of what is already there, "Cut" makes a recess.
+        The motif lies along its axis (0° — to the right). Copies: first around a circle about the tile centre (or on a lattice), then as a fan around a point at a distance from the centre.</p>`;
       body.querySelector('#add-layer').onclick = () => {
         const t = body.querySelector('#add-type').value;
         const L = OC.makeLayer(t, { color: D.layers.length ? D.layers[D.layers.length - 1].color : '#c8b89a', H: 2.5 });
@@ -420,7 +420,7 @@ function setTileParam(k, v) {
   changed();
 }
 
-/* ---------- слои ---------- */
+/* ---------- layers ---------- */
 let openLayers = new Set();
 let layerCtrls = [];
 function renderLayers(openIdx) {
@@ -432,11 +432,11 @@ function renderLayers(openIdx) {
     const card = document.createElement('div');
     card.className = 'layer' + (openLayers.has(idx) ? '' : ' collapsed') + (L.on ? '' : ' off');
     card.innerHTML = `<div class="lhead">
-        <input type="checkbox" title="Включить / выключить" ${L.on ? 'checked' : ''}/>
+        <input type="checkbox" title="Enable / disable" ${L.on ? 'checked' : ''}/>
         <span class="sw" style="background:${L.color}"></span>
         <span class="name">${idx + 1}. ${OC.MOTIF_NAMES[L.type]} <small>${L.type !== 'frame' ? '×' + copiesOf(L) : ''}</small></span>
-        <button data-a="up" title="Выше">↑</button><button data-a="down" title="Ниже">↓</button>
-        <button data-a="dup" title="Копия">⧉</button><button data-a="del" title="Удалить">✕</button>
+        <button data-a="up" title="Up">↑</button><button data-a="down" title="Down">↓</button>
+        <button data-a="dup" title="Duplicate">⧉</button><button data-a="del" title="Delete">✕</button>
       </div><div class="lbody"></div>`;
     const head = card.querySelector('.lhead'), body = card.querySelector('.lbody');
     head.addEventListener('click', (e) => {
@@ -466,7 +466,7 @@ function renderLayers(openIdx) {
 }
 function copiesOf(L) {
   const k = L.n * L.ln * (L.mirror ? 2 : 1);
-  return L.rep === 'grid' ? k + ' на узел' : k;
+  return L.rep === 'grid' ? k + ' per node' : k;
 }
 function syncLayers() { layerCtrls.forEach((cs) => cs.forEach((c) => c.sync && c.sync())); }
 function layerAction(i, a) {
@@ -505,7 +505,7 @@ function afterLoad(fit) {
   store();
 }
 
-function store() { try { localStorage.setItem(STORE_KEY, JSON.stringify(D)); } catch (e) { /* хранилище недоступно */ } }
+function store() { try { localStorage.setItem(STORE_KEY, JSON.stringify(D)); } catch (e) { /* storage unavailable */ } }
 function loadStored() {
   try {
     const s = localStorage.getItem(STORE_KEY);
@@ -522,7 +522,7 @@ function changed() {
 }
 
 /* =========================================================================
-   ПРОСМОТР
+   PREVIEW
    ========================================================================= */
 const view = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -563,7 +563,7 @@ function applyLook() {
   placeLight();
 }
 
-// Цвет превью в точке плитки: билинейно по сетке цветов, sRGB → линейный.
+// Preview colour at a tile point: bilinear over the colour grid, sRGB → linear.
 function colorSampler(R) {
   const { n, s, half } = R.G, c = R.rgb;
   const lin = (x) => (x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4));
@@ -590,7 +590,7 @@ function meshToObject(M, design, R, tile, fade) {
   for (let v = 0, o = 0; o < M.pos.length; v++, o += 3) {
     sample(M.pos[o], M.pos[o + 1], c);
     if (fade) {
-      // цвет узора затухает вместе с рельефом
+      // pattern colour fades together with the relief
       const x = M.pos[o], y = M.pos[o + 1], a = fade(tile.x + cr * x - sr * y, tile.y + sr * x + cr * y);
       c[0] = bgc.r + (c[0] - bgc.r) * a; c[1] = bgc.g + (c[1] - bgc.g) * a; c[2] = bgc.b + (c[2] - bgc.b) * a;
     }
@@ -639,7 +639,7 @@ function rebuild(fit) {
     lay = OC.arrayLayout(design);
     tileCount = lay.tiles.length;
     const fade = OC.fadeFn(design, lay.box);
-    // Бюджет узлов превью, чтобы массив с затуханием оставался отзывчивым.
+    // Preview node budget so that a faded array stays responsive.
     if (fade) step = Math.max(step, design.size / Math.sqrt(500000 / tileCount));
     const R = OC.computeRelief(design, step, { colors: true });
     if (fade) {
@@ -715,14 +715,14 @@ document.querySelectorAll('#views [data-mode]').forEach((b) => b.addEventListene
 }));
 
 /* =========================================================================
-   СТАТИСТИКА И ЭКСПОРТ
+   STATS AND EXPORT
    ========================================================================= */
 function estTris(design, step) {
   const out = OC.tileOutline(design.shape, design.size);
   const area = out.circle ? Math.PI * out.a * out.a : out.n * out.a * out.a * Math.tan(Math.PI / out.n);
   return Math.round(2 * area / (step * step) + 3 * out.n * design.size / step);
 }
-const fmtMB = (tris) => (tris * 50 / 1048576).toFixed(tris * 50 > 1e8 ? 0 : 1) + ' МБ';
+const fmtMB = (tris) => (tris * 50 / 1048576).toFixed(tris * 50 > 1e8 ? 0 : 1) + ' MB';
 
 function showStats(tris, tileCount, ms, step) {
   const design = OC.normalizeDesign(D);
@@ -732,17 +732,17 @@ function showStats(tris, tileCount, ms, step) {
   const out = R.outline;
   const w = out.circle ? out.a * 2 : Math.max(...out.vx) - Math.min(...out.vx), h = out.circle ? out.a * 2 : Math.max(...out.vy) - Math.min(...out.vy);
   const lines = [
-    `Плитка: <b>${w.toFixed(1)} × ${h.toFixed(1)} мм</b>, основание ${design.T} мм, рельеф ${hMax > 0 ? '+' + hMax.toFixed(2) : '0'}${hMin < 0 ? ' / ' + hMin.toFixed(2) : ''} мм`,
+    `Tile: <b>${w.toFixed(1)} × ${h.toFixed(1)} mm</b>, base ${design.T} mm, relief ${hMax > 0 ? '+' + hMax.toFixed(2) : '0'}${hMin < 0 ? ' / ' + hMin.toFixed(2) : ''} mm`,
   ];
   if (lastInfo.lay) {
     const b = lastInfo.lay.box;
-    lines.push(`Массив: ${tileCount} шт., ${(b[2] - b[0]).toFixed(0)} × ${(b[3] - b[1]).toFixed(0)} мм${design.fade !== 'none' ? ', с затуханием' : ''}`);
+    lines.push(`Array: ${tileCount} pcs, ${(b[2] - b[0]).toFixed(0)} × ${(b[3] - b[1]).toFixed(0)} mm${design.fade !== 'none' ? ', with fade' : ''}`);
   }
-  lines.push(`Превью: шаг ${step.toFixed(2)} мм, ${tris.toLocaleString('ru')} треуг., ${ms.toFixed(0)} мс`);
-  if (hMin < -(design.T - 0.7)) lines.push('<span class="warn">Углубления доходят почти до дна — увеличьте толщину основания.</span>');
+  lines.push(`Preview: step ${step.toFixed(2)} mm, ${tris.toLocaleString('en-US')} tris, ${ms.toFixed(0)} ms`);
+  if (hMin < -(design.T - 0.7)) lines.push('<span class="warn">Recesses reach almost to the bottom — increase the base thickness.</span>');
   document.getElementById('stats').innerHTML = lines.join('<br>');
   const et = estTris(design, design.stepExport), n = lastInfo.lay ? lastInfo.lay.tiles.length : design.cols * design.rows;
-  document.getElementById('ex-est').innerHTML = `Оценка при шаге ${design.stepExport} мм: плитка ≈ ${et.toLocaleString('ru')} треуг. (${fmtMB(et)}), весь массив из ${n} шт. ≈ ${fmtMB(et * n)}.`;
+  document.getElementById('ex-est').innerHTML = `Estimate at ${design.stepExport} mm step: tile ≈ ${et.toLocaleString('en-US')} tris (${fmtMB(et)}), whole array of ${n} pcs ≈ ${fmtMB(et * n)}.`;
 }
 
 function baseName() {
@@ -758,25 +758,25 @@ function download(data, name, type) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
 function busy(on) { document.getElementById('busy').style.display = on ? 'block' : 'none'; }
-function later(fn) { busy(true); setTimeout(() => { try { fn(); } catch (e) { alert('Ошибка экспорта: ' + e.message); console.error(e); } finally { busy(false); } }, 30); }
+function later(fn) { busy(true); setTimeout(() => { try { fn(); } catch (e) { alert('Export error: ' + e.message); console.error(e); } finally { busy(false); } }, 30); }
 
 function layoutText(design, lay, perTile) {
   const lines = [
-    'Ornament — раскладка массива',
-    `Форма: ${design.shape}, размер ${design.size} мм, шов ${design.gap} мм, ${lay.tiles.length} шт.`,
-    'Координаты центров плиток в мм (X вправо, Y вверх), поворот против часовой стрелки.',
-    perTile ? 'Каждая плитка — свой файл (затухание делает их разными).' : 'Все плитки одинаковые: tile.stl.',
+    'Ornament — array layout',
+    `Shape: ${design.shape}, size ${design.size} mm, joint ${design.gap} mm, ${lay.tiles.length} pcs.`,
+    'Tile centre coordinates in mm (X right, Y up), rotation counter-clockwise.',
+    perTile ? 'Each tile is its own file (fade makes them different).' : 'All tiles are identical: tile.stl.',
     '',
   ];
-  for (const t of lay.tiles) lines.push(`${t.name}\tX=${t.x.toFixed(2)}\tY=${t.y.toFixed(2)}\tповорот=${t.rot}°`);
+  for (const t of lay.tiles) lines.push(`${t.name}\tX=${t.x.toFixed(2)}\tY=${t.y.toFixed(2)}\trotation=${t.rot}°`);
   return lines.join('\n');
 }
 
-// Подтверждение перед очень тяжёлым экспортом.
+// Confirmation before a very heavy export.
 function heavy(tiles) {
   const design = OC.normalizeDesign(D);
   const bytes = estTris(design, design.stepExport) * tiles * 50;
-  return bytes > 500 * 1048576 && !confirm(`Файл получится примерно ${fmtMB(bytes / 50)}. Увеличьте шаг сетки STL, чтобы уменьшить его. Продолжить?`);
+  return bytes > 500 * 1048576 && !confirm(`The file will be about ${fmtMB(bytes / 50)}. Increase the STL mesh step to reduce it. Continue?`);
 }
 
 function wireExports() {
@@ -813,7 +813,7 @@ function wireExports() {
     const f = e.target.files[0];
     if (!f) return;
     f.text().then((txt) => {
-      try { D = fresh(JSON.parse(txt)); afterLoad(true); } catch (err) { alert('Не удалось прочитать файл: ' + err.message); }
+      try { D = fresh(JSON.parse(txt)); afterLoad(true); } catch (err) { alert('Could not read the file: ' + err.message); }
     });
     e.target.value = '';
   };

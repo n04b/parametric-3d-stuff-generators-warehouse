@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Текстура дерева</title>
+  <title>Wood Texture</title>
   <style>
 :root {
   --bg: #f4f4f2;
@@ -179,12 +179,12 @@ button:disabled { opacity: 0.5; cursor: progress; }
 <body>
   <aside id="panel">
     <header>
-      <h1>Текстура дерева</h1>
-      <p class="hint">Годичные кольца, сучки, трещины. Размеры в миллиметрах, экспорт в STL.</p>
+      <h1>Wood Texture</h1>
+      <p class="hint">Growth rings, knots, cracks. Dimensions in millimetres, export to STL.</p>
     </header>
 
     <label class="field">
-      <span>Пресет</span>
+      <span>Preset</span>
       <select id="preset"></select>
     </label>
 
@@ -193,18 +193,18 @@ button:disabled { opacity: 0.5; cursor: progress; }
     <section id="stats"></section>
 
     <div class="actions">
-      <button id="export" type="button" class="primary">Скачать STL</button>
-      <button id="share" type="button">Скопировать ссылку</button>
+      <button id="export" type="button" class="primary">Download STL</button>
+      <button id="share" type="button">Copy link</button>
     </div>
     <p id="message" class="hint" role="status"></p>
   </aside>
 
   <main id="viewport">
-    <div id="busy" hidden>Генерация…</div>
+    <div id="busy" hidden>Generating…</div>
     <div class="view-tools">
-      <label><input type="checkbox" id="dark" checked> Тёмное дерево</label>
-      <label><input type="checkbox" id="wire"> Сетка</label>
-      <button id="reset-view" type="button">Сбросить вид</button>
+      <label><input type="checkbox" id="dark" checked> Dark wood</label>
+      <label><input type="checkbox" id="wire"> Wireframe</label>
+      <button id="reset-view" type="button">Reset view</button>
     </div>
   </main>
 
@@ -346,11 +346,11 @@ function voronoiBorder(seed, su, sv, lu, lv, keep) {
 const TAU = Math.PI * 2;
 
 const GROUPS = {
-  board: 'Доска',
-  grain: 'Годичные кольца',
-  relief: 'Рельеф',
-  knots: 'Сучки',
-  cracks: 'Трещины',
+  board: 'Board',
+  grain: 'Growth rings',
+  relief: 'Relief',
+  knots: 'Knots',
+  cracks: 'Cracks',
 };
 
 const hasKnots = (s) => s.knots > 0;
@@ -359,60 +359,60 @@ const hasChecks = (s) => s.cracks && s.checks;
 const hasSplits = (s) => s.cracks && s.splits;
 
 const PARAMS = [
-  { key: 'width', group: 'board', label: 'Ширина, мм', type: 'number', min: 10, max: 2000, step: 1, value: 140 },
-  { key: 'height', group: 'board', label: 'Длина, мм', type: 'number', min: 10, max: 2000, step: 1, value: 260 },
-  { key: 'base', group: 'board', label: 'Толщина основания, мм', type: 'number', min: 0.4, max: 100, step: 0.1, value: 3 },
-  { key: 'resolution', group: 'board', label: 'Шаг сетки, мм', type: 'number', min: 0.05, max: 5, step: 0.05, value: 0.3 },
+  { key: 'width', group: 'board', label: 'Width, mm', type: 'number', min: 10, max: 2000, step: 1, value: 140 },
+  { key: 'height', group: 'board', label: 'Length, mm', type: 'number', min: 10, max: 2000, step: 1, value: 260 },
+  { key: 'base', group: 'board', label: 'Base thickness, mm', type: 'number', min: 0.4, max: 100, step: 0.1, value: 3 },
+  { key: 'resolution', group: 'board', label: 'Mesh step, mm', type: 'number', min: 0.05, max: 5, step: 0.05, value: 0.3 },
 
-  { key: 'seed', group: 'grain', label: 'Сид', type: 'int', min: 0, max: 99999, step: 1, value: 11 },
-  { key: 'angle', group: 'grain', label: 'Направление волокон, °', type: 'number', min: 0, max: 180, step: 1, value: 90 },
-  { key: 'ringSpacing', group: 'grain', label: 'Ширина годичного кольца, мм', type: 'number', min: 0.5, max: 30, step: 0.1, value: 3 },
-  { key: 'ringVar', group: 'grain', label: 'Неравномерность колец', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5 },
-  { key: 'cutDepth', group: 'grain', label: 'Расстояние до сердцевины, мм', type: 'number', min: 0, max: 600, step: 1, value: 30 },
-  { key: 'pithOffset', group: 'grain', label: 'Смещение сердцевины, мм', type: 'number', min: -600, max: 600, step: 1, value: -25 },
-  { key: 'tilt', group: 'grain', label: 'Наклон ствола, °', type: 'number', min: 0, max: 20, step: 0.1, value: 4 },
-  { key: 'warpAmp', group: 'grain', label: 'Изгиб волокон, мм', type: 'number', min: 0, max: 60, step: 0.5, value: 4 },
-  { key: 'warpScale', group: 'grain', label: 'Масштаб изгибов, мм', type: 'number', min: 5, max: 600, step: 1, value: 60 },
-  { key: 'stretch', group: 'grain', label: 'Вытянутость изгибов', type: 'number', min: 1, max: 12, step: 0.1, value: 5 },
-  { key: 'swirl', group: 'grain', label: 'Завихрения', type: 'number', min: 0, max: 4, step: 0.05, value: 0.4 },
+  { key: 'seed', group: 'grain', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 11 },
+  { key: 'angle', group: 'grain', label: 'Grain direction, °', type: 'number', min: 0, max: 180, step: 1, value: 90 },
+  { key: 'ringSpacing', group: 'grain', label: 'Growth ring width, mm', type: 'number', min: 0.5, max: 30, step: 0.1, value: 3 },
+  { key: 'ringVar', group: 'grain', label: 'Ring irregularity', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5 },
+  { key: 'cutDepth', group: 'grain', label: 'Distance to pith, mm', type: 'number', min: 0, max: 600, step: 1, value: 30 },
+  { key: 'pithOffset', group: 'grain', label: 'Pith offset, mm', type: 'number', min: -600, max: 600, step: 1, value: -25 },
+  { key: 'tilt', group: 'grain', label: 'Trunk tilt, °', type: 'number', min: 0, max: 20, step: 0.1, value: 4 },
+  { key: 'warpAmp', group: 'grain', label: 'Grain bend, mm', type: 'number', min: 0, max: 60, step: 0.5, value: 4 },
+  { key: 'warpScale', group: 'grain', label: 'Bend scale, mm', type: 'number', min: 5, max: 600, step: 1, value: 60 },
+  { key: 'stretch', group: 'grain', label: 'Bend stretch', type: 'number', min: 1, max: 12, step: 0.1, value: 5 },
+  { key: 'swirl', group: 'grain', label: 'Swirls', type: 'number', min: 0, max: 4, step: 0.05, value: 0.4 },
 
-  { key: 'ringDepth', group: 'relief', label: 'Глубина колец, мм', type: 'number', min: 0, max: 20, step: 0.1, value: 2 },
-  { key: 'latewood', group: 'relief', label: 'Ширина гребня (доля кольца)', type: 'number', min: 0.05, max: 0.9, step: 0.01, value: 0.3 },
-  { key: 'groove', group: 'relief', label: 'Форма впадины (V ↔ U)', type: 'number', min: 0.2, max: 5, step: 0.05, value: 1.6 },
-  { key: 'asym', group: 'relief', label: 'Асимметрия впадины', type: 'number', min: -1, max: 1, step: 0.05, value: 0.4 },
-  { key: 'ridgeVar', group: 'relief', label: 'Разброс высоты гребней', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4 },
-  { key: 'wear', group: 'relief', label: 'Неравномерный износ', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
-  { key: 'fibers', group: 'relief', label: 'Волокна, мм', type: 'number', min: 0, max: 3, step: 0.05, value: 0.25 },
-  { key: 'fiberWidth', group: 'relief', label: 'Толщина волокна, мм', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6 },
-  { key: 'swell', group: 'relief', label: 'Крупные волны, мм', type: 'number', min: 0, max: 30, step: 0.1, value: 1 },
-  { key: 'swellScale', group: 'relief', label: 'Размер волн, мм', type: 'number', min: 10, max: 800, step: 1, value: 120 },
-  { key: 'blur', group: 'relief', label: 'Сглаживание, мм', type: 'number', min: 0, max: 5, step: 0.05, value: 0 },
+  { key: 'ringDepth', group: 'relief', label: 'Ring depth, mm', type: 'number', min: 0, max: 20, step: 0.1, value: 2 },
+  { key: 'latewood', group: 'relief', label: 'Ridge width (fraction of ring)', type: 'number', min: 0.05, max: 0.9, step: 0.01, value: 0.3 },
+  { key: 'groove', group: 'relief', label: 'Groove shape (V ↔ U)', type: 'number', min: 0.2, max: 5, step: 0.05, value: 1.6 },
+  { key: 'asym', group: 'relief', label: 'Groove asymmetry', type: 'number', min: -1, max: 1, step: 0.05, value: 0.4 },
+  { key: 'ridgeVar', group: 'relief', label: 'Ridge height spread', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4 },
+  { key: 'wear', group: 'relief', label: 'Uneven wear', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
+  { key: 'fibers', group: 'relief', label: 'Fibres, mm', type: 'number', min: 0, max: 3, step: 0.05, value: 0.25 },
+  { key: 'fiberWidth', group: 'relief', label: 'Fibre thickness, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6 },
+  { key: 'swell', group: 'relief', label: 'Large waves, mm', type: 'number', min: 0, max: 30, step: 0.1, value: 1 },
+  { key: 'swellScale', group: 'relief', label: 'Wave size, mm', type: 'number', min: 10, max: 800, step: 1, value: 120 },
+  { key: 'blur', group: 'relief', label: 'Smoothing, mm', type: 'number', min: 0, max: 5, step: 0.05, value: 0 },
 
-  { key: 'knots', group: 'knots', label: 'Количество', type: 'int', min: 0, max: 20, step: 1, value: 2 },
-  { key: 'knotSeed', group: 'knots', label: 'Сид сучков', type: 'int', min: 0, max: 99999, step: 1, value: 3, when: hasKnots },
-  { key: 'knotSize', group: 'knots', label: 'Радиус, мм', type: 'number', min: 1, max: 100, step: 0.5, value: 14, when: hasKnots },
-  { key: 'knotSizeVar', group: 'knots', label: 'Разброс размера', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4, when: hasKnots },
-  { key: 'knotAspect', group: 'knots', label: 'Вытянутость вдоль волокон', type: 'number', min: 1, max: 5, step: 0.05, value: 1.6, when: hasKnots },
-  { key: 'knotFlow', group: 'knots', label: 'Обтекание кольцами', type: 'number', min: 0, max: 1, step: 0.01, value: 0.9, when: hasKnots },
-  { key: 'knotReach', group: 'knots', label: 'Зона обтекания, × радиус', type: 'number', min: 1.2, max: 10, step: 0.1, value: 4, when: hasKnots },
-  { key: 'knotRings', group: 'knots', label: 'Шаг колец сучка, мм', type: 'number', min: 0.3, max: 15, step: 0.1, value: 1.4, when: hasKnots },
-  { key: 'knotHeight', group: 'knots', label: 'Высота сучка, мм', type: 'number', min: -20, max: 20, step: 0.1, value: 0.5, when: hasKnots },
-  { key: 'knotCracks', group: 'knots', label: 'Радиальные трещины, шт', type: 'int', min: 0, max: 12, step: 1, value: 4, when: (s) => hasKnots(s) && hasCracks(s) },
-  { key: 'knotRim', group: 'knots', label: 'Трещина по контуру', type: 'bool', value: true, when: (s) => hasKnots(s) && hasCracks(s) },
-  { key: 'knotCrackDepth', group: 'knots', label: 'Глубина трещин сучка, мм', type: 'number', min: 0, max: 20, step: 0.1, value: 1.5, when: (s) => hasKnots(s) && hasCracks(s) && (s.knotCracks > 0 || s.knotRim) },
+  { key: 'knots', group: 'knots', label: 'Count', type: 'int', min: 0, max: 20, step: 1, value: 2 },
+  { key: 'knotSeed', group: 'knots', label: 'Knot seed', type: 'int', min: 0, max: 99999, step: 1, value: 3, when: hasKnots },
+  { key: 'knotSize', group: 'knots', label: 'Radius, mm', type: 'number', min: 1, max: 100, step: 0.5, value: 14, when: hasKnots },
+  { key: 'knotSizeVar', group: 'knots', label: 'Size spread', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4, when: hasKnots },
+  { key: 'knotAspect', group: 'knots', label: 'Stretch along grain', type: 'number', min: 1, max: 5, step: 0.05, value: 1.6, when: hasKnots },
+  { key: 'knotFlow', group: 'knots', label: 'Ring flow-around', type: 'number', min: 0, max: 1, step: 0.01, value: 0.9, when: hasKnots },
+  { key: 'knotReach', group: 'knots', label: 'Flow zone, × radius', type: 'number', min: 1.2, max: 10, step: 0.1, value: 4, when: hasKnots },
+  { key: 'knotRings', group: 'knots', label: 'Knot ring spacing, mm', type: 'number', min: 0.3, max: 15, step: 0.1, value: 1.4, when: hasKnots },
+  { key: 'knotHeight', group: 'knots', label: 'Knot height, mm', type: 'number', min: -20, max: 20, step: 0.1, value: 0.5, when: hasKnots },
+  { key: 'knotCracks', group: 'knots', label: 'Radial checks, count', type: 'int', min: 0, max: 12, step: 1, value: 4, when: (s) => hasKnots(s) && hasCracks(s) },
+  { key: 'knotRim', group: 'knots', label: 'Crack along outline', type: 'bool', value: true, when: (s) => hasKnots(s) && hasCracks(s) },
+  { key: 'knotCrackDepth', group: 'knots', label: 'Knot crack depth, mm', type: 'number', min: 0, max: 20, step: 0.1, value: 1.5, when: (s) => hasKnots(s) && hasCracks(s) && (s.knotCracks > 0 || s.knotRim) },
 
-  { key: 'cracks', group: 'cracks', label: 'Трещины (все, включая сучки)', type: 'bool', value: true },
-  { key: 'crackWidth', group: 'cracks', label: 'Ширина трещин, мм', type: 'number', min: 0.1, max: 6, step: 0.05, value: 0.8, when: hasCracks },
-  { key: 'crackJag', group: 'cracks', label: 'Рваность', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5, when: hasCracks },
-  { key: 'checks', group: 'cracks', label: 'Поперечные', type: 'bool', value: true, when: hasCracks },
-  { key: 'checkDepth', group: 'cracks', label: 'Поперечные: глубина, мм', type: 'number', min: 0, max: 20, step: 0.1, value: 1.2, when: hasChecks },
-  { key: 'checkSpacing', group: 'cracks', label: 'Поперечные: шаг вдоль волокон, мм', type: 'number', min: 2, max: 300, step: 0.5, value: 14, when: hasChecks },
-  { key: 'checkLength', group: 'cracks', label: 'Поперечные: длина, мм', type: 'number', min: 2, max: 300, step: 0.5, value: 20, when: hasChecks },
-  { key: 'checkCover', group: 'cracks', label: 'Поперечные: доля', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5, when: hasChecks },
-  { key: 'splits', group: 'cracks', label: 'Продольные', type: 'bool', value: true, when: hasCracks },
-  { key: 'splitDepth', group: 'cracks', label: 'Продольные: глубина, мм', type: 'number', min: 0, max: 20, step: 0.1, value: 1.2, when: hasSplits },
-  { key: 'splitDensity', group: 'cracks', label: 'Продольные: доля колец', type: 'number', min: 0, max: 1, step: 0.01, value: 0.15, when: hasSplits },
-  { key: 'splitLength', group: 'cracks', label: 'Продольные: длина, мм', type: 'number', min: 5, max: 800, step: 1, value: 60, when: hasSplits },
+  { key: 'cracks', group: 'cracks', label: 'Cracks (all, including knots)', type: 'bool', value: true },
+  { key: 'crackWidth', group: 'cracks', label: 'Crack width, mm', type: 'number', min: 0.1, max: 6, step: 0.05, value: 0.8, when: hasCracks },
+  { key: 'crackJag', group: 'cracks', label: 'Raggedness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5, when: hasCracks },
+  { key: 'checks', group: 'cracks', label: 'Cross', type: 'bool', value: true, when: hasCracks },
+  { key: 'checkDepth', group: 'cracks', label: 'Cross: depth, mm', type: 'number', min: 0, max: 20, step: 0.1, value: 1.2, when: hasChecks },
+  { key: 'checkSpacing', group: 'cracks', label: 'Cross: spacing along grain, mm', type: 'number', min: 2, max: 300, step: 0.5, value: 14, when: hasChecks },
+  { key: 'checkLength', group: 'cracks', label: 'Cross: length, mm', type: 'number', min: 2, max: 300, step: 0.5, value: 20, when: hasChecks },
+  { key: 'checkCover', group: 'cracks', label: 'Cross: coverage', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5, when: hasChecks },
+  { key: 'splits', group: 'cracks', label: 'Lengthwise', type: 'bool', value: true, when: hasCracks },
+  { key: 'splitDepth', group: 'cracks', label: 'Lengthwise: depth, mm', type: 'number', min: 0, max: 20, step: 0.1, value: 1.2, when: hasSplits },
+  { key: 'splitDensity', group: 'cracks', label: 'Lengthwise: fraction of rings', type: 'number', min: 0, max: 1, step: 0.01, value: 0.15, when: hasSplits },
+  { key: 'splitLength', group: 'cracks', label: 'Lengthwise: length, mm', type: 'number', min: 5, max: 800, step: 1, value: 60, when: hasSplits },
 ];
 
 const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
@@ -420,11 +420,11 @@ const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
 // Starting points modelled on the reference photos; unlisted keys keep defaults.
 const PRESETS = [
   {
-    name: 'Обожжённая доска с сучками',
+    name: 'Charred board with knots',
     params: {},
   },
   {
-    name: 'Тёмная доска со свилью',
+    name: 'Dark board with figured grain',
     params: {
       width: 150, height: 270, angle: 0, seed: 4,
       ringSpacing: 2.2, ringVar: 0.6, cutDepth: 0, pithOffset: -320, tilt: 0,
@@ -438,7 +438,7 @@ const PRESETS = [
     },
   },
   {
-    name: 'Выветренная коряга',
+    name: 'Weathered driftwood',
     params: {
       width: 180, height: 240, angle: 70, seed: 27,
       ringSpacing: 4, ringVar: 0.7, cutDepth: 10, pithOffset: -60, tilt: 1,
@@ -452,7 +452,7 @@ const PRESETS = [
     },
   },
   {
-    name: 'Строганая доска (арки)',
+    name: 'Planed board (arches)',
     params: {
       width: 120, height: 300, seed: 2,
       ringSpacing: 4, ringVar: 0.4, cutDepth: 80, pithOffset: 8, tilt: 3,
@@ -914,11 +914,11 @@ const randomize = (key) => () => {
   update(key, Math.floor(Math.random() * 100000));
   controlsByKey.get(key).set(state[key]);
 };
-addButton('grain', 'Случайный сид', randomize('seed'));
-const knotReseed = addButton('knots', 'Переставить сучки', randomize('knotSeed'));
+addButton('grain', 'Random seed', randomize('seed'));
+const knotReseed = addButton('knots', 'Reshuffle knots', randomize('knotSeed'));
 
 PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
-$('preset').add(new Option('— свои настройки —', 'custom'));
+$('preset').add(new Option('— custom settings —', 'custom'));
 $('preset').value = fromHash ? 'custom' : 0;
 $('preset').addEventListener('change', () => {
   const pr = PRESETS[Number($('preset').value)];
@@ -1046,14 +1046,14 @@ function renderStats(previewRes, mesh) {
   const tris = estimateTriangles(state, state.resolution);
   const mb = (84 + tris * 50) / 1048576;
   const rows = [
-    ['Габариты, мм', `${state.width} × ${state.height} × ${+(state.base + mesh.maxH).toFixed(1)}`],
-    ['Треугольников в STL', tris.toLocaleString('ru')],
-    ['Размер файла', `${mb.toFixed(1)} МБ`],
+    ['Dimensions, mm', `${state.width} × ${state.height} × ${+(state.base + mesh.maxH).toFixed(1)}`],
+    ['Triangles in STL', tris.toLocaleString('en-US')],
+    ['File size', `${mb.toFixed(1)} MB`],
   ];
-  if (state.knots > 0) rows.push(['Сучков', mesh.knotsPlaced < state.knots ? `${mesh.knotsPlaced} из ${state.knots} (не влезли)` : `${mesh.knotsPlaced}`]);
-  if (previewRes > state.resolution * 1.01) rows.push(['Шаг превью', `${previewRes.toFixed(2)} мм`]);
+  if (state.knots > 0) rows.push(['Knots', mesh.knotsPlaced < state.knots ? `${mesh.knotsPlaced} of ${state.knots} (did not fit)` : `${mesh.knotsPlaced}`]);
+  if (previewRes > state.resolution * 1.01) rows.push(['Preview step', `${previewRes.toFixed(2)} mm`]);
   $('stats').innerHTML = '<dl style="display:contents">' + rows
-    .map(([k, v]) => `<dt>${k}</dt><dd${tris > EXPORT_WARN_TRIANGLES && k.startsWith('Тре') ? ' class="warn"' : ''}>${v}</dd>`)
+    .map(([k, v]) => `<dt>${k}</dt><dd${tris > EXPORT_WARN_TRIANGLES && k.startsWith('Tri') ? ' class="warn"' : ''}>${v}</dd>`)
     .join('') + '</dl>';
 }
 
@@ -1063,10 +1063,10 @@ $('export').addEventListener('click', () => {
   const params = { ...state };
   const tris = estimateTriangles(params, params.resolution);
   if (tris > EXPORT_WARN_TRIANGLES &&
-    !confirm(`Будет ${tris.toLocaleString('ru')} треугольников (~${Math.round((tris * 50) / 1048576)} МБ). Продолжить? Можно увеличить шаг сетки.`)) return;
+    !confirm(`This will produce ${tris.toLocaleString('en-US')} triangles (~${Math.round((tris * 50) / 1048576)} MB). Continue? You can increase the mesh step.`)) return;
   const btn = $('export');
   btn.disabled = true;
-  $('message').textContent = 'Строю сетку для экспорта…';
+  $('message').textContent = 'Building export mesh…';
   setTimeout(() => {
     try {
       const mesh = buildMesh(params, params.resolution);
@@ -1079,9 +1079,9 @@ $('export').addEventListener('click', () => {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-      $('message').textContent = `Сохранено: ${name}`;
+      $('message').textContent = `Saved: ${name}`;
     } catch (e) {
-      $('message').textContent = `Ошибка: ${e.message}`;
+      $('message').textContent = `Error: ${e.message}`;
     } finally {
       btn.disabled = false;
     }
@@ -1110,9 +1110,9 @@ function readHash() {
 $('share').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(location.href);
-    $('message').textContent = 'Ссылка с параметрами скопирована.';
+    $('message').textContent = 'Link with parameters copied.';
   } catch {
-    $('message').textContent = 'Скопируйте адрес страницы: параметры сохранены в нём.';
+    $('message').textContent = 'Copy the page URL: the parameters are saved in it.';
   }
 });
 

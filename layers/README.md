@@ -1,61 +1,61 @@
-# Слоистые волны
+# Layered Waves
 
-Параметрический генератор рельефа из волнистых пластин, уложенных внахлёст:
-графитовые ленты, сланец, шпон, топографическая карта. Размеры в миллиметрах,
-результат экспортируется в бинарный STL (замкнутое тело, плоское дно, готово
-для слайсера).
+A parametric generator of relief made of wavy plates laid with an overlap:
+graphite ribbons, slate, veneer, a topographic map. Dimensions in millimetres,
+the result is exported to binary STL (closed solid, flat bottom, ready
+for a slicer).
 
-## Запуск
+## Running
 
-Всё в одном файле `index.html`: откройте его в браузере. Сборка не нужна,
-three.js грузится с CDN (нужен интернет).
+Everything is in a single `index.html` file: open it in a browser. No build step needed,
+three.js is loaded from a CDN (internet connection required).
 
-## Как устроено
+## How it works
 
-Кромки пластин — линии уровня поля `s` (мм), каждая полоса шириной
-«Ширина пластины» — одна пластина. Поле задаёт рисунок:
+Plate edges are level lines of the field `s` (mm); each band of
+"Plate width" is one plate. The field defines the pattern:
 
-- **Полосы** — наклонная плоскость поперёк «Направления слоёв».
-- **Кольца вокруг точки** — расстояние до центра (круги на воде).
-- **Горизонтали** — чистый шум, кромки идут по горизонталям рельефа.
+- **Stripes** — a tilted plane across the "Layer direction".
+- **Rings around a point** — distance to the centre (ripples on water).
+- **Contours** — pure noise, edges follow the contour lines of the relief.
 
-Поверх — анизотропное искажение (изгиб, масштаб, детализация, вытянутость
-вдоль слоёв, завихрения). Если изгибы складывают слои в петли, уменьшите
-изгиб или детализацию либо увеличьте масштаб.
+On top of that there is anisotropic distortion (bend, scale, detail, stretch
+along the layers, swirls). If the bends fold the layers into loops, reduce
+the bend or detail, or increase the scale.
 
-**Пластины**: ползунок «Внахлёст ↔ лестница» смешивает черепицу (каждая пластина
-спускается от своей кромки к следующей, общая высота не растёт) и террасы
-(пластины плоские, каждая на ступень выше предыдущей, как слои картона на
-рельефной карте). Профиль пластины от выпуклого (подушки) до вогнутого, разброс
-ширины и высоты, выклинивание: пластины местами сходят на нет и сливаются.
+**Plates**: the "Overlap ↔ staircase" slider blends shingles (each plate
+descends from its edge to the next one, overall height does not grow) and terraces
+(plates are flat, each one step higher than the previous, like cardboard layers on a
+relief map). Plate profile from convex (cushions) to concave, spread of
+width and height, pinch-out: plates fade out in places and merge.
 
-**Кромка**: ширина и скругление уступа (от плавного перегиба до четверти круга),
-теневой шов у основания уступа, бортик по верху кромки, рваность. Эти размеры
-в миллиметрах и не зависят от ширины пластины; там, где пластины сужаются,
-детали кромки пропорционально уменьшаются.
+**Edge**: step width and rounding (from a smooth inflection to a quarter circle),
+shadow gap at the foot of the step, lip along the top of the edge, raggedness. These sizes
+are in millimetres and do not depend on plate width; where plates narrow,
+edge details shrink proportionally.
 
-**Поверхность**: крупные волны, волокна вдоль слоёв (шпон, брашированное
-дерево), тонкие линии, повторяющие кромки (сланец), сглаживание.
+**Surface**: large waves, fibres along the layers (veneer, brushed
+wood), fine lines following the edges (slate), smoothing.
 
-Пресеты: графитовые ленты, сланцевые пластины, шпон внахлёст, топографическая
-карта, круги на воде. Все параметры сохраняются в адресе страницы.
+Presets: graphite ribbons, slate plates, overlapping veneer, topographic
+map, ripples on water. All parameters are saved in the page URL.
 
-**Затухание к краям** (группа «Панель»): на заданной ширине от края рельеф
-плавно сходит к ровному полю, углы скругляются. «Уровень края» задаёт, где
-окажется это поле: 0 — на уровне самых глубоких мест рельефа, 1 — вровень
-с вершинами. Удобно для плиток, которые клеят встык или вставляют в рамку.
+**Edge fade** (the "Panel" group): over the given width from the edge the relief
+smoothly settles to a flat field, and the corners are rounded. "Edge level" sets where
+that field ends up: 0 — at the level of the deepest points of the relief, 1 — flush
+with the peaks. Handy for tiles glued edge to edge or set into a frame.
 
-«Шаг сетки» задаёт детализацию STL; превью при необходимости строится грубее
-(шаг превью показан в сводке). Для тонких линий шаг сетки должен быть хотя бы
-в 3 раза меньше шага линий.
+"Mesh step" sets the STL detail; the preview is built coarser if needed
+(the preview step is shown in the summary). For fine lines the mesh step should be at least
+3 times smaller than the line spacing.
 
-## Код
+## Code
 
-Один `<script type="module">` в `index.html`, секции:
+A single `<script type="module">` in `index.html`, sections:
 
-- `noise`: 2D simplex-шум с сидом, fbm, хеш
-- `params`: схема параметров и пресеты
-- `heightmap`: поле слоёв и профиль пластин на регулярной сетке
-- `mesh`: замкнутое тело (рельеф, стенки, дно веером из центра)
-- `stl`: бинарный STL
-- `main`: интерфейс и превью на three.js
+- `noise`: seeded 2D simplex noise, fbm, hash
+- `params`: parameter schema and presets
+- `heightmap`: layer field and plate profile on a regular grid
+- `mesh`: closed solid (relief, walls, bottom as a fan from the centre)
+- `stl`: binary STL
+- `main`: UI and three.js preview

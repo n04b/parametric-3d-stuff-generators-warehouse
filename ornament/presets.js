@@ -1,17 +1,17 @@
 /*
- * Пресеты и генератор случайной плитки. Каждый пресет — полный набор параметров плитки и слоёв.
- * Координаты в мм: центр плитки (0, 0), X вправо, Y вверх. Углы: 0° — вправо, против часовой стрелки.
+ * Presets and random tile generator. Each preset is a complete set of tile and layer parameters.
+ * Coordinates in mm: tile centre (0, 0), X right, Y up. Angles: 0° — to the right, counter-clockwise.
  */
 (function (root) {
   'use strict';
   const C = typeof module !== 'undefined' && module.exports ? require('./core.js') : root.OrnamentCore;
   const L = C.makeLayer;
   const SQ = 150, HEX = 130;
-  const DIAG = (SQ / 2) * Math.SQRT2; // расстояние до угла квадратной плитки
+  const DIAG = (SQ / 2) * Math.SQRT2; // distance to the corner of a square tile
 
   const PRESETS = [
     {
-      id: 'modern', name: 'Модерн (розетка)',
+      id: 'modern', name: 'Art Nouveau (rosette)',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#ece2cc', blur: 0.35, crackSize: 7, crackDepth: 0.08,
         layers: [
@@ -29,7 +29,7 @@
       },
     },
     {
-      id: 'cobalt', name: 'Кобальт (завитки)',
+      id: 'cobalt', name: 'Cobalt (scrolls)',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#1f3db5', blur: 0.5, crackSize: 3, crackDepth: 0.07, crackW: 0.25,
         layers: [
@@ -42,7 +42,7 @@
       },
     },
     {
-      id: 'bordeaux', name: 'Бордо (рамка)',
+      id: 'bordeaux', name: 'Bordeaux (frame)',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#6e1320', blur: 0.4, edgeR: 3,
         layers: [
@@ -58,7 +58,7 @@
       },
     },
     {
-      id: 'turquoise', name: 'Бирюза (спирали и точки)',
+      id: 'turquoise', name: 'Turquoise (spirals and dots)',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#1b8c83', blur: 0.35, crackSize: 4, crackDepth: 0.1, crackW: 0.3,
         layers: [
@@ -75,7 +75,7 @@
       },
     },
     {
-      id: 'compass', name: 'Роза ветров (грани)',
+      id: 'compass', name: 'Compass rose (facets)',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#e4dccb', blur: 0.15, edgeR: 2, grain: 0.12, grainSize: 2.5,
         layers: [
@@ -86,7 +86,7 @@
       },
     },
     {
-      id: 'sicily', name: 'Сицилия (овалы и облака)',
+      id: 'sicily', name: 'Sicily (ovals and clouds)',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#efe9dc', blur: 0.4, crackSize: 9, crackDepth: 0.06,
         layers: [
@@ -99,7 +99,7 @@
       },
     },
     {
-      id: 'bowl', name: 'Чаша (глубокий рельеф)',
+      id: 'bowl', name: 'Bowl (deep relief)',
       d: {
         shape: 'square', size: SQ, T: 12, bg: '#5c0f16', blur: 0.35, edgeR: 2.5,
         layers: [
@@ -118,7 +118,7 @@
       },
     },
     {
-      id: 'azulejo', name: 'Азулежу (ромб)',
+      id: 'azulejo', name: 'Azulejo (rhombus)',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#ebe4dc', blur: 0.35, crackSize: 12, crackDepth: 0.05,
         layers: [
@@ -134,7 +134,7 @@
       },
     },
     {
-      id: 'vesica', name: 'Овалы (сетка)',
+      id: 'vesica', name: 'Ovals (grid)',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#35b3a8', blur: 0.4, crackSize: 5, crackDepth: 0.08, edgeR: 3,
         layers: [
@@ -143,7 +143,7 @@
       },
     },
     {
-      id: 'chrysanthemum', name: 'Хризантема',
+      id: 'chrysanthemum', name: 'Chrysanthemum',
       d: {
         shape: 'square', size: SQ, T: 7, bg: '#1b4c77', blur: 0.4,
         layers: [
@@ -154,7 +154,7 @@
       },
     },
     {
-      id: 'blocks', name: 'Бруски и полудиски (массив)',
+      id: 'blocks', name: 'Bars and half-discs (array)',
       d: {
         shape: 'square', size: SQ, T: 6, bg: '#e9e8e3', blur: 0.3, grain: 0.18, grainSize: 1.2, edgeR: 1,
         cols: 4, rows: 4, gap: 1.5, rotMode: 'random',
@@ -165,7 +165,7 @@
       },
     },
     {
-      id: 'hex-rosette', name: 'Соты: розетка',
+      id: 'hex-rosette', name: 'Hexagon: rosette',
       d: {
         shape: 'hexFlat', size: HEX, T: 7, bg: '#e9e0cb', blur: 0.35, crackSize: 7, crackDepth: 0.07,
         cols: 5, rows: 4, gap: 2, fade: 'radial', fadeW: 260, fadeCurve: 1.3,
@@ -180,7 +180,7 @@
       },
     },
     {
-      id: 'hex-cube', name: 'Соты: куб и лучи',
+      id: 'hex-cube', name: 'Hexagon: cube and rays',
       d: {
         shape: 'hexPointy', size: 100, T: 6, bg: '#2f9983', blur: 0.4, edgeR: 1.5,
         cols: 5, rows: 4, gap: 2, rotMode: 'random',
@@ -192,7 +192,7 @@
       },
     },
     {
-      id: 'hex-chevron', name: 'Соты: шевроны (бетон)',
+      id: 'hex-chevron', name: 'Hexagon: chevrons (concrete)',
       d: {
         shape: 'hexFlat', size: 120, T: 5, bg: '#a9a7a1', blur: 0.2, edgeR: 0.8, grain: 0.08, grainSize: 2,
         cols: 3, rows: 3, gap: 3, rotMode: 'random',
@@ -202,7 +202,7 @@
       },
     },
     {
-      id: 'hex-girih', name: 'Соты: гирих',
+      id: 'hex-girih', name: 'Hexagon: girih',
       d: {
         shape: 'hexPointy', size: HEX, T: 6, bg: '#1d4d6b', blur: 0.2,
         cols: 4, rows: 3, gap: 2,
@@ -218,7 +218,7 @@
       },
     },
     {
-      id: 'hex-circles', name: 'Соты: круги',
+      id: 'hex-circles', name: 'Hexagon: circles',
       d: {
         shape: 'hexFlat', size: HEX, T: 6, bg: '#ebe4d4', blur: 0.4, crackSize: 6, crackDepth: 0.06, edgeR: 1.5,
         cols: 4, rows: 3, gap: 2,
@@ -231,7 +231,7 @@
   ];
 
   /* =========================================================================
-     СЛУЧАЙНАЯ ПЛИТКА
+     RANDOM TILE
      ========================================================================= */
   const PALETTES = [
     ['#ece2cc', '#c65b6b', '#2f3b35', '#7b4a22', '#56663f'],
@@ -260,7 +260,7 @@
     const H = rr(2, 3.5);
     const prof = pick(['round', 'round', 'smooth', 'chamfer']);
     if (r() < 0.4) layers.push(L('frame', { inset: rr(0, 4), fw: rr(2, 6), H: H * 0.8, prof, bevel: 1.5, color: col() }));
-    // внешнее кольцо мотивов
+    // outer ring of motifs
     const ringType = pick(['lobed', 'disc', 'scroll', 'petal', 'arc']);
     const outR = a * rr(0.7, 0.95);
     if (ringType === 'lobed') layers.push(L('lobed', { style: 'outline', lw: rr(2.5, 5), rad: outR, lobes: N, amp: rr(0.2, 0.45), sharp: rr(0.4, 0.9), ang: pick([axis, cornerAng]), H, prof, color: col() }));
@@ -268,16 +268,16 @@
     else if (ringType === 'arc') layers.push(L('arc', { n: N, ang: cornerAng, R: corner, rad: a * rr(0.3, 0.55), sweep: 360, aw: rr(3, 7), H, prof, color: col() }));
     else if (ringType === 'scroll') layers.push(L('scroll', { n: N, ang: cornerAng, mirror: true, lrot: rr(10, 25), lr: a * rr(0.55, 0.75), rot: rr(60, 150), r1: rr(5, 11), r0: rr(1, 2), turns: rr(0.9, 1.6), w0: rr(2.5, 4.5), w1: rr(1.2, 2.2), wt: rr(1, 3), tail: rr(6, 25), tailBend: rr(-40, 70), H, prof, color: col() }));
     else layers.push(L('petal', { n: N, ang: cornerAng, mirror: r() < 0.5, lrot: rr(0, 25), R: a * rr(0.25, 0.4), len: a * rr(0.35, 0.6), wid: rr(8, 18), bend: rr(-120, 120), tipS: r(), baseS: r(), H, prof, bevel: rr(1.5, 4), color: col() }));
-    // углы
+    // corners
     if (r() < 0.8) {
       const cn = Math.round(rr(3, 9));
       layers.push(L('petal', { n: N, ang: cornerAng, R: corner * rr(0.85, 1), lrot: 180, ln: cn, span: rr(60, 140), lr: rr(0, 6), len: a * rr(0.15, 0.3), wid: rr(4, 10), tipS: r(), baseS: rr(0.3, 1), bulge: rr(0.4, 0.75), vein: r() < 0.5 ? 0.5 : 0, H: H * 0.9, prof, bevel: rr(1.2, 3), color: col() }));
     }
-    // середины граней
+    // edge midpoints
     if (r() < 0.6) layers.push(L(pick(['disc', 'star']), { n: N, ang: edgeAng, R: a * rr(0.55, 0.85), rad: rr(3, 8), pts: 4, inner: 0.45, H, prof: 'chamfer', bevel: 3, color: col() }));
-    // точки
+    // dots
     if (r() < 0.5) layers.push(L('disc', { n: N, ang: cornerAng, ln: Math.round(rr(3, 9)), span: 360 / N * rr(0.3, 0.8), lr: a * rr(0.45, 0.65), rad: rr(1.5, 3.5), H: H * 0.8, prof, color: col() }));
-    // центральная розетка
+    // central rosette
     const pn = pick([N * 2, N * 3, N * 4, 8, 10, 12, 16, 24]);
     const plen = a * rr(0.25, 0.5);
     layers.push(L('petal', { n: pn, len: plen, wid: Math.min(plen * 0.8, (2 * Math.PI * plen * 0.5) / pn * rr(1, 2.2)), tipS: r(), baseS: rr(0.1, 0.9), bulge: rr(0.35, 0.8), notch: r() < 0.2 ? 0.4 : 0, vein: r() < 0.5 ? 0.6 : 0, R: rr(0, 6), H: H * 1.1, prof, bevel: rr(1.5, 4), color: col() }));

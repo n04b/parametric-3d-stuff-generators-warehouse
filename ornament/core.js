@@ -1,7 +1,7 @@
 /*
- * Ornament core: параметрическая рельефная плитка.
- * Слои-мотивы → поле высот на сетке → замкнутая сетка (квадрат, шестиугольник, восьмиугольник, круг) → STL.
- * Без зависимостей от DOM и Three.js: работает и в браузере, и в Node.
+ * Ornament core: parametric relief tile.
+ * Motif layers → height field on a grid → closed mesh (square, hexagon, octagon, circle) → STL.
+ * No dependency on the DOM or Three.js: works both in the browser and in Node.
  */
 (function (root) {
   'use strict';
@@ -10,7 +10,7 @@
   const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 
   /* =========================================================================
-     ПАРАМЕТРЫ ПО УМОЛЧАНИЮ
+     DEFAULT PARAMETERS
      ========================================================================= */
   const DEFAULTS = {
     shape: 'square', size: 150, T: 8, reliefScale: 1, edgeR: 1.2, bg: '#e8e1cf',
@@ -44,12 +44,12 @@
   };
 
   const MOTIF_NAMES = {
-    petal: 'Лепесток / лист', disc: 'Круг / кольцо / сектор', rect: 'Прямоугольник', scroll: 'Завиток',
-    curve: 'Кривая (стебель)', arc: 'Дуга', line: 'Полоса', star: 'Звезда', polygram: 'Звёздный многоугольник {n/k}',
-    lobed: 'Лопастной контур', frame: 'Рамка по краю',
+    petal: 'Petal / leaf', disc: 'Circle / ring / sector', rect: 'Rectangle', scroll: 'Scroll',
+    curve: 'Curve (stem)', arc: 'Arc', line: 'Band', star: 'Star', polygram: 'Star polygon {n/k}',
+    lobed: 'Lobed outline', frame: 'Edge frame',
   };
 
-  // Параметры, которые масштабируются вместе с плиткой (длины в мм). Высоты не масштабируются.
+  // Parameters that scale together with the tile (lengths in mm). Heights are not scaled.
   const LEN_KEYS = ['bevel', 'lw', 'sPer', 'R', 'P', 'lr',
     'len', 'wid', 'veinW', 'rad', 'ring', 'rw', 'rh', 'rr', 'r0', 'r1', 'wt', 'w0', 'w1', 'tail', 'knob',
     'x0', 'y0', 'x1', 'y1', 'x2', 'y2', 'x3', 'y3', 'knob0', 'knob1', 'aw', 'lwid', 'gw', 'inset', 'fw'];
@@ -69,7 +69,7 @@
   }
 
   /* =========================================================================
-     ШУМ И СЛУЧАЙНОСТЬ
+     NOISE AND RANDOMNESS
      ========================================================================= */
   function mulberry32(a) {
     return function () {
@@ -94,7 +94,7 @@
   }
 
   /* =========================================================================
-     КОНТУР ПЛИТКИ
+     TILE OUTLINE
      ========================================================================= */
   function tileOutline(shape, size) {
     const a = size / 2;
@@ -127,7 +127,7 @@
   }
 
   /* =========================================================================
-     АФФИННЫЕ ПРЕОБРАЗОВАНИЯ [a b c d e f]: x' = a x + c y + e, y' = b x + d y + f
+     AFFINE TRANSFORMS [a b c d e f]: x' = a x + c y + e, y' = b x + d y + f
      ========================================================================= */
   const I = [1, 0, 0, 1, 0, 0];
   const mul = (M, N) => [
@@ -147,9 +147,9 @@
   const apply = (M, x, y) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
 
   /* =========================================================================
-     SDF-ПРИМИТИВЫ (локальные координаты мотива)
+     SDF PRIMITIVES (motif local coordinates)
      ========================================================================= */
-  // Точное расстояние до многоугольника со знаком (минус внутри).
+  // Exact signed distance to a polygon (negative inside).
   function polySdf(P, x, y) {
     const n = P.length >> 1;
     let d = Infinity, s = 1;
@@ -166,7 +166,7 @@
     }
     return s * Math.sqrt(d);
   }
-  // Цепочка капсул с переменным радиусом (штрих). Пишет параметр ближайшей точки в SCR.t.
+  // Chain of capsules with variable radius (stroke). Writes the nearest point parameter to SCR.t.
   const SCR = { t: 0, cl: 0, d: 0 };
   function chainSdf(P, Rr, x, y) {
     const n = P.length >> 1;
@@ -193,7 +193,7 @@
   }
 
   /* =========================================================================
-     МОТИВЫ: { sdf(u, v), bb, vein? }
+     MOTIFS: { sdf(u, v), bb, vein? }
      ========================================================================= */
   function buildPetal(p) {
     const N = 44, L = Math.max(0.1, p.len), W = Math.max(0.02, p.wid) / 2;
@@ -245,7 +245,7 @@
         let d = r - R;
         if (ring > 0 && ring < R) d = Math.abs(r - (R - ring / 2)) - ring / 2;
         if (sec < 360) {
-          // сектор вокруг оси +x (sdPie)
+          // sector around the +x axis (sdPie)
           const px = Math.abs(v), py = u;
           const l = r - R;
           const k = clamp(px * cs + py * cc, 0, R);
@@ -408,7 +408,7 @@
   };
 
   /* =========================================================================
-     РАЗМНОЖЕНИЕ: список копий мотива (матрицы локальное → плитка)
+     REPLICATION: list of motif copies (local → tile matrices)
      ========================================================================= */
   function layerCopies(L, motif, cover) {
     const bb = motif.bb;
@@ -456,7 +456,7 @@
   }
 
   /* =========================================================================
-     ВЫСОТА СЛОЯ В ТОЧКЕ
+     LAYER HEIGHT AT A POINT
      ========================================================================= */
   const PROFILES = {
     round: (t) => Math.sqrt(1 - (1 - t) * (1 - t)),
@@ -506,10 +506,10 @@
   }
 
   /* =========================================================================
-     ПОЛЕ ВЫСОТ ОДНОЙ ПЛИТКИ (одинаково для всех плиток массива)
+     HEIGHT FIELD OF ONE TILE (same for all tiles in the array)
      ========================================================================= */
   function makeGrid(outline, step) {
-    // Шаг подгоняется так, чтобы грани контура проходили посередине между узлами.
+    // The step is adjusted so that outline edges pass midway between nodes.
     const k = Math.max(2, Math.round(outline.a / step - 0.5));
     const s = outline.a / (k + 0.5);
     const half = Math.ceil(outline.rc / s) + 2;
@@ -522,7 +522,7 @@
     return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
   }
 
-  // opts.colors — посчитать цвет превью в узлах (sRGB 0..1, плавные границы слоёв).
+  // opts.colors — compute the preview colour at nodes (sRGB 0..1, smooth layer boundaries).
   function computeRelief(design, step, opts) {
     const D = design;
     const outline = tileOutline(D.shape, D.size);
@@ -531,7 +531,7 @@
     const X = new Float64Array(n);
     for (let i = 0; i < n; i++) X[i] = (i - half) * s;
     const h = new Float32Array(NN), buf = new Float32Array(NN), cov = opts && opts.colors ? new Float32Array(NN) : null;
-    const covW = 1.5 * s; // ширина перехода цвета на границе мотива
+    const covW = 1.5 * s; // colour transition width at the motif boundary
     const cover = (half + 1) * s;
     const minH = -(D.T - 0.6);
     let rgb = null;
@@ -601,11 +601,11 @@
       }
     });
 
-    // Заплыв глазури: гауссово размытие.
+    // Glaze pooling: Gaussian blur.
     const sig = D.blur / s;
     if (sig > 0.25) blurGrid(h, n, sig);
 
-    // Фактура (шагрень) — часть рельефа.
+    // Texture (shagreen) is part of the relief.
     if (D.grain > 0) {
       const f = 1 / Math.max(0.1, D.grainSize);
       for (let j = 0, k = 0; j < n; j++) for (let i = 0; i < n; i++, k++) {
@@ -614,7 +614,7 @@
       }
     }
 
-    // Кракелюр: канавки по границам ячеек Вороного (не затухает вместе с рельефом).
+    // Craquelure: grooves along Voronoi cell boundaries (does not fade with the relief).
     let crack = null;
     if (D.crackSize > 0 && D.crackDepth > 0) {
       crack = new Float32Array(NN);
@@ -656,7 +656,7 @@
   }
 
   /* =========================================================================
-     МАССИВ ПЛИТОК И ЗАТУХАНИЕ
+     TILE ARRAY AND FADE
      ========================================================================= */
   function arrayLayout(D) {
     const cols = Math.max(1, Math.round(D.cols)), rows = Math.max(1, Math.round(D.rows));
@@ -691,7 +691,7 @@
       t.rot = ((k % nRot) * stepA);
       t.name = 'R' + String(t.r + 1).padStart(2, '0') + 'C' + String(t.c + 1).padStart(2, '0');
     }
-    // Габарит массива — по контурам плиток.
+    // Array bounds are taken from the tile outlines.
     let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
     for (const t of tiles) for (let k = 0; k < out.n; k++) {
       const x = t.x + out.vx[k], y = t.y + out.vy[k];
@@ -701,7 +701,7 @@
     return { tiles, box: [bx0, by0, bx1, by1], outline: out };
   }
 
-  // Множитель рельефа в точке массива (мировые координаты).
+  // Relief multiplier at an array point (world coordinates).
   function fadeFn(D, box) {
     if (D.fade === 'none') return null;
     const W = (box[2] - box[0]) / 2, H = (box[3] - box[1]) / 2;
@@ -725,13 +725,13 @@
   }
 
   /* =========================================================================
-     СЕТКА ПЛИТКИ (замкнутое тело: верх по полю высот, борта, дно)
-     tile — {x, y, rot} для затухания; null — без затухания.
+     TILE MESH (closed solid: top from the height field, sides, bottom)
+     tile — {x, y, rot} for fade; null — no fade.
      ========================================================================= */
   function buildTileMesh(R, tile, fade) {
     const D = R.design, { n, s, half } = R.G, X = R.X, out = R.outline;
     const NN = n * n;
-    // Итоговая высота узлов.
+    // Final node heights.
     const Z = new Float32Array(NN);
     const cr = tile ? Math.cos(tile.rot * DEG) : 1, sr = tile ? Math.sin(tile.rot * DEG) : 0;
     for (let j = 0, k = 0; j < n; j++) for (let i = 0; i < n; i++, k++) {
@@ -789,7 +789,7 @@
         else tri.push(a, b, d, b, c, d);
         continue;
       }
-      // Обрезка ячейки выпуклым контуром (Сазерленд — Ходжман).
+      // Clip the cell by the convex outline (Sutherland–Hodgman).
       let poly = [
         { x: X[i], y: X[j], i, j }, { x: X[i + 1], y: X[j], i: i + 1, j },
         { x: X[i + 1], y: X[j + 1], i: i + 1, j: j + 1 }, { x: X[i], y: X[j + 1], i, j: j + 1 },
@@ -806,7 +806,7 @@
           const fs = f(S), fe = f(E);
           const inS = fs <= 0, inE = fe <= 0;
           if (inE !== inS) {
-            // точка пересечения, считается одинаково для обеих соседних ячеек
+            // intersection point, computed identically for both neighbouring cells
             let A = S, B = E, fa = fs, fb = fe;
             if (B.x < A.x || (B.x === A.x && B.y < A.y)) { A = E; B = S; fa = fe; fb = fs; }
             const t = fa / (fa - fb);
@@ -818,7 +818,7 @@
           }
           if (inE) res.push(E);
         }
-        // убрать повторы подряд
+        // remove consecutive duplicates
         poly = [];
         for (const P of res) {
           const L = poly[poly.length - 1];
@@ -833,7 +833,7 @@
       if (poly.length < 3) continue;
       const ids = poly.map(vOf);
       for (let q = 1; q < ids.length - 1; q++) tri.push(ids[0], ids[q], ids[q + 1]);
-      // рёбра, лежащие на контуре плитки
+      // edges lying on the tile outline
       for (let q = 0; q < poly.length; q++) {
         const A = poly[q], B = poly[(q + 1) % poly.length];
         for (const e of used) {
@@ -843,7 +843,7 @@
       }
     }
     const nTop = tri.length / 3;
-    // Борта и дно.
+    // Sides and bottom.
     const nextOf = new Map();
     for (let q = 0; q < bnd.length; q += 2) nextOf.set(bnd[q], bnd[q + 1]);
     const bottom = new Map();
@@ -863,9 +863,9 @@
   }
 
   /* =========================================================================
-     STL И ZIP
+     STL AND ZIP
      ========================================================================= */
-  // Треугольники сетки в бинарном STL (без заголовка). M — {x, y, rot} размещение.
+  // Mesh triangles in binary STL (no header). M — {x, y, rot} placement.
   function stlChunk(mesh, place) {
     const { pos, tri } = mesh, nt = tri.length / 3;
     const buf = new ArrayBuffer(nt * 50), dv = new DataView(buf);
@@ -923,7 +923,7 @@
     for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8);
     return (c ^ 0xFFFFFFFF) >>> 0;
   }
-  // Несжатый ZIP из [{ name, data: Uint8Array | string }].
+  // Uncompressed ZIP from [{ name, data: Uint8Array | string }].
   function makeZip(files) {
     const enc = new TextEncoder();
     const entries = files.map((f) => ({ name: enc.encode(f.name), data: typeof f.data === 'string' ? enc.encode(f.data) : f.data }));

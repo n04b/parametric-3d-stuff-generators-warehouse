@@ -1,51 +1,51 @@
-# Текстура дерева
+# Wood Texture
 
-Параметрический генератор рельефа древесины: годичные кольца, сучки, трещины.
-Размеры в миллиметрах, результат экспортируется в бинарный STL (замкнутое тело,
-плоское дно, готово для слайсера).
+A parametric generator of wood relief: growth rings, knots, cracks.
+Dimensions in millimetres, the result is exported to binary STL (closed solid,
+flat bottom, ready for a slicer).
 
-## Запуск
+## Running
 
-Всё в одном файле `index.html`: откройте его в браузере. Сборка не нужна,
-three.js грузится с CDN (нужен интернет).
+Everything is in a single `index.html` file: open it in a browser. No build step needed,
+three.js is loaded from a CDN (internet connection required).
 
-## Как устроено
+## How it works
 
-Доска — срез бревна плоскостью. Ось ствола идёт вдоль волокон, годичные кольца —
-линии равного расстояния до оси. Отсюда все типы распила:
+A board is a planar cut through a log. The trunk axis runs along the grain, growth rings are
+lines of equal distance from the axis. All sawing types follow from this:
 
-- **Расстояние до сердцевины** 0 — радиальный распил, прямые параллельные полосы;
-  больше — тангенциальный, в середине доски появляются «арки» (катедралы).
-- **Наклон ствола** — ось не параллельна плоскости среза, арки замыкаются вдоль доски.
-- **Изгиб волокон / Завихрения** — шум искривляет кольца, завихрения закручивают их
-  в свиль, как у коряги.
+- **Distance to pith** 0 — quarter-sawn, straight parallel stripes;
+  larger — flat-sawn, "arches" (cathedrals) appear in the middle of the board.
+- **Trunk tilt** — the axis is not parallel to the cut plane, the arches close along the board.
+- **Grain bend / Swirls** — noise bends the rings, swirls twist them
+  into figured grain, like driftwood.
 
-Рельеф кольца: поздняя древесина — гребень, ранняя выбрана впадиной (как после
-обжига или пескоструя). Задаются ширина гребня, форма впадины (V или U),
-асимметрия, разброс высоты гребней от года к году, неравномерный износ, тонкие
-волокна и крупные волны поверхности.
+Ring relief: latewood is a ridge, earlywood is carved out as a groove (as after
+charring or sandblasting). You set the ridge width, groove shape (V or U),
+asymmetry, ridge height variation from year to year, uneven wear, fine
+fibres and large surface waves.
 
-**Сучки**: кольца обтекают сучок как поток — препятствие (глаз), внутри свои
-концентрические кольца. Радиус, вытянутость, сила и зона обтекания, высота
-(выступает или утоплен), радиальные трещины и трещина по контуру.
+**Knots**: rings flow around a knot like a stream around an obstacle (the eye), with its own
+concentric rings inside. Radius, elongation, flow strength and zone, height
+(protruding or sunken), radial checks and a crack along the outline.
 
-**Трещины**: поперечные (сетка коротких трещин поперёк волокон, как у обожжённой
-доски) и продольные (вдоль отдельных колец, с сужающимися концами). Общие ширина
-и рваность краёв.
+**Cracks**: cross cracks (a grid of short cracks across the grain, like on a charred
+board) and lengthwise cracks (along individual rings, with tapering ends). Common width
+and edge raggedness.
 
-Пресеты: обожжённая доска с сучками, тёмная доска со свилью, выветренная коряга,
-строганая доска с арками. Все параметры сохраняются в адресе страницы.
+Presets: charred board with knots, dark board with figured grain, weathered driftwood,
+planed board with arches. All parameters are saved in the page URL.
 
-«Шаг сетки» задаёт детализацию STL; превью при необходимости строится грубее
-(шаг превью показан в сводке). Для колец 2–3 мм и трещин ~1 мм нужен шаг 0,2–0,3 мм.
+"Mesh step" sets the STL detail; the preview is built coarser if needed
+(the preview step is shown in the summary). For 2–3 mm rings and ~1 mm cracks a 0.2–0.3 mm step is needed.
 
-## Код
+## Code
 
-Один `<script type="module">` в `index.html`, секции:
+A single `<script type="module">` in `index.html`, sections:
 
-- `noise`: 2D simplex-шум с сидом, fbm, анизотропный Вороной с расстоянием до границы в мм
-- `params`: схема параметров и пресеты
-- `heightmap`: модель древесины на регулярной сетке
-- `mesh`: замкнутое тело (рельеф, стенки, дно веером из центра)
-- `stl`: бинарный STL
-- `main`: интерфейс и превью на three.js
+- `noise`: seeded 2D simplex noise, fbm, anisotropic Voronoi with distance to the boundary in mm
+- `params`: parameter schema and presets
+- `heightmap`: wood model on a regular grid
+- `mesh`: closed solid (relief, walls, bottom as a fan from the centre)
+- `stl`: binary STL
+- `main`: UI and three.js preview

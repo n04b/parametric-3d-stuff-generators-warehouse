@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Brutalist Surface — генератор бетонного рельефа</title>
+<title>Brutalist Surface — concrete relief generator</title>
 <style>
   :root {
     --bg: #121315;
@@ -160,49 +160,49 @@
   <div id="view">
     <div id="hud"><b id="hudName"></b><br><span id="hudHint"></span></div>
     <div id="cams">
-      <button data-cam="top" title="Вид в лоб, как на фото фасада (F)">Фасад</button>
+      <button data-cam="top" title="Straight-on view, like a facade photo (F)">Front</button>
       <button data-cam="34">3/4</button>
-      <button data-cam="low">Скользящий</button>
+      <button data-cam="low">Grazing</button>
     </div>
     <div id="stats"></div>
-    <div id="busy" hidden>Считаю…</div>
+    <div id="busy" hidden>Computing…</div>
   </div>
 
   <aside id="panel">
     <header class="head">
       <h1>Brutalist Surface</h1>
-      <p>Параметрический генератор бетонного рельефа. Размеры в миллиметрах, экспорт в STL и карту высот.</p>
+      <p>Parametric concrete relief generator. Dimensions in millimetres, export to STL and heightmap.</p>
     </header>
 
     <section class="group">
-      <div class="gtitle">Паттерн</div>
+      <div class="gtitle">Pattern</div>
       <div class="patterns" id="patterns"></div>
       <p class="hint" id="patternHint"></p>
     </section>
 
     <section class="group">
-      <div class="gtitle">Параметры паттерна <button id="btnReset" title="Вернуть значения по умолчанию">сбросить</button></div>
+      <div class="gtitle">Pattern parameters <button id="btnReset" title="Restore default values">reset</button></div>
       <div id="grp-pattern"></div>
     </section>
 
     <section class="group">
-      <div class="gtitle">Плита</div>
+      <div class="gtitle">Slab</div>
       <div id="grp-common"></div>
     </section>
 
     <section class="group">
-      <div class="gtitle">Свет и материал</div>
+      <div class="gtitle">Light and material</div>
       <div id="grp-view"></div>
     </section>
 
     <section class="group">
-      <div class="gtitle">Экспорт</div>
+      <div class="gtitle">Export</div>
       <div id="grp-export"></div>
       <div class="btns">
-        <button class="btn primary" id="btnSolid" title="Единая замкнутая сетка по карте высот — годится для любого слайсера и CNC">STL — монолит</button>
-        <button class="btn" id="btnExact" title="Точные грани: набор замкнутых тел, слайсер объединит их сам">STL — точные тела</button>
-        <button class="btn" id="btnPNG" title="16-битная карта высот для displacement / CNC">PNG 16 бит</button>
-        <button class="btn" id="btnLink">Скопировать ссылку</button>
+        <button class="btn primary" id="btnSolid" title="A single closed mesh from the heightmap — works with any slicer and CNC">STL — monolith</button>
+        <button class="btn" id="btnExact" title="Exact faces: a set of closed solids, the slicer will merge them">STL — exact solids</button>
+        <button class="btn" id="btnPNG" title="16-bit heightmap for displacement / CNC">PNG 16-bit</button>
+        <button class="btn" id="btnLink">Copy link</button>
       </div>
       <p class="hint" id="exportInfo"></p>
     </section>
@@ -407,94 +407,94 @@ var BrutalCore = (function () {
 
   /* ---------- parameter schemas (also drive the UI) ---------- */
   const COMMON = [
-    { id: 'W', label: 'Ширина X', type: 'range', min: 40, max: 400, step: 1, value: 160, unit: 'мм' },
-    { id: 'D', label: 'Длина Y', type: 'range', min: 40, max: 400, step: 1, value: 160, unit: 'мм' },
-    { id: 'base', label: 'Основание', type: 'range', min: 1, max: 30, step: 0.5, value: 4, unit: 'мм' },
-    { id: 'H', label: 'Глубина рельефа', type: 'range', min: 2, max: 80, step: 0.5, value: 24, unit: 'мм' },
-    { id: 'seed', label: 'Сид', type: 'seed', min: 1, max: 99999, step: 1, value: 1937 },
+    { id: 'W', label: 'Width X', type: 'range', min: 40, max: 400, step: 1, value: 160, unit: 'mm' },
+    { id: 'D', label: 'Length Y', type: 'range', min: 40, max: 400, step: 1, value: 160, unit: 'mm' },
+    { id: 'base', label: 'Base', type: 'range', min: 1, max: 30, step: 0.5, value: 4, unit: 'mm' },
+    { id: 'H', label: 'Relief depth', type: 'range', min: 2, max: 80, step: 0.5, value: 24, unit: 'mm' },
+    { id: 'seed', label: 'Seed', type: 'seed', min: 1, max: 99999, step: 1, value: 1937 },
   ];
 
   const PATTERNS = {
     pile: {
-      label: 'Обломки',
-      hint: 'Наклонённые бетонные блоки, наваленные друг на друга.',
+      label: 'Rubble',
+      hint: 'Tilted concrete blocks piled on top of each other.',
       params: [
-        { id: 'count', label: 'Количество', type: 'range', min: 5, max: 300, step: 1, value: 55 },
-        { id: 'size', label: 'Размер блока', type: 'range', min: 6, max: 120, step: 1, value: 42, unit: 'мм' },
-        { id: 'sizeVar', label: 'Разброс размера', type: 'range', min: 0, max: 1, step: 0.01, value: 0.5 },
-        { id: 'aspect', label: 'Пропорция', type: 'range', min: 0.2, max: 1, step: 0.01, value: 0.72 },
-        { id: 'tilt', label: 'Наклон', type: 'range', min: 0, max: 60, step: 1, value: 42, unit: '°' },
-        { id: 'heightVar', label: 'Разброс высоты', type: 'range', min: 0, max: 1, step: 0.01, value: 0.6 },
+        { id: 'count', label: 'Count', type: 'range', min: 5, max: 300, step: 1, value: 55 },
+        { id: 'size', label: 'Block size', type: 'range', min: 6, max: 120, step: 1, value: 42, unit: 'mm' },
+        { id: 'sizeVar', label: 'Size spread', type: 'range', min: 0, max: 1, step: 0.01, value: 0.5 },
+        { id: 'aspect', label: 'Proportion', type: 'range', min: 0.2, max: 1, step: 0.01, value: 0.72 },
+        { id: 'tilt', label: 'Tilt', type: 'range', min: 0, max: 60, step: 1, value: 42, unit: '°' },
+        { id: 'heightVar', label: 'Height spread', type: 'range', min: 0, max: 1, step: 0.01, value: 0.6 },
       ],
     },
     blocks: {
-      label: 'Блоки',
-      hint: 'Стена из выступающих кубов: шахматка, диагонали, градиенты.',
+      label: 'Blocks',
+      hint: 'A wall of protruding cubes: checkerboard, diagonals, gradients.',
       params: [
-        { id: 'cols', label: 'Колонки', type: 'range', min: 2, max: 40, step: 1, value: 8 },
-        { id: 'rows', label: 'Ряды', type: 'range', min: 2, max: 40, step: 1, value: 8 },
-        { id: 'mode', label: 'Рисунок', type: 'select', value: 'checker', options: [
-          ['checker', 'Шахматка'], ['diagonal', 'Диагональ'], ['random', 'Случайно'],
-          ['gradient', 'Градиент'], ['wave', 'Волна'], ['noise', 'Шум']] },
-        { id: 'levels', label: 'Уровни', type: 'range', min: 2, max: 8, step: 1, value: 3, showIf: (p) => p.mode !== 'checker' },
-        { id: 'period', label: 'Период', type: 'range', min: 2, max: 24, step: 1, value: 6, unit: 'яч.', showIf: (p) => p.mode === 'wave' || p.mode === 'noise' },
-        { id: 'minDepth', label: 'Мин. вынос', type: 'range', min: 0, max: 0.95, step: 0.01, value: 0.4 },
-        { id: 'bond', label: 'Перевязка рядов', type: 'range', min: 0, max: 0.5, step: 0.05, value: 0 },
-        { id: 'joint', label: 'Шов', type: 'range', min: 0, max: 6, step: 0.1, value: 1, unit: 'мм' },
-        { id: 'chamfer', label: 'Фаска', type: 'range', min: 0, max: 5, step: 0.1, value: 0.4, unit: 'мм' },
-        { id: 'tilt', label: 'Наклон грани', type: 'range', min: 0, max: 35, step: 1, value: 0, unit: '°' },
-        { id: 'tiltMode', label: 'Направление наклона', type: 'select', value: 'same', showIf: (p) => p.tilt > 0, options: [
-          ['same', 'Одинаково'], ['alt', 'Шахматно'], ['random', 'Случайно']] },
+        { id: 'cols', label: 'Columns', type: 'range', min: 2, max: 40, step: 1, value: 8 },
+        { id: 'rows', label: 'Rows', type: 'range', min: 2, max: 40, step: 1, value: 8 },
+        { id: 'mode', label: 'Pattern', type: 'select', value: 'checker', options: [
+          ['checker', 'Checkerboard'], ['diagonal', 'Diagonal'], ['random', 'Random'],
+          ['gradient', 'Gradient'], ['wave', 'Wave'], ['noise', 'Noise']] },
+        { id: 'levels', label: 'Levels', type: 'range', min: 2, max: 8, step: 1, value: 3, showIf: (p) => p.mode !== 'checker' },
+        { id: 'period', label: 'Period', type: 'range', min: 2, max: 24, step: 1, value: 6, unit: 'cells', showIf: (p) => p.mode === 'wave' || p.mode === 'noise' },
+        { id: 'minDepth', label: 'Min. offset', type: 'range', min: 0, max: 0.95, step: 0.01, value: 0.4 },
+        { id: 'bond', label: 'Row bond', type: 'range', min: 0, max: 0.5, step: 0.05, value: 0 },
+        { id: 'joint', label: 'Joint', type: 'range', min: 0, max: 6, step: 0.1, value: 1, unit: 'mm' },
+        { id: 'chamfer', label: 'Chamfer', type: 'range', min: 0, max: 5, step: 0.1, value: 0.4, unit: 'mm' },
+        { id: 'tilt', label: 'Face tilt', type: 'range', min: 0, max: 35, step: 1, value: 0, unit: '°' },
+        { id: 'tiltMode', label: 'Tilt direction', type: 'select', value: 'same', showIf: (p) => p.tilt > 0, options: [
+          ['same', 'Same'], ['alt', 'Checkered'], ['random', 'Random']] },
       ],
     },
     pyramids: {
-      label: 'Пирамиды',
-      hint: 'Фасад из гранёных пирамид со смещённой вершиной.',
+      label: 'Pyramids',
+      hint: 'A facade of faceted pyramids with an offset apex.',
       params: [
-        { id: 'layout', label: 'Сетка', type: 'select', value: 'square', options: [
-          ['square', 'Квадраты'], ['diamond', 'Ромбы'], ['triangle', 'Треугольники']] },
-        { id: 'cells', label: 'Ячеек по X', type: 'range', min: 2, max: 30, step: 1, value: 6 },
-        { id: 'offset', label: 'Смещение вершины', type: 'range', min: 0, max: 1, step: 0.01, value: 0.65 },
-        { id: 'dirMode', label: 'Направление', type: 'select', value: 'random', options: [
-          ['random', 'Случайно'], ['aligned', 'Одно на всех'], ['alternate', 'Чередование'],
-          ['radial', 'От центра'], ['flow', 'Поток']] },
-        { id: 'angle', label: 'Угол', type: 'range', min: 0, max: 360, step: 1, value: 45, unit: '°', showIf: (p) => p.dirMode !== 'random' && p.dirMode !== 'radial' },
-        { id: 'heightVar', label: 'Разброс высоты', type: 'range', min: 0, max: 1, step: 0.01, value: 0.25 },
-        { id: 'joint', label: 'Шов', type: 'range', min: 0, max: 6, step: 0.1, value: 0.8, unit: 'мм' },
+        { id: 'layout', label: 'Grid', type: 'select', value: 'square', options: [
+          ['square', 'Squares'], ['diamond', 'Diamonds'], ['triangle', 'Triangles']] },
+        { id: 'cells', label: 'Cells along X', type: 'range', min: 2, max: 30, step: 1, value: 6 },
+        { id: 'offset', label: 'Apex offset', type: 'range', min: 0, max: 1, step: 0.01, value: 0.65 },
+        { id: 'dirMode', label: 'Direction', type: 'select', value: 'random', options: [
+          ['random', 'Random'], ['aligned', 'Same for all'], ['alternate', 'Alternating'],
+          ['radial', 'From centre'], ['flow', 'Flow']] },
+        { id: 'angle', label: 'Angle', type: 'range', min: 0, max: 360, step: 1, value: 45, unit: '°', showIf: (p) => p.dirMode !== 'random' && p.dirMode !== 'radial' },
+        { id: 'heightVar', label: 'Height spread', type: 'range', min: 0, max: 1, step: 0.01, value: 0.25 },
+        { id: 'joint', label: 'Joint', type: 'range', min: 0, max: 6, step: 0.1, value: 0.8, unit: 'mm' },
       ],
     },
     fins: {
-      label: 'Рёбра',
-      hint: 'Бетонные рёбра-ламели со ступенчатым выносом сегментов.',
+      label: 'Ribs',
+      hint: 'Concrete fin ribs with stepped segment offsets.',
       params: [
-        { id: 'orient', label: 'Направление', type: 'select', value: 'v', options: [['v', 'Вдоль Y'], ['h', 'Вдоль X']] },
-        { id: 'count', label: 'Количество рёбер', type: 'range', min: 3, max: 80, step: 1, value: 18 },
-        { id: 'widthVar', label: 'Разброс ширины', type: 'range', min: 0, max: 1, step: 0.01, value: 0.6 },
-        { id: 'gap', label: 'Зазор', type: 'range', min: 0, max: 8, step: 0.1, value: 1.6, unit: 'мм' },
-        { id: 'segMin', label: 'Мин. сегмент', type: 'range', min: 4, max: 150, step: 1, value: 18, unit: 'мм' },
-        { id: 'segMax', label: 'Макс. сегмент', type: 'range', min: 8, max: 300, step: 1, value: 75, unit: 'мм' },
-        { id: 'levels', label: 'Уровни', type: 'range', min: 2, max: 8, step: 1, value: 4 },
-        { id: 'minDepth', label: 'Мин. вынос', type: 'range', min: 0, max: 0.95, step: 0.01, value: 0.35 },
-        { id: 'chamfer', label: 'Фаска', type: 'range', min: 0, max: 4, step: 0.1, value: 0.5, unit: 'мм' },
+        { id: 'orient', label: 'Direction', type: 'select', value: 'v', options: [['v', 'Along Y'], ['h', 'Along X']] },
+        { id: 'count', label: 'Rib count', type: 'range', min: 3, max: 80, step: 1, value: 18 },
+        { id: 'widthVar', label: 'Width spread', type: 'range', min: 0, max: 1, step: 0.01, value: 0.6 },
+        { id: 'gap', label: 'Gap', type: 'range', min: 0, max: 8, step: 0.1, value: 1.6, unit: 'mm' },
+        { id: 'segMin', label: 'Min. segment', type: 'range', min: 4, max: 150, step: 1, value: 18, unit: 'mm' },
+        { id: 'segMax', label: 'Max. segment', type: 'range', min: 8, max: 300, step: 1, value: 75, unit: 'mm' },
+        { id: 'levels', label: 'Levels', type: 'range', min: 2, max: 8, step: 1, value: 4 },
+        { id: 'minDepth', label: 'Min. offset', type: 'range', min: 0, max: 0.95, step: 0.01, value: 0.35 },
+        { id: 'chamfer', label: 'Chamfer', type: 'range', min: 0, max: 4, step: 0.1, value: 0.5, unit: 'mm' },
       ],
     },
     folds: {
-      label: 'Складки',
-      hint: 'Панели со сломанной гранью; сила излома меняется градиентом.',
+      label: 'Folds',
+      hint: 'Panels with a broken face; fold strength varies along a gradient.',
       params: [
-        { id: 'cols', label: 'Колонки', type: 'range', min: 2, max: 30, step: 1, value: 8 },
-        { id: 'rows', label: 'Ряды', type: 'range', min: 2, max: 40, step: 1, value: 10 },
-        { id: 'fold', label: 'Излом', type: 'range', min: 0, max: 1, step: 0.01, value: 0.55 },
-        { id: 'crease', label: 'Линия излома', type: 'range', min: 0.15, max: 0.85, step: 0.01, value: 0.5 },
-        { id: 'skew', label: 'Скос', type: 'range', min: -0.45, max: 0.45, step: 0.01, value: 0.25 },
-        { id: 'kink', label: 'Точка перелома', type: 'range', min: 0.2, max: 1, step: 0.01, value: 0.72 },
-        { id: 'topRatio', label: 'Верхний край', type: 'range', min: 0, max: 1, step: 0.01, value: 0.1 },
-        { id: 'rest', label: 'Базовый вынос', type: 'range', min: 0, max: 0.9, step: 0.01, value: 0.1 },
-        { id: 'grad', label: 'Градиент', type: 'select', value: 'left', options: [
-          ['none', 'Нет'], ['left', 'Сильнее слева'], ['right', 'Сильнее справа'], ['top', 'Сильнее сверху'],
-          ['bottom', 'Сильнее снизу'], ['center', 'Сильнее в центре'], ['noise', 'Шум']] },
-        { id: 'gradMin', label: 'Мин. излом', type: 'range', min: 0, max: 1, step: 0.01, value: 0.05, showIf: (p) => p.grad !== 'none' },
-        { id: 'joint', label: 'Шов', type: 'range', min: 0, max: 5, step: 0.1, value: 0.6, unit: 'мм' },
+        { id: 'cols', label: 'Columns', type: 'range', min: 2, max: 30, step: 1, value: 8 },
+        { id: 'rows', label: 'Rows', type: 'range', min: 2, max: 40, step: 1, value: 10 },
+        { id: 'fold', label: 'Fold', type: 'range', min: 0, max: 1, step: 0.01, value: 0.55 },
+        { id: 'crease', label: 'Fold line', type: 'range', min: 0.15, max: 0.85, step: 0.01, value: 0.5 },
+        { id: 'skew', label: 'Skew', type: 'range', min: -0.45, max: 0.45, step: 0.01, value: 0.25 },
+        { id: 'kink', label: 'Break point', type: 'range', min: 0.2, max: 1, step: 0.01, value: 0.72 },
+        { id: 'topRatio', label: 'Top edge', type: 'range', min: 0, max: 1, step: 0.01, value: 0.1 },
+        { id: 'rest', label: 'Base offset', type: 'range', min: 0, max: 0.9, step: 0.01, value: 0.1 },
+        { id: 'grad', label: 'Gradient', type: 'select', value: 'left', options: [
+          ['none', 'None'], ['left', 'Stronger on the left'], ['right', 'Stronger on the right'], ['top', 'Stronger at the top'],
+          ['bottom', 'Stronger at the bottom'], ['center', 'Stronger in the centre'], ['noise', 'Noise']] },
+        { id: 'gradMin', label: 'Min. fold', type: 'range', min: 0, max: 1, step: 0.01, value: 0.05, showIf: (p) => p.grad !== 'none' },
+        { id: 'joint', label: 'Joint', type: 'range', min: 0, max: 5, step: 0.1, value: 0.6, unit: 'mm' },
       ],
     },
   };
@@ -1020,15 +1020,15 @@ var BrutalCore = (function () {
   const DICE = svg('<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r=".8" fill="currentColor"/><circle cx="15" cy="15" r=".8" fill="currentColor"/><circle cx="15" cy="9" r=".8" fill="currentColor"/><circle cx="9" cy="15" r=".8" fill="currentColor"/>');
 
   const VIEW = [
-    { id: 'az', label: 'Азимут света', type: 'range', min: 0, max: 360, step: 1, value: 135, unit: '°' },
-    { id: 'el', label: 'Высота света', type: 'range', min: 4, max: 90, step: 1, value: 36, unit: '°' },
-    { id: 'material', label: 'Материал', type: 'select', value: 'concrete', options: [
-      ['concrete', 'Бетон'], ['dark', 'Тёмный бетон'], ['white', 'Белый бетон'], ['print', 'Пластик (превью печати)']] },
-    { id: 'texture', label: 'Фактура бетона', type: 'toggle', value: true, showIf: (v) => v.material !== 'print' },
-    { id: 'toneVar', label: 'Разброс тона', type: 'range', min: 0, max: 1, step: 0.01, value: 0.35 },
+    { id: 'az', label: 'Light azimuth', type: 'range', min: 0, max: 360, step: 1, value: 135, unit: '°' },
+    { id: 'el', label: 'Light elevation', type: 'range', min: 4, max: 90, step: 1, value: 36, unit: '°' },
+    { id: 'material', label: 'Material', type: 'select', value: 'concrete', options: [
+      ['concrete', 'Concrete'], ['dark', 'Dark concrete'], ['white', 'White concrete'], ['print', 'Plastic (print preview)']] },
+    { id: 'texture', label: 'Concrete texture', type: 'toggle', value: true, showIf: (v) => v.material !== 'print' },
+    { id: 'toneVar', label: 'Tone spread', type: 'range', min: 0, max: 1, step: 0.01, value: 0.35 },
   ];
   const EXPORT = [
-    { id: 'step', label: 'Шаг сетки монолита / PNG', type: 'range', min: 0.1, max: 2, step: 0.05, value: 0.35, unit: 'мм' },
+    { id: 'step', label: 'Monolith / PNG mesh step', type: 'range', min: 0.1, max: 2, step: 0.05, value: 0.35, unit: 'mm' },
   ];
   const MATS = {
     concrete: { color: 0xc4c0b8, rough: 0.93 },
@@ -1114,7 +1114,7 @@ var BrutalCore = (function () {
       row.sync = () => { cb.checked = !!obj[def.id]; };
       cb.addEventListener('change', () => { obj[def.id] = cb.checked; onChange(def); });
     } else if (def.type === 'seed') {
-      row.innerHTML = `<div class="lab"><span>${def.label}</span></div><div class="seedrow"><input type="number" min="${def.min}" max="${def.max}" step="1"><button type="button" title="Случайный сид (R)">${DICE} Случайный</button></div>`;
+      row.innerHTML = `<div class="lab"><span>${def.label}</span></div><div class="seedrow"><input type="number" min="${def.min}" max="${def.max}" step="1"><button type="button" title="Random seed (R)">${DICE} Random</button></div>`;
       const inp = row.querySelector('input');
       row.sync = () => { inp.value = obj[def.id]; };
       inp.addEventListener('change', () => {
@@ -1293,8 +1293,8 @@ var BrutalCore = (function () {
     controls.update();
   }
 
-  const fmtInt = (n) => Math.round(n).toLocaleString('ru-RU');
-  const fmtMB = (b) => (b >= 1e6 ? (b / 1e6).toFixed(1) + ' МБ' : Math.max(1, Math.round(b / 1e3)) + ' КБ');
+  const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
+  const fmtMB = (b) => (b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
 
   function monolithSize() {
     const { W, D } = plate(), s = state.exp.step;
@@ -1304,9 +1304,9 @@ var BrutalCore = (function () {
   function updateExportInfo() {
     const m = monolithSize();
     $('#exportInfo').innerHTML =
-      `Монолит: ${fmtInt(m.tris)} треуг., ≈ ${fmtMB(84 + 50 * m.tris)}. ` +
-      `Точные тела: ${fmtInt(triCount)} треуг., ≈ ${fmtMB(84 + 50 * triCount)}. ` +
-      `PNG: ${m.nx + 1}×${m.ny + 1} px.<br>Все паттерны бесшовны (кроме градиентов и режима «от центра»).`;
+      `Monolith: ${fmtInt(m.tris)} tris, ≈ ${fmtMB(84 + 50 * m.tris)}. ` +
+      `Exact solids: ${fmtInt(triCount)} tris, ≈ ${fmtMB(84 + 50 * triCount)}. ` +
+      `PNG: ${m.nx + 1}×${m.ny + 1} px.<br>All patterns are seamless (except gradients and the "from centre" mode).`;
   }
 
   function regenerate() {
@@ -1328,8 +1328,8 @@ var BrutalCore = (function () {
     updateLight();
     const ms = Math.round(performance.now() - t0);
     $('#stats').innerHTML =
-      `${fmtInt(solids.length - 1)} элементов · ${fmtInt(t.count)} треуг.<br>` +
-      `${W} × ${D} × ${+top.toFixed(1)} мм · ${ms} мс`;
+      `${fmtInt(solids.length - 1)} elements · ${fmtInt(t.count)} tris<br>` +
+      `${W} × ${D} × ${+top.toFixed(1)} mm · ${ms} ms`;
     updateExportInfo();
   }
 
@@ -1349,23 +1349,23 @@ var BrutalCore = (function () {
     const el = $('#busy');
     el.textContent = label; el.hidden = false;
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    try { await fn(); } catch (e) { console.error(e); alert('Ошибка: ' + e.message); } finally { el.hidden = true; }
+    try { await fn(); } catch (e) { console.error(e); alert('Error: ' + e.message); } finally { el.hidden = true; }
   }
   function checkMonolith() {
     const m = monolithSize();
-    if (m.tris > 8e6) { alert('Слишком мелкий шаг сетки для такой плиты: увеличьте «Шаг сетки».'); return false; }
-    if (m.tris > 2.5e6) return confirm(`Получится ${fmtInt(m.tris)} треугольников (≈ ${fmtMB(84 + 50 * m.tris)}). Продолжить?`);
+    if (m.tris > 8e6) { alert('Mesh step too fine for a slab this size: increase "Mesh step".'); return false; }
+    if (m.tris > 2.5e6) return confirm(`This will produce ${fmtInt(m.tris)} triangles (≈ ${fmtMB(84 + 50 * m.tris)}). Continue?`);
     return true;
   }
   const header = (kind) => `Brutalist Surface ${state.pattern} ${kind} seed=${state.common.seed} units=mm`;
 
-  $('#btnExact').addEventListener('click', () => busy('Собираю STL…', () => {
+  $('#btnExact').addEventListener('click', () => busy('Building STL…', () => {
     const t = C.triangulate(solids);
     download(C.toSTL(t.pos, header('exact')), stem() + '-exact.stl', 'model/stl');
   }));
   $('#btnSolid').addEventListener('click', () => {
     if (!checkMonolith()) return;
-    busy('Считаю монолит…', () => {
+    busy('Computing monolith…', () => {
       const { W, D } = plate();
       const hf = C.rasterize(solids, W, D, state.exp.step);
       download(C.toSTL(C.heightfieldMesh(hf), header('solid')), stem() + '-solid.stl', 'model/stl');
@@ -1373,8 +1373,8 @@ var BrutalCore = (function () {
   });
   $('#btnPNG').addEventListener('click', () => {
     const m = monolithSize();
-    if ((m.nx + 1) * (m.ny + 1) > 40e6) { alert('Слишком большое изображение: увеличьте «Шаг сетки».'); return; }
-    busy('Считаю карту высот…', async () => {
+    if ((m.nx + 1) * (m.ny + 1) > 40e6) { alert('Image too large: increase "Mesh step".'); return; }
+    busy('Computing heightmap…', async () => {
       const { W, D, base, top } = plate();
       const hf = C.rasterize(solids, W, D, state.exp.step);
       download(await C.heightmapPNG(hf, base, top), stem() + '-height16.png', 'image/png');
@@ -1390,8 +1390,8 @@ var BrutalCore = (function () {
     clearTimeout(hashTimer);
     scheduleHash();
     await new Promise((r) => setTimeout(r, 300));
-    try { await navigator.clipboard.writeText(location.href); toast('Ссылка скопирована'); }
-    catch (e) { prompt('Ссылка на текущие параметры:', location.href); }
+    try { await navigator.clipboard.writeText(location.href); toast('Link copied'); }
+    catch (e) { prompt('Link to current parameters:', location.href); }
   });
   $('#btnReset').addEventListener('click', () => {
     state.params[state.pattern] = C.defaults(C.PATTERNS[state.pattern].params);

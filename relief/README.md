@@ -1,45 +1,45 @@
-# Генератор 3D-текстур
+# 3D Texture Generator
 
-Параметрический генератор рельефных текстур для 3D-печати и фрезеровки.
-Размеры задаются в миллиметрах, результат экспортируется в бинарный STL
-(замкнутое, правильно ориентированное тело, готовое для слайсера).
+A parametric generator of relief textures for 3D printing and CNC milling.
+Dimensions are in millimetres, the result is exported to binary STL
+(a closed, correctly oriented solid, ready for a slicer).
 
-## Запуск
+## Running
 
-Всё в одном файле `index.html`: откройте его в браузере двойным кликом.
-Сборка и сервер не нужны, three.js грузится с CDN (нужен интернет).
+Everything is in a single `index.html` file: open it in a browser with a double click.
+No build step or server needed, three.js is loaded from a CDN (internet connection required).
 
-## Что можно настроить
+## What you can configure
 
-**Поверхность**: прямоугольная панель (ширина × высота), круглая панель (диаметр)
-или шар (диаметр). Для панелей задаются толщина основания и глубина рельефа,
-а также «гладкий край», на котором рельеф плавно сходит на нет. Шаг сетки
-определяет детализацию STL; превью при необходимости строится грубее.
+**Surface**: rectangular panel (width × height), round panel (diameter)
+or sphere (diameter). For panels you set the base thickness and relief depth,
+as well as a "smooth edge" where the relief fades out smoothly. The mesh step
+defines the STL detail; the preview is built coarser if needed.
 
-**Паттерны**:
+**Patterns**:
 
-| Паттерн | Что получается |
+| Pattern | What you get |
 | --- | --- |
-| Топография | плоские террасы со ступенями, как на рельефной карте |
-| Изолинии | тонкие стенки по горизонталям, лабиринт |
-| Волокна | вытянутые изогнутые полосы |
-| Дюны | мягкие гребни, как песок или ткань |
-| Ячейки | диаграмма Вороного: стенки или выпуклости |
-| Кольца | концентрические волны вокруг случайных центров |
+| Topography | flat terraces with steps, like a relief map |
+| Contours | thin walls along contour lines, a maze |
+| Fibres | elongated curved stripes |
+| Dunes | soft ridges, like sand or fabric |
+| Cells | Voronoi diagram: walls or bumps |
+| Rings | concentric waves around random centres |
 
-Общие параметры: сид, размер элементов (мм), октавы, искажение (domain warp),
-вытянутость и угол. Толщина линий, ширина ступеней и период полос тоже в миллиметрах.
-Текстура считается в 3D-координатах, поэтому на шаре нет швов и растяжений.
+Common parameters: seed, feature size (mm), octaves, distortion (domain warp),
+stretch and angle. Line thickness, step width and stripe period are also in millimetres.
+The texture is computed in 3D coordinates, so the sphere has no seams or stretching.
 
-Все параметры сохраняются в адресе страницы, ссылкой можно поделиться.
+All parameters are stored in the page URL, so you can share a link.
 
-## Устройство
+## Structure
 
-Весь код в `index.html`, в одном `<script type="module">`, разбитом на секции:
+All code is in `index.html`, in a single `<script type="module">` split into sections:
 
-- `noise`: simplex-шум с сидом, fbm
-- `patterns`: паттерны как функции `(x, y, z) мм → [0, 1]` и схема параметров
-- `mesh`: построение замкнутых сеток для панелей и шара
-- `stl`: запись бинарного STL
-- `presets`: пресеты
-- `main`: интерфейс и превью на three.js
+- `noise`: seeded simplex noise, fbm
+- `patterns`: patterns as functions `(x, y, z) mm → [0, 1]` and the parameter schema
+- `mesh`: building closed meshes for panels and the sphere
+- `stl`: writing binary STL
+- `presets`: presets
+- `main`: UI and three.js preview

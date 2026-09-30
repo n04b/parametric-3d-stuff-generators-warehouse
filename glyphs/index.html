@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Glyph Tiles — рельеф из буквенных плиток</title>
+<title>Glyph Tiles — letter tile relief</title>
 <style>
   :root {
     --bg: #121315;
@@ -163,55 +163,55 @@
   <div id="view">
     <div id="hud"><b>Glyph Tiles</b><br><span id="hudText"></span></div>
     <div id="cams">
-      <button data-cam="top" title="Вид в лоб, как на фото фасада (F)">Фасад</button>
+      <button data-cam="top" title="Straight-on view, like a facade photo (F)">Front</button>
       <button data-cam="34">3/4</button>
-      <button data-cam="low">Скользящий</button>
+      <button data-cam="low">Grazing</button>
     </div>
     <div id="stats"></div>
-    <div id="busy" hidden>Считаю…</div>
+    <div id="busy" hidden>Computing…</div>
   </div>
 
   <aside id="panel">
     <header class="head">
       <h1>Glyph Tiles</h1>
-      <p>Стена из бетонных плиток-букв. Буква — излом-гребень на верху плитки, от него плоские скаты идут до основания; читается светотенью граней. Размеры в миллиметрах, экспорт в STL.</p>
+      <p>A wall of concrete letter tiles. Each letter is a crease ridge on top of the tile with flat slopes running down to the base; it reads through light and shade on the faces. Dimensions in millimetres, export to STL.</p>
     </header>
 
     <section class="group">
-      <div class="gtitle">Текст</div>
+      <div class="gtitle">Text</div>
       <div id="grp-text"></div>
       <div class="chips" id="presets"></div>
-      <p class="hint">Пробел — плоская ячейка (высота задаётся ниже, 0 — уровень основания), <b>^</b> — пирамида, <b>~</b> — воронка. Латиница A–Z, цифры 0–9 и дефис.</p>
+      <p class="hint">Space is a flat cell (height is set below, 0 is the base level), <b>^</b> is a pyramid, <b>~</b> is a funnel. Latin A–Z, digits 0–9 and the hyphen.</p>
     </section>
 
     <section class="group">
-      <div class="gtitle">Сетка и плитка</div>
+      <div class="gtitle">Grid and tile</div>
       <div id="grp-grid"></div>
     </section>
 
     <section class="group">
-      <div class="gtitle">Буквы <button id="btnReset" title="Вернуть значения по умолчанию">сбросить</button></div>
+      <div class="gtitle">Letters <button id="btnReset" title="Restore default values">reset</button></div>
       <div id="grp-glyph"></div>
     </section>
 
     <section class="group">
-      <div class="gtitle">Пробел, пирамиды и воронки</div>
+      <div class="gtitle">Space, pyramids and funnels</div>
       <div id="grp-blank"></div>
     </section>
 
     <section class="group">
-      <div class="gtitle">Свет и материал</div>
+      <div class="gtitle">Light and material</div>
       <div id="grp-view"></div>
     </section>
 
     <section class="group">
-      <div class="gtitle">Экспорт</div>
+      <div class="gtitle">Export</div>
       <div id="grp-export"></div>
       <div class="btns">
-        <button class="btn primary wide" id="btnSTL" title="Вся стена одной замкнутой сеткой: основание, швы и плитки">STL — панель целиком</button>
-        <button class="btn" id="btnZip" title="Каждая уникальная плитка отдельным STL + схема раскладки layout.txt">ZIP — набор плиток</button>
-        <button class="btn" id="btnPNG" title="16-битная карта высот для displacement / CNC">PNG 16 бит</button>
-        <button class="btn wide" id="btnLink">Скопировать ссылку</button>
+        <button class="btn primary wide" id="btnSTL" title="The whole wall as one closed mesh: base, joints and tiles">STL — whole panel</button>
+        <button class="btn" id="btnZip" title="Each unique tile as a separate STL + layout.txt layout map">ZIP — tile set</button>
+        <button class="btn" id="btnPNG" title="16-bit heightmap for displacement / CNC">PNG 16-bit</button>
+        <button class="btn wide" id="btnLink">Copy link</button>
       </div>
       <p class="hint" id="exportInfo"></p>
     </section>
@@ -436,44 +436,44 @@ var GlyphCore = (function () {
 
   /* ---------- parameter schemas (also drive the UI) ---------- */
   const TEXT = [
-    { id: 'text', label: 'Текст', type: 'text', value: 'THE UNION-' },
-    { id: 'flow', label: 'Порядок', type: 'select', value: 'shift', options: [
-      ['lines', 'Построчно, как набрано'], ['rows', 'Строками подряд'], ['snake', 'Змейкой'], ['shift', 'Сдвиг каждого ряда'],
-      ['cols', 'Столбцами'], ['diag', 'По диагоналям'], ['random', 'Случайно']] },
-    { id: 'shift', label: 'Сдвиг ряда', type: 'range', min: -12, max: 12, step: 1, value: 3, unit: 'зн', showIf: (v) => v.flow === 'shift' },
+    { id: 'text', label: 'Text', type: 'text', value: 'THE UNION-' },
+    { id: 'flow', label: 'Order', type: 'select', value: 'shift', options: [
+      ['lines', 'Line by line, as typed'], ['rows', 'Rows in sequence'], ['snake', 'Snake'], ['shift', 'Shift each row'],
+      ['cols', 'By columns'], ['diag', 'By diagonals'], ['random', 'Random']] },
+    { id: 'shift', label: 'Row shift', type: 'range', min: -12, max: 12, step: 1, value: 3, unit: 'ch', showIf: (v) => v.flow === 'shift' },
   ];
   const GRID = [
-    { id: 'cols', label: 'Колонки', type: 'range', min: 1, max: 40, step: 1, value: 9 },
-    { id: 'rows', label: 'Ряды', type: 'range', min: 1, max: 40, step: 1, value: 9 },
-    { id: 'tile', label: 'Размер плитки', type: 'range', min: 6, max: 120, step: 0.5, value: 20, unit: 'мм' },
-    { id: 'gap', label: 'Шов', type: 'range', min: 0, max: 10, step: 0.1, value: 1.2, unit: 'мм' },
-    { id: 'border', label: 'Поле по краю', type: 'range', min: 0, max: 40, step: 0.5, value: 0, unit: 'мм' },
-    { id: 'base', label: 'Основание', type: 'range', min: 0.6, max: 30, step: 0.1, value: 3, unit: 'мм' },
-    { id: 'H', label: 'Высота плитки', type: 'range', min: 1, max: 60, step: 0.1, value: 7, unit: 'мм' },
-    { id: 'bevelW', showIf: (v) => !(v.mode === 'fold' && v.reach === 'edge'), label: 'Фаска: ширина', type: 'range', min: 0, max: 30, step: 0.1, value: 2.5, unit: 'мм' },
-    { id: 'bevelDrop', showIf: (v) => !(v.mode === 'fold' && v.reach === 'edge'), label: 'Фаска: глубина', type: 'range', min: 0, max: 60, step: 0.1, value: 7, unit: 'мм' },
-    { id: 'jitter', label: 'Разброс выноса', type: 'range', min: 0, max: 20, step: 0.1, value: 0, unit: 'мм' },
-    { id: 'seed', label: 'Сид', type: 'seed', min: 1, max: 99999, step: 1, value: 1971 },
+    { id: 'cols', label: 'Columns', type: 'range', min: 1, max: 40, step: 1, value: 9 },
+    { id: 'rows', label: 'Rows', type: 'range', min: 1, max: 40, step: 1, value: 9 },
+    { id: 'tile', label: 'Tile size', type: 'range', min: 6, max: 120, step: 0.5, value: 20, unit: 'mm' },
+    { id: 'gap', label: 'Joint', type: 'range', min: 0, max: 10, step: 0.1, value: 1.2, unit: 'mm' },
+    { id: 'border', label: 'Border margin', type: 'range', min: 0, max: 40, step: 0.5, value: 0, unit: 'mm' },
+    { id: 'base', label: 'Base', type: 'range', min: 0.6, max: 30, step: 0.1, value: 3, unit: 'mm' },
+    { id: 'H', label: 'Tile height', type: 'range', min: 1, max: 60, step: 0.1, value: 7, unit: 'mm' },
+    { id: 'bevelW', showIf: (v) => !(v.mode === 'fold' && v.reach === 'edge'), label: 'Chamfer: width', type: 'range', min: 0, max: 30, step: 0.1, value: 2.5, unit: 'mm' },
+    { id: 'bevelDrop', showIf: (v) => !(v.mode === 'fold' && v.reach === 'edge'), label: 'Chamfer: depth', type: 'range', min: 0, max: 60, step: 0.1, value: 7, unit: 'mm' },
+    { id: 'jitter', label: 'Offset spread', type: 'range', min: 0, max: 20, step: 0.1, value: 0, unit: 'mm' },
+    { id: 'seed', label: 'Seed', type: 'seed', min: 1, max: 99999, step: 1, value: 1971 },
   ];
   const GLYPH = [
-    { id: 'mode', label: 'Построение буквы', type: 'select', value: 'fold', options: [
-      ['fold', 'Излом: буква — гребень, скаты до основания'], ['carve', 'Штрих вырезан'], ['emboss', 'Штрих выпуклый']] },
-    { id: 'weight', showIf: (v) => v.mode !== 'fold', label: 'Толщина штриха', type: 'range', min: 0.03, max: 0.35, step: 0.005, value: 0.12, unit: '×' },
-    { id: 'margin', label: 'Отступ от фаски', type: 'range', min: 0, max: 0.35, step: 0.005, value: 0.08, unit: '×' },
-    { id: 'depth', label: 'Глубина реза', type: 'range', min: 0.2, max: 40, step: 0.1, value: 3.5, unit: 'мм', showIf: (v) => v.mode !== 'fold' },
-    { id: 'reach', label: 'Скаты', type: 'select', value: 'angle', showIf: (v) => v.mode === 'fold', options: [
-      ['angle', 'Под углом, до основания'], ['edge', 'До самого края плитки']] },
-    { id: 'angle', label: 'Уклон скатов', type: 'range', min: 10, max: 80, step: 1, value: 42, unit: '°', showIf: (v) => v.mode === 'fold' && v.reach !== 'edge' },
-    { id: 'profile', label: 'Профиль', type: 'select', value: 'chisel', options: [['chisel', 'Плоские грани'], ['round', 'Вогнутый (чаша)']] },
-    { id: 'crest', label: 'Скругление гребня (0 — выкл.)', type: 'range', min: 0, max: 3, step: 0.05, value: 0.5, unit: 'мм', showIf: (v) => v.mode === 'fold' && v.profile === 'round' },
-    { id: 'wall', label: 'Скос стенок', type: 'range', min: 0.05, max: 1, step: 0.01, value: 0.5, showIf: (v) => v.profile === 'chisel' && v.mode !== 'fold' },
-    { id: 'ends', label: 'Концы штрихов', type: 'select', value: 'square', options: [['square', 'Прямые (гранёные)'], ['round', 'Круглые']] },
-    { id: 'rot', label: 'Поворот плиток', type: 'select', value: 'none', options: [
-      ['none', 'Нет'], ['flip', 'Случайно 0° / 180°'], ['rot', 'Случайно на 90°'], ['mirror', 'Случайное зеркало'], ['both', 'Поворот + зеркало']] },
+    { id: 'mode', label: 'Letter construction', type: 'select', value: 'fold', options: [
+      ['fold', 'Crease: letter is a ridge, slopes to the base'], ['carve', 'Engraved stroke'], ['emboss', 'Embossed stroke']] },
+    { id: 'weight', showIf: (v) => v.mode !== 'fold', label: 'Stroke thickness', type: 'range', min: 0.03, max: 0.35, step: 0.005, value: 0.12, unit: '×' },
+    { id: 'margin', label: 'Inset from chamfer', type: 'range', min: 0, max: 0.35, step: 0.005, value: 0.08, unit: '×' },
+    { id: 'depth', label: 'Cut depth', type: 'range', min: 0.2, max: 40, step: 0.1, value: 3.5, unit: 'mm', showIf: (v) => v.mode !== 'fold' },
+    { id: 'reach', label: 'Slopes', type: 'select', value: 'angle', showIf: (v) => v.mode === 'fold', options: [
+      ['angle', 'At an angle, down to the base'], ['edge', 'To the tile edge']] },
+    { id: 'angle', label: 'Slope angle', type: 'range', min: 10, max: 80, step: 1, value: 42, unit: '°', showIf: (v) => v.mode === 'fold' && v.reach !== 'edge' },
+    { id: 'profile', label: 'Profile', type: 'select', value: 'chisel', options: [['chisel', 'Flat faces'], ['round', 'Concave (bowl)']] },
+    { id: 'crest', label: 'Ridge rounding (0 — off)', type: 'range', min: 0, max: 3, step: 0.05, value: 0.5, unit: 'mm', showIf: (v) => v.mode === 'fold' && v.profile === 'round' },
+    { id: 'wall', label: 'Wall bevel', type: 'range', min: 0.05, max: 1, step: 0.01, value: 0.5, showIf: (v) => v.profile === 'chisel' && v.mode !== 'fold' },
+    { id: 'ends', label: 'Stroke ends', type: 'select', value: 'square', options: [['square', 'Square (faceted)'], ['round', 'Round']] },
+    { id: 'rot', label: 'Tile rotation', type: 'select', value: 'none', options: [
+      ['none', 'None'], ['flip', 'Random 0° / 180°'], ['rot', 'Random by 90°'], ['mirror', 'Random mirror'], ['both', 'Rotation + mirror']] },
   ];
   const BLANK = [
-    { id: 'spaceH', label: 'Высота пробела над основанием', type: 'range', min: 0, max: 60, step: 0.1, value: 0, unit: 'мм' },
-    { id: 'pyr', label: 'Высота пирамиды ^ и воронки ~', type: 'range', min: 0.2, max: 60, step: 0.1, value: 7, unit: 'мм' },
+    { id: 'spaceH', label: 'Space height above base', type: 'range', min: 0, max: 60, step: 0.1, value: 0, unit: 'mm' },
+    { id: 'pyr', label: 'Pyramid ^ and funnel ~ height', type: 'range', min: 0.2, max: 60, step: 0.1, value: 7, unit: 'mm' },
   ];
   const SCHEMA = { text: TEXT, grid: GRID, glyph: GLYPH, blank: BLANK };
   const ALL = [].concat(TEXT, GRID, GLYPH, BLANK);
@@ -900,17 +900,17 @@ var GlyphCore = (function () {
   ];
 
   const VIEW = [
-    { id: 'az', label: 'Азимут света', type: 'range', min: 0, max: 360, step: 1, value: 135, unit: '°' },
-    { id: 'el', label: 'Высота света', type: 'range', min: 4, max: 90, step: 1, value: 40, unit: '°' },
-    { id: 'material', label: 'Материал', type: 'select', value: 'concrete', options: [
-      ['concrete', 'Бетон'], ['dark', 'Тёмный бетон'], ['white', 'Белый бетон'], ['print', 'Пластик (превью печати)']] },
-    { id: 'texture', label: 'Фактура бетона', type: 'toggle', value: true, showIf: (v) => v.material !== 'print' },
-    { id: 'toneVar', label: 'Разброс тона плиток', type: 'range', min: 0, max: 1, step: 0.01, value: 0.3 },
-    { id: 'preview', label: 'Качество превью', type: 'select', value: 'normal', options: [
-      ['fast', 'Быстрое'], ['normal', 'Обычное'], ['fine', 'Как экспорт']] },
+    { id: 'az', label: 'Light azimuth', type: 'range', min: 0, max: 360, step: 1, value: 135, unit: '°' },
+    { id: 'el', label: 'Light elevation', type: 'range', min: 4, max: 90, step: 1, value: 40, unit: '°' },
+    { id: 'material', label: 'Material', type: 'select', value: 'concrete', options: [
+      ['concrete', 'Concrete'], ['dark', 'Dark concrete'], ['white', 'White concrete'], ['print', 'Plastic (print preview)']] },
+    { id: 'texture', label: 'Concrete texture', type: 'toggle', value: true, showIf: (v) => v.material !== 'print' },
+    { id: 'toneVar', label: 'Tile tone spread', type: 'range', min: 0, max: 1, step: 0.01, value: 0.3 },
+    { id: 'preview', label: 'Preview quality', type: 'select', value: 'normal', options: [
+      ['fast', 'Fast'], ['normal', 'Normal'], ['fine', 'Same as export']] },
   ];
   const EXPORT = [
-    { id: 'step', label: 'Шаг сетки STL / PNG', type: 'range', min: 0.05, max: 2, step: 0.05, value: 0.25, unit: 'мм' },
+    { id: 'step', label: 'STL / PNG mesh step', type: 'range', min: 0.05, max: 2, step: 0.05, value: 0.25, unit: 'mm' },
   ];
   const MATS = {
     concrete: { color: 0xc9c7c2, rough: 0.93 },
@@ -992,7 +992,7 @@ var GlyphCore = (function () {
       row.sync = () => { cb.checked = !!obj[def.id]; };
       cb.addEventListener('change', () => { obj[def.id] = cb.checked; onChange(def); });
     } else if (def.type === 'seed') {
-      row.innerHTML = `<div class="lab"><span>${def.label}</span></div><div class="seedrow"><input type="number" min="${def.min}" max="${def.max}" step="1"><button type="button" title="Случайный сид (R)">${DICE} Случайный</button></div>`;
+      row.innerHTML = `<div class="lab"><span>${def.label}</span></div><div class="seedrow"><input type="number" min="${def.min}" max="${def.max}" step="1"><button type="button" title="Random seed (R)">${DICE} Random</button></div>`;
       const inp = row.querySelector('input');
       row.sync = () => { inp.value = obj[def.id]; };
       inp.addEventListener('change', () => {
@@ -1162,8 +1162,8 @@ var GlyphCore = (function () {
     controls.update();
   }
 
-  const fmtInt = (n) => Math.round(n).toLocaleString('ru-RU');
-  const fmtMB = (b) => (b >= 1e6 ? (b / 1e6).toFixed(1) + ' МБ' : Math.max(1, Math.round(b / 1e3)) + ' КБ');
+  const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
+  const fmtMB = (b) => (b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
 
   function panelSize(step) {
     const a = C.panelAxes(L, step);
@@ -1175,15 +1175,15 @@ var GlyphCore = (function () {
     const P = L.P, uniq = C.uniqueTiles(L).length;
     const tileN = Math.max(1, Math.round(P.T / state.exp.step)) + 6;
     $('#exportInfo').innerHTML =
-      `Панель: ${fmtInt(m.tris)} треуг., ≈ ${fmtMB(84 + 50 * m.tris)}. ` +
-      `Набор: ${uniq} уник. плиток, ≈ ${fmtMB(uniq * (84 + 50 * C.meshTris(tileN, tileN)))}.<br>` +
-      `Модель Z-вверх, дно на z = 0 — готово «дном на стол». Отдельные плитки: ${P.T} × ${P.T} × ${+(P.top).toFixed(1)} мм.`;
+      `Panel: ${fmtInt(m.tris)} tris, ≈ ${fmtMB(84 + 50 * m.tris)}. ` +
+      `Set: ${uniq} unique tiles, ≈ ${fmtMB(uniq * (84 + 50 * C.meshTris(tileN, tileN)))}.<br>` +
+      `Model is Z-up, bottom at z = 0 — ready to print bottom on the bed. Individual tiles: ${P.T} × ${P.T} × ${+(P.top).toFixed(1)} mm.`;
   }
 
   function hudText() {
     const chars = Array.from(state.p.text || '').filter((c) => c !== '\n' && c !== '\r');
     const bad = [...new Set(chars.filter((c) => !C.supported(c)))];
-    return bad.length ? `Нет в шрифте (станут пустыми ячейками): ${bad.join(' ')}` : 'ЛКМ — вращение, колесо — зум, ПКМ — панорама';
+    return bad.length ? `Not in the font (will become empty cells): ${bad.join(' ')}` : 'Left mouse — rotate, wheel — zoom, right mouse — pan';
   }
 
   function regenerate() {
@@ -1215,8 +1215,8 @@ var GlyphCore = (function () {
     const ms = Math.round(performance.now() - t0);
     $('#hudText').textContent = hudText();
     $('#stats').innerHTML =
-      `${P.cols} × ${P.rows} плиток · превью ${fmtInt(nv / 3)} треуг., шаг ${step.toFixed(2)} мм<br>` +
-      `${+W.toFixed(1)} × ${+D.toFixed(1)} × ${+top.toFixed(1)} мм · ${ms} мс`;
+      `${P.cols} × ${P.rows} tiles · preview ${fmtInt(nv / 3)} tris, step ${step.toFixed(2)} mm<br>` +
+      `${+W.toFixed(1)} × ${+D.toFixed(1)} × ${+top.toFixed(1)} mm · ${ms} ms`;
     updateExportInfo();
   }
 
@@ -1238,19 +1238,19 @@ var GlyphCore = (function () {
     const el = $('#busy');
     el.textContent = label; el.hidden = false;
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    try { await fn(); } catch (e) { console.error(e); alert('Ошибка: ' + e.message); } finally { el.hidden = true; }
+    try { await fn(); } catch (e) { console.error(e); alert('Error: ' + e.message); } finally { el.hidden = true; }
   }
 
   $('#btnSTL').addEventListener('click', () => {
     const m = panelSize(state.exp.step);
-    if (m.tris > 9e6) { alert('Слишком мелкий шаг сетки для такой панели: увеличьте «Шаг сетки».'); return; }
-    if (m.tris > 2.5e6 && !confirm(`Получится ${fmtInt(m.tris)} треугольников (≈ ${fmtMB(84 + 50 * m.tris)}). Продолжить?`)) return;
-    busy('Считаю панель…', () => {
+    if (m.tris > 9e6) { alert('Mesh step too fine for a panel this size: increase "Mesh step".'); return; }
+    if (m.tris > 2.5e6 && !confirm(`This will produce ${fmtInt(m.tris)} triangles (≈ ${fmtMB(84 + 50 * m.tris)}). Continue?`)) return;
+    busy('Computing panel…', () => {
       const pos = C.heightfieldMesh(C.samplePanel(L, state.exp.step));
       download(C.toSTL(pos, header('panel')), stem() + '.stl', 'model/stl');
     });
   });
-  $('#btnZip').addEventListener('click', () => busy('Собираю плитки…', () => {
+  $('#btnZip').addEventListener('click', () => busy('Building tiles…', () => {
     const files = [], enc = new TextEncoder();
     for (const u of C.uniqueTiles(L)) {
       const pos = C.heightfieldMesh(C.sampleTile(L, u.tile, state.exp.step));
@@ -1262,8 +1262,8 @@ var GlyphCore = (function () {
   }));
   $('#btnPNG').addEventListener('click', () => {
     const { W, D } = L, s = state.exp.step;
-    if ((W / s + 1) * (D / s + 1) > 40e6) { alert('Слишком большое изображение: увеличьте «Шаг сетки».'); return; }
-    busy('Считаю карту высот…', async () => {
+    if ((W / s + 1) * (D / s + 1) > 40e6) { alert('Image too large: increase "Mesh step".'); return; }
+    busy('Computing heightmap…', async () => {
       const { png } = await C.heightmapPNG(L, s, 0, L.top);
       download(png, stem() + '-height16.png', 'image/png');
     });
@@ -1278,8 +1278,8 @@ var GlyphCore = (function () {
     clearTimeout(hashTimer);
     scheduleHash();
     await new Promise((r) => setTimeout(r, 300));
-    try { await navigator.clipboard.writeText(location.href); toast('Ссылка скопирована'); }
-    catch (e) { prompt('Ссылка на текущие параметры:', location.href); }
+    try { await navigator.clipboard.writeText(location.href); toast('Link copied'); }
+    catch (e) { prompt('Link to current parameters:', location.href); }
   });
   $('#btnReset').addEventListener('click', () => {
     Object.assign(state.p, C.defaults(C.SCHEMA.glyph));

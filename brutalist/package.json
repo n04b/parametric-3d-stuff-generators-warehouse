@@ -1,7 +1,7 @@
 {
   "name": "brutalist-surface",
   "version": "0.2.0",
-  "description": "Параметрический генератор бруталистских бетонных поверхностей с экспортом в STL",
+  "description": "Parametric generator of brutalist concrete surfaces with STL export",
   "type": "module",
   "private": true,
   "scripts": {

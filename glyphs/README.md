@@ -1,59 +1,59 @@
 # Glyph Tiles
 
-Параметрический генератор стены из бетонных плиток-букв: текст идёт по сетке, каждая
-буква — отдельная плитка. Буква не вырезана и не выдавлена: она сама — **излом**, гребень
-на верху плитки, от которого плоские скаты идут до основания. Где скаты от двух штрихов
-встречаются, образуется впадина; буква читается светотенью граней.
-Один HTML-файл, всё считается в браузере. Размеры в миллиметрах, экспорт в **STL**.
+A parametric generator of a wall of concrete letter tiles: text runs across a grid, each
+letter is a separate tile. The letter is neither engraved nor embossed: it is itself a **crease**, a ridge
+on top of the tile from which flat slopes run down to the base. Where the slopes from two strokes
+meet, a valley forms; the letter reads through light and shade on the faces.
+A single HTML file, everything is computed in the browser. Dimensions in millimetres, export to **STL**.
 
-![Фасад и вид 3/4](docs/preview.jpg)
+![Front and 3/4 view](docs/preview.jpg)
 
-## Запуск
+## Running
 
-Откройте `index.html` в браузере — сборка не нужна (Three.js лежит в `vendor/`).
+Open `index.html` in a browser — no build step needed (Three.js is in `vendor/`).
 
-- **ЛКМ** — вращение, **колесо** — зум, **ПКМ** — панорама
-- Кнопки внизу слева: **Фасад** (вид в лоб), **3/4**, **Скользящий**
-- `R` — случайный сид, `F` — вид «Фасад»
-- «Скопировать ссылку» — все параметры, включая текст, хранятся в адресе страницы
+- **Left mouse** — rotate, **wheel** — zoom, **right mouse** — pan
+- Buttons at the bottom left: **Front** (straight-on view), **3/4**, **Grazing**
+- `R` — random seed, `F` — "Front" view
+- "Copy link" — all parameters, including the text, are stored in the page URL
 
-## Параметры
+## Parameters
 
-| Группа | Что задаёт |
+| Group | What it controls |
 | --- | --- |
-| **Текст** | Многострочное поле и порядок раскладки: построчно, как набрано (каждая строка поля — ряд плиток, недостающие ячейки пустые), строками подряд, змейкой, со сдвигом каждого ряда (как на фасаде «THE UNION»), столбцами, по диагоналям, случайно. Кнопки-пресеты. |
-| **Сетка и плитка** | Колонки и ряды, размер плитки, шов, поле по краю, толщина основания, высота плитки, ширина и глубина фаски, разброс выноса плиток, сид. |
-| **Буквы** | Построение: **излом** (по умолчанию — буква-гребень, скаты до основания, крутизна задаётся уклоном; или «до самого края плитки» — скат растягивается так, что приходит к основанию ровно на краю, фаска в этом режиме не срезается, чтобы у концов штрихов не оставалось узких ям), или обычный вырезанный / выпуклый штрих (толщина, глубина, скос стенок). Отступ буквы от фаски; профиль — плоские грани или вогнутый (чаша, парабола: у гребня наклон конечный, поэтому кромка не зубчатая); для чаши есть «Скругление гребня» (по умолчанию 0,5 мм, 0 — выключено): чуть скругляет излом, чтобы изогнутые гребни (O, U, S…) не выходили на сетке пилой; у плоских граней гребень всегда острый; концы штрихов прямые (гранёные) или круглые; случайный поворот и зеркало плиток. |
-| **Пробел** | Плоская ячейка; её высота над основанием задаётся ползунком «Высота пробела» (0 — уровень основания, плитки нет; больше 0 — плоская плитка без фаски, она попадает и в ZIP). В тексте `^` ставит пирамиду, `~` — воронку; их высота задаётся отдельно. |
+| **Text** | A multi-line field and the layout order: line by line as typed (each line of the field is a row of tiles, missing cells are empty), lines in sequence, snake, with each row shifted (like the "THE UNION" facade), by columns, by diagonals, random. Preset buttons. |
+| **Grid and tile** | Columns and rows, tile size, joint, border margin, base thickness, tile height, chamfer width and depth, tile offset spread, seed. |
+| **Letters** | Construction: **crease** (default — the letter is a ridge with slopes down to the base, steepness set by the slope angle; or "to the tile edge" — the slope is stretched so it reaches the base exactly at the edge, and the chamfer is not cut in this mode so no narrow pits remain at stroke ends), or a regular engraved / embossed stroke (thickness, depth, wall bevel). Letter inset from the chamfer; profile — flat faces or concave (bowl, parabola: the slope at the ridge is finite, so the edge is not jagged); the bowl has "Ridge rounding" (default 0.5 mm, 0 — off): it slightly rounds the crease so curved ridges (O, U, S…) don't come out saw-toothed on the grid; with flat faces the ridge is always sharp; stroke ends are square (faceted) or round; random rotation and mirroring of tiles. |
+| **Space** | A flat cell; its height above the base is set by the "Space height" slider (0 — base level, no tile; above 0 — a flat tile without a chamfer, also included in the ZIP). In the text, `^` places a pyramid and `~` a funnel; their height is set separately. |
 
-Шрифт — собственный «скелетный»: латиница A–Z, цифры 0–9 и дефис. Регистр не важен. Символы, которых нет в шрифте,
-становятся пустыми ячейками, а их список показывается в левом верхнем углу.
+The font is a custom "skeleton" font: Latin A–Z, digits 0–9 and the hyphen. Case does not matter. Characters missing from the font
+become empty cells, and a list of them is shown in the top left corner.
 
-## Экспорт
+## Export
 
-| Кнопка | Что это |
+| Button | What it is |
 | --- | --- |
-| **STL — панель целиком** | Вся стена одной замкнутой сеткой: основание, швы и плитки. |
-| **ZIP — набор плиток** | Каждая уникальная плитка отдельным STL (`tile-A_x8.stl` — буква и сколько штук нужно) и `layout.txt` — схема раскладки с углами поворота. Плитки выгружаются без поворота: его делают при укладке. Зеркальные варианты — отдельные файлы. |
-| **PNG 16 бит** | Карта высот панели: чёрный — `z = 0`, белый — верх рельефа. |
+| **STL — whole panel** | The entire wall as one closed mesh: base, joints and tiles. |
+| **ZIP — tile set** | Each unique tile as a separate STL (`tile-A_x8.stl` — the letter and how many are needed) and `layout.txt` — a layout map with rotation angles. Tiles are exported unrotated: rotation is applied when laying them. Mirrored variants are separate files. |
+| **PNG 16-bit** | Heightmap of the panel: black is `z = 0`, white is the top of the relief. |
 
-Модель строится Z-вверх: дно на `z = 0`, готово «дном на стол». Точность задаёт «Шаг сетки».
-Около 0,25 мм хватает для печати; панель 19 × 19 см при этом весит около 64 МБ.
+The model is built Z-up: the bottom is at `z = 0`, ready to print "bottom on the bed". Accuracy is set by "Mesh step".
+About 0.25 mm is enough for printing; a 19 × 19 cm panel then weighs about 64 MB.
 
-## Как устроено
+## How it works
 
-Каждая буква описана своей средней линией в единичном квадрате: ломаные, дуги окружностей
-и точки. Для точки плитки считается расстояние до этой линии, и высота падает от верха
-плитки пропорционально ему (угол «Уклон скатов») до основания. Поэтому линия буквы —
-острый гребень, у N между тремя гребнями образуются треугольные грани и впадины, у O
-внутри кольца получается воронка, у E между перекладинами — «жалюзи». Фаска по краю
-плитки срезает скаты и даёт рамку. У свободных концов штрихов и у прямых углов расстояние
-меряется «квадратом», поэтому торцы гребней гранёные, как у вальмовой крыши.
+Each letter is described by its centre line in a unit square: polylines, circular arcs
+and dots. For each point of a tile the distance to this line is computed, and the height drops from the top
+of the tile proportionally to it (the "Slope angle") down to the base. So the letter's line is
+a sharp ridge; in N, triangular faces and valleys form between the three ridges; in O
+a funnel forms inside the ring; in E a "louvre" forms between the bars. The chamfer along the tile edge
+cuts the slopes and forms a frame. At free stroke ends and at right angles the distance
+is measured "squarely", so the ridge ends are faceted like a hip roof.
 
-Поверхность — карта высот на прямоугольной сетке. К равномерному шагу добавляются точные
-линии рёбер плиток, фасок и вершин пирамид, поэтому швы вертикальные, а рёбра острые.
-В каждой ячейке высота считается ещё и в центре, и ячейка режется по той диагонали, которая
-лучше совпадает с ней: так диагональные грани не «пилят».
+The surface is a heightmap on a rectangular grid. Exact lines of tile edges, chamfers and pyramid apexes
+are added to the uniform step, so joints are vertical and edges are sharp.
+In each cell the height is also sampled at the centre, and the cell is split along the diagonal that
+matches it better: this keeps diagonal faces from getting saw-toothed.
 
-Геометрическое ядро лежит в `index.html` между маркерами `CORE:BEGIN` / `CORE:END` и
-не зависит ни от DOM, ни от Three.js.
+The geometry core lives in `index.html` between the `CORE:BEGIN` / `CORE:END` markers and
+depends on neither the DOM nor Three.js.

@@ -1,116 +1,116 @@
-# Ornament — генератор рельефной плитки
+# Ornament — relief tile generator
 
-Параметрический генератор объёмной керамической плитки: розетки, завитки, листья, рамки,
-звёзды, гирих, рифление, грани. Плитка бывает квадратной, шестиугольной (гранью или углом вверх),
-восьмиугольной и круглой. Её можно собрать в массив, где рельеф затухает к краям.
-Все размеры задаются в **миллиметрах**, экспорт в **STL**.
+A parametric generator of relief ceramic tiles: rosettes, scrolls, leaves, frames,
+stars, girih, fluting, facets. A tile can be square, hexagonal (flat side or corner up),
+octagonal or round. Tiles can be assembled into an array where the relief fades towards the edges.
+All dimensions are in **millimetres**, export to **STL**.
 
 ![preview](docs/preview.jpg)
 
-## Запуск
+## Running
 
-Открыть **`index.html`** в браузере (можно двойным кликом). Three.js лежит в `vendor/`,
-интернет не нужен. Параметры сохраняются в браузере между сессиями.
+Open **`index.html`** in a browser (a double click works). Three.js is in `vendor/`,
+no internet needed. Parameters are kept in the browser between sessions.
 
-## Как устроено
+## How it works
 
-Плитка — это основание толщиной `T` и рельеф над ним. Рельеф складывается из **слоёв**,
-каждый слой — один **мотив**, размноженный по плитке.
+A tile is a base of thickness `T` with relief on top. The relief is made of **layers**,
+each layer is one **motif** replicated across the tile.
 
-### Мотивы
+### Motifs
 
-| Мотив | Что это |
+| Motif | What it is |
 | --- | --- |
-| Лепесток / лист | Лист, лепесток, капля, ромб. Задаются изгиб (серп, завиток листа), острота концов, место наибольшей ширины, вырез-сердечко, прожилка. |
-| Круг / кольцо / сектор | Точки, кольца, полудиски. |
-| Прямоугольник | Бруски и квадраты со скруглёнными углами. |
-| Завиток | Спираль с хвостом: радиусы, число витков, толщина по длине, изгиб хвоста, шарик в центре. |
-| Кривая (стебель) | Кубическая кривая Безье с переменной толщиной и шариками на концах. |
-| Дуга | Часть окружности заданной толщины. |
-| Полоса | Прямая лента, например диагональные ремни азулежу. |
-| Звезда | Звезда с N лучами. С профилем «Фаска» получаются гранёные лучи с острым ребром. |
-| Звёздный многоугольник {n/k} | Линии через каждую k-ю вершину n-угольника — основа гириха. |
-| Лопастной контур | Четырёх-, шести- и многолистник. В режиме «только контур» даёт переплетённые ремни. |
-| Рамка по краю | Полоса вдоль контура плитки на заданном отступе. |
+| Petal / leaf | Leaf, petal, drop, rhombus. Parameters: bend (crescent, leaf curl), tip sharpness, position of maximum width, heart notch, vein. |
+| Circle / ring / sector | Dots, rings, half-discs. |
+| Rectangle | Bars and squares with rounded corners. |
+| Scroll | A spiral with a tail: radii, number of turns, thickness along the length, tail bend, ball in the centre. |
+| Curve (stem) | A cubic Bézier curve with variable thickness and balls at the ends. |
+| Arc | Part of a circle of a given thickness. |
+| Band | A straight strap, e.g. the diagonal straps of azulejos. |
+| Star | A star with N rays. With the "Chamfer" profile you get faceted rays with a sharp ridge. |
+| Star polygon {n/k} | Lines through every k-th vertex of an n-gon — the basis of girih. |
+| Lobed outline | Quatrefoil, sexfoil and multifoil. In "outline only" mode it gives interlaced straps. |
+| Edge frame | A band along the tile outline at a given inset. |
 
-### Рельеф слоя
+### Layer relief
 
-- **Режим**: *наплыв* (максимум с тем, что уже есть), *наложение* (поверх), *вырезать* (углубление, например чаша).
-- **Профиль склона**: скруглённый, фаска (грани), плавный, вогнутый; ширина склона в мм.
-- **Заливка** сплошная или только контур заданной толщины.
-- **Наклон** вдоль и поперёк оси мотива: плоские наклонные грани, как у «куба» на сотах.
-- **Рифление**: параллельные полосы, кольца, лучи (веер) или вложенные контуры. Форма волны:
-  гребни, синусоида или ступени.
+- **Mode**: *blend* (maximum with what is already there), *overlay* (on top), *cut* (a recess, e.g. a bowl).
+- **Slope profile**: rounded, chamfer (facets), smooth, concave; slope width in mm.
+- **Fill**: solid or outline only with a given thickness.
+- **Tilt** along and across the motif axis: flat tilted faces, like the "cube" on a hexagon.
+- **Fluting**: parallel stripes, rings, rays (fan) or nested outlines. Wave shape:
+  ridges, sine or steps.
 
-### Размещение
+### Placement
 
-Мотив лежит вдоль своей оси (0° — вправо). Копии строятся в два уровня:
+A motif lies along its axis (0° — to the right). Copies are built on two levels:
 
-1. **По кругу** вокруг центра плитки (`копий`, `угол первой копии`, `расстояние от центра`,
-   `зеркальные пары`) или **по решётке** (квадратной или шестиугольной, с шагом, поворотом и сдвигом).
-2. **Веером** вокруг полученной точки (`копий`, `раскрытие`, `поворот`, `вынос`). Так делаются
-   пальметты в углах, дуги из капель и лучи.
+1. **Around a circle** about the tile centre (`copies`, `first copy angle`, `distance from centre`,
+   `mirror pairs`) or **on a lattice** (square or hexagonal, with step, rotation and offset).
+2. **As a fan** around the resulting point (`copies`, `spread`, `rotation`, `offset`). This is how
+   corner palmettes, arcs of drops and rays are made.
 
-Мотивы, которые выходят за край плитки, обрезаются. Поэтому четверть розетки в углу плитки
-собирается в целую розетку на стыке четырёх плиток.
+Motifs that extend beyond the tile edge are clipped. So a quarter rosette in the tile corner
+becomes a full rosette where four tiles meet.
 
-### Поверхность
+### Surface
 
-- **Заплыв глазури** — сглаживание всего рельефа, как у толстой глазури.
-- **Кракелюр** — сетка тонких трещин (ячейки Вороного).
-- **Шагрень** — мелкая шумовая фактура.
+- **Glaze pooling** — smoothing of the whole relief, like thick glaze.
+- **Craquelure** — a network of fine cracks (Voronoi cells).
+- **Shagreen** — fine noise texture.
 
-## Массив и затухание
+## Array and fade
 
-Плитки раскладываются в массив `колонок × рядов` с заданным швом. У сот ряды сдвигаются,
-как положено. Плитки можно поворачивать: шахматы, вертушка 2×2, по рядам, по колонкам или
-случайно (шаг 90° у квадрата, 60° у сот).
+Tiles are laid out in an array of `columns × rows` with a given joint. For hexagons, rows are offset
+as they should be. Tiles can be rotated: checkerboard, 2×2 pinwheel, by rows, by columns or
+randomly (90° step for squares, 60° for hexagons).
 
-**Затухание рельефа** уменьшает высоту узора к краям массива:
+**Relief fade** reduces the pattern height towards the edges of the array:
 
-| Режим | Как считается |
+| Mode | How it is computed |
 | --- | --- |
-| К краям | По расстоянию до ближайшего края прямоугольника массива. |
-| От центра | По эллипсу, вписанному в массив. |
-| С одной стороны | Градиент в заданном направлении. |
+| To edges | By distance to the nearest edge of the array rectangle. |
+| From centre | By an ellipse inscribed in the array. |
+| From one side | A gradient in a given direction. |
 
-Параметры: ширина зоны затухания (мм), остаток рельефа на краю (0 — совсем плоско), кривая,
-«рваная» граница (шум). Затухание считается в координатах всего массива, поэтому узор плавно
-переходит через швы, а каждая плитка получается своей.
+Parameters: fade zone width (mm), relief remaining at the edge (0 — completely flat), curve,
+"ragged" boundary (noise). The fade is computed in the coordinates of the whole array, so the pattern flows smoothly
+across joints and every tile comes out unique.
 
-## Экспорт
+## Export
 
-| Кнопка | Что получится |
+| Button | What you get |
 | --- | --- |
-| **STL — одна плитка** | Одна плитка без затухания, в начале координат. |
-| **STL — весь массив** | Все плитки на своих местах в одном бинарном STL, каждая — отдельное замкнутое тело. |
-| **ZIP — каждая плитка** | С затуханием: отдельный STL на каждую плитку (`R01C01.stl`…). Без затухания: одна `tile.stl`. В архиве также лежат `layout.txt` с координатами и поворотами и `params.json`. |
-| **Сохранить / загрузить параметры** | JSON со всеми настройками. |
+| **STL — single tile** | One tile without fade, at the origin. |
+| **STL — whole array** | All tiles in place in one binary STL, each a separate closed solid. |
+| **ZIP — every tile** | With fade: a separate STL for each tile (`R01C01.stl`…). Without fade: a single `tile.stl`. The archive also contains `layout.txt` with coordinates and rotations, and `params.json`. |
+| **Save / load parameters** | JSON with all settings. |
 
-Каждая плитка — замкнутая сетка без самопересечений: дно на `z = 0`, рельеф вверх, печатается
-без поддержек. Шаг сетки STL задаётся отдельно от превью. При шаге 0,3 мм плитка 150 мм — это
-около 0,5 млн треугольников (~25 МБ). Под кнопками показана оценка размера файлов.
+Each tile is a closed mesh without self-intersections: the bottom is at `z = 0`, relief facing up, it prints
+without supports. The STL mesh step is set separately from the preview. At a 0.3 mm step a 150 mm tile is
+about 0.5 million triangles (~25 MB). An estimate of the file sizes is shown under the buttons.
 
-Размер плитки меняется вместе с узором, если включено «Масштабировать узор вместе с плиткой».
-Высоты при этом не меняются, для них есть «Масштаб высоты рельефа».
+The tile size changes together with the pattern if "Scale pattern with tile" is enabled.
+Heights do not change in that case; use "Relief height scale" for them.
 
-## Что учесть при печати
+## Printing notes
 
-- Узкие детали (тонкие контуры, трещины кракелюра) имеют смысл, только если шаг сетки STL
-  заметно меньше их ширины.
-- Слой «Вырезать» не опускает поверхность ниже 0,6 мм от дна. Если углубление упирается
-  в этот предел, в статистике появится предупреждение.
+- Narrow details (thin outlines, craquelure cracks) only make sense if the STL mesh step
+  is noticeably smaller than their width.
+- A "Cut" layer never lowers the surface below 0.6 mm from the bottom. If a recess hits
+  this limit, a warning appears in the stats.
 
-## Файлы
+## Files
 
 ```
-index.html   интерфейс, 3D-предпросмотр, экспорт
-core.js      геометрия: мотивы, размножение, поле высот, массив и затухание, сетка, STL и ZIP (без зависимостей)
-presets.js   пресеты по референсам и генератор случайной плитки
+index.html   UI, 3D preview, export
+core.js      geometry: motifs, replication, height field, array and fade, mesh, STL and ZIP (no dependencies)
+presets.js   presets based on references and a random tile generator
 vendor/      Three.js r128 + OrbitControls (MIT)
 ```
 
-`core.js` и `presets.js` работают и в Node:
+`core.js` and `presets.js` also work in Node:
 
 ```js
 const C = require('./core.js');

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Tiles — генератор настенных инсталляций</title>
+<title>Tiles — wall installation generator</title>
 <style>
   :root {
     --bg: #dcd9d3;
@@ -101,28 +101,28 @@
 <body>
 <div id="app">
   <div id="view">
-    <div id="hud"><b>Tiles</b> · вращение — ЛКМ · зум — колесо · сдвиг — ПКМ</div>
+    <div id="hud"><b>Tiles</b> · rotate — left mouse · zoom — wheel · pan — right mouse</div>
     <div id="views">
-      <button data-view="front">Анфас</button>
+      <button data-view="front">Front</button>
       <button data-view="angle">3/4</button>
-      <button data-view="side">Сбоку</button>
+      <button data-view="side">Side</button>
     </div>
     <div id="stats"></div>
   </div>
 
   <div id="panel">
     <div class="head">
-      <h1>Генератор настенных инсталляций</h1>
-      <p>Модульный рельеф из отдельных деталей. Все размеры — в миллиметрах. Экспорт в STL.</p>
+      <h1>Wall Installation Generator</h1>
+      <p>Modular relief made of separate pieces. All dimensions are in millimetres. Export to STL.</p>
     </div>
 
     <div class="group" id="g-presets">
-      <div class="title">Пресеты <span class="chev">▾</span></div>
+      <div class="title">Presets <span class="chev">▾</span></div>
       <div class="body">
         <div class="presets" id="presets"></div>
         <div class="btnrow">
-          <button id="btn-random">Случайная композиция</button>
-          <button id="btn-reseed">Новый seed</button>
+          <button id="btn-random">Random composition</button>
+          <button id="btn-reseed">New seed</button>
         </div>
       </div>
     </div>
@@ -147,129 +147,129 @@ const hexRect = (p) => hex(p) && p.hexShape === 'rect', hexGon = (p) => hex(p) &
 const panelSized = (p) => rect(p) || hexRect(p);
 
 const SCALAR_MODES = [
-  ['const', 'Постоянно'], ['linear', 'Линейный градиент'], ['radial', 'От точки'], ['wave', 'Волна'],
-  ['ring', 'Круговые волны'], ['noise', 'Шум'], ['random', 'Случайно'], ['checker', 'Шахматы'], ['border', 'От края к центру'],
+  ['const', 'Constant'], ['linear', 'Linear gradient'], ['radial', 'From a point'], ['wave', 'Wave'],
+  ['ring', 'Circular waves'], ['noise', 'Noise'], ['random', 'Random'], ['checker', 'Checkerboard'], ['border', 'Edge to centre'],
 ];
 function scalarControls(pre) {
   const m = (...v) => is(pre + '_mode', ...v);
   return [
-    { k: pre + '_mode', t: 'select', l: 'Распределение', opts: SCALAR_MODES },
-    { k: pre + '_angle', t: 'range', l: 'Угол', min: -180, max: 180, step: 1, u: '°', show: m('linear', 'wave') },
-    { k: pre + '_px', t: 'range', l: 'Точка X', min: -1.5, max: 1.5, step: 0.01, show: m('radial', 'ring') },
-    { k: pre + '_py', t: 'range', l: 'Точка Y', min: -1.5, max: 1.5, step: 0.01, show: m('radial', 'ring') },
-    { k: pre + '_freq', t: 'range', l: 'Частота', min: 0.1, max: 6, step: 0.05, show: m('wave', 'ring') },
-    { k: pre + '_phase', t: 'range', l: 'Фаза', min: 0, max: 360, step: 1, u: '°', show: m('wave', 'ring') },
-    { k: pre + '_noise', t: 'range', l: 'Масштаб шума', min: 0.2, max: 6, step: 0.05, show: m('noise') },
-    { k: pre + '_jit', t: 'range', l: 'Случайность', min: 0, max: 1, step: 0.01, show: not(pre + '_mode', 'const') },
-    { k: pre + '_gamma', t: 'range', l: 'Кривая (гамма)', min: 0.2, max: 4, step: 0.05, show: not(pre + '_mode', 'const') },
-    { k: pre + '_inv', t: 'check', l: 'Инвертировать', show: not(pre + '_mode', 'const') },
+    { k: pre + '_mode', t: 'select', l: 'Distribution', opts: SCALAR_MODES },
+    { k: pre + '_angle', t: 'range', l: 'Angle', min: -180, max: 180, step: 1, u: '°', show: m('linear', 'wave') },
+    { k: pre + '_px', t: 'range', l: 'Point X', min: -1.5, max: 1.5, step: 0.01, show: m('radial', 'ring') },
+    { k: pre + '_py', t: 'range', l: 'Point Y', min: -1.5, max: 1.5, step: 0.01, show: m('radial', 'ring') },
+    { k: pre + '_freq', t: 'range', l: 'Frequency', min: 0.1, max: 6, step: 0.05, show: m('wave', 'ring') },
+    { k: pre + '_phase', t: 'range', l: 'Phase', min: 0, max: 360, step: 1, u: '°', show: m('wave', 'ring') },
+    { k: pre + '_noise', t: 'range', l: 'Noise scale', min: 0.2, max: 6, step: 0.05, show: m('noise') },
+    { k: pre + '_jit', t: 'range', l: 'Randomness', min: 0, max: 1, step: 0.01, show: not(pre + '_mode', 'const') },
+    { k: pre + '_gamma', t: 'range', l: 'Curve (gamma)', min: 0.2, max: 4, step: 0.05, show: not(pre + '_mode', 'const') },
+    { k: pre + '_inv', t: 'check', l: 'Invert', show: not(pre + '_mode', 'const') },
   ];
 }
 
 const SECTIONS = [
-  { title: 'Раскладка', items: [
-    { k: 'layout', t: 'select', l: 'Тип сетки', opts: [['rect', 'Прямоугольная'], ['radial', 'Радиальная'], ['hex', 'Шестигранная (соты)']] },
-    { k: 'hexShape', t: 'select', l: 'Форма панели', opts: [['rect', 'Прямоугольник'], ['hexagon', 'Шестиугольник']], show: hex },
-    { k: 'hexOrient', t: 'select', l: 'Ориентация сот', opts: [['pointy', 'Углом вверх'], ['flat', 'Гранью вверх']], show: hex },
-    { k: 'W', t: 'range', l: 'Ширина', min: 50, max: 2000, step: 1, u: 'мм', show: panelSized },
-    { k: 'H', t: 'range', l: 'Высота', min: 50, max: 2000, step: 1, u: 'мм', show: panelSized },
-    { k: 'cols', t: 'range', l: 'Колонок', min: 1, max: 60, step: 1, int: true, show: panelSized },
-    { k: 'hexRings', t: 'range', l: 'Колец вокруг центра', min: 0, max: 25, step: 1, int: true, show: hexGon },
-    { k: 'hexSize', t: 'range', l: 'Размер соты (между гранями)', min: 5, max: 300, step: 0.5, u: 'мм', show: hexGon },
-    { k: 'rows', t: 'range', l: 'Рядов', min: 1, max: 60, step: 1, int: true, show: rect },
-    { k: 'rIn', t: 'range', l: 'Внутренний радиус', min: 0, max: 400, step: 1, u: 'мм', show: radial },
-    { k: 'rings', t: 'range', l: 'Колец', min: 1, max: 40, step: 1, int: true, show: radial },
-    { k: 'ringW', t: 'range', l: 'Ширина кольца', min: 5, max: 200, step: 0.5, u: 'мм', show: radial },
-    { k: 'segMode', t: 'select', l: 'Сегменты в кольце', opts: [['equal', 'Равный размер ячеек'], ['fixed', 'Одинаковое число']], show: radial },
-    { k: 'aspect', t: 'range', l: 'Длина дуги / ширина', min: 0.4, max: 3, step: 0.05, show: (p) => radial(p) && p.segMode === 'equal' },
-    { k: 'segs', t: 'range', l: 'Сегментов', min: 3, max: 120, step: 1, int: true, show: (p) => radial(p) && p.segMode === 'fixed' },
-    { k: 'arcDiv', t: 'range', l: 'Граней на дугу', min: 1, max: 8, step: 1, int: true, show: radial },
-    { k: 'startAng', t: 'range', l: 'Поворот сетки', min: -180, max: 180, step: 1, u: '°', show: radial },
-    { k: 'stagger', t: 'check', l: 'Сдвигать чётные кольца (кирпич)', show: radial },
-    { k: 'centerPiece', t: 'check', l: 'Центральная деталь', show: (p) => radial(p) && p.rIn > 0 },
-    { k: 'gap', t: 'range', l: 'Зазор между деталями', min: 0, max: 20, step: 0.1, u: 'мм' },
+  { title: 'Layout', items: [
+    { k: 'layout', t: 'select', l: 'Grid type', opts: [['rect', 'Rectangular'], ['radial', 'Radial'], ['hex', 'Hexagonal (honeycomb)']] },
+    { k: 'hexShape', t: 'select', l: 'Panel shape', opts: [['rect', 'Rectangle'], ['hexagon', 'Hexagon']], show: hex },
+    { k: 'hexOrient', t: 'select', l: 'Hexagon orientation', opts: [['pointy', 'Corner up'], ['flat', 'Flat side up']], show: hex },
+    { k: 'W', t: 'range', l: 'Width', min: 50, max: 2000, step: 1, u: 'mm', show: panelSized },
+    { k: 'H', t: 'range', l: 'Height', min: 50, max: 2000, step: 1, u: 'mm', show: panelSized },
+    { k: 'cols', t: 'range', l: 'Columns', min: 1, max: 60, step: 1, int: true, show: panelSized },
+    { k: 'hexRings', t: 'range', l: 'Rings around centre', min: 0, max: 25, step: 1, int: true, show: hexGon },
+    { k: 'hexSize', t: 'range', l: 'Cell size (across flats)', min: 5, max: 300, step: 0.5, u: 'mm', show: hexGon },
+    { k: 'rows', t: 'range', l: 'Rows', min: 1, max: 60, step: 1, int: true, show: rect },
+    { k: 'rIn', t: 'range', l: 'Inner radius', min: 0, max: 400, step: 1, u: 'mm', show: radial },
+    { k: 'rings', t: 'range', l: 'Rings', min: 1, max: 40, step: 1, int: true, show: radial },
+    { k: 'ringW', t: 'range', l: 'Ring width', min: 5, max: 200, step: 0.5, u: 'mm', show: radial },
+    { k: 'segMode', t: 'select', l: 'Segments per ring', opts: [['equal', 'Equal cell size'], ['fixed', 'Equal count']], show: radial },
+    { k: 'aspect', t: 'range', l: 'Arc length / width', min: 0.4, max: 3, step: 0.05, show: (p) => radial(p) && p.segMode === 'equal' },
+    { k: 'segs', t: 'range', l: 'Segments', min: 3, max: 120, step: 1, int: true, show: (p) => radial(p) && p.segMode === 'fixed' },
+    { k: 'arcDiv', t: 'range', l: 'Facets per arc', min: 1, max: 8, step: 1, int: true, show: radial },
+    { k: 'startAng', t: 'range', l: 'Grid rotation', min: -180, max: 180, step: 1, u: '°', show: radial },
+    { k: 'stagger', t: 'check', l: 'Offset even rings (brick)', show: radial },
+    { k: 'centerPiece', t: 'check', l: 'Centre piece', show: (p) => radial(p) && p.rIn > 0 },
+    { k: 'gap', t: 'range', l: 'Gap between pieces', min: 0, max: 20, step: 0.1, u: 'mm' },
   ] },
-  { title: 'Форма детали', items: [
-    { k: 'foot', t: 'select', l: 'Основание', opts: [['cell', 'По ячейке (квадрат / сектор)'], ['circle', 'Круг / многоугольник'], ['drop', 'Капля']] },
-    { k: 'sides', t: 'range', l: 'Граней', min: 3, max: 64, step: 1, int: true, show: is('foot', 'circle', 'drop') },
-    { k: 'dropLen', t: 'range', l: 'Вытянутость капли', min: 1.1, max: 4, step: 0.05, show: is('foot', 'drop') },
-    { k: 'fScale', t: 'range', l: 'Размер основания', min: 0.1, max: 1, step: 0.01 },
-    { k: 'sizeLink', t: 'range', l: 'Размер зависит от высоты', min: 0, max: 0.9, step: 0.01 },
-    { k: 'topScale', t: 'range', l: 'Верх: 0 — пирамида, 1 — призма', min: 0, max: 1.3, step: 0.01 },
-    { k: 'curv', t: 'range', l: 'Профиль: − вогнутый, + купол', min: -2, max: 2, step: 0.05 },
-    { k: 'layers', t: 'range', l: 'Сегментов по высоте', min: 2, max: 24, step: 1, int: true, show: (p) => Math.abs(p.curv) > 0.001 || p.twist !== 0 || p.twistJit !== 0 },
-    { k: 'plinth', t: 'range', l: 'Цоколь (вертикальный борт)', min: 0, max: 20, step: 0.1, u: 'мм' },
+  { title: 'Piece shape', items: [
+    { k: 'foot', t: 'select', l: 'Base', opts: [['cell', 'Cell (square / sector)'], ['circle', 'Circle / polygon'], ['drop', 'Drop']] },
+    { k: 'sides', t: 'range', l: 'Sides', min: 3, max: 64, step: 1, int: true, show: is('foot', 'circle', 'drop') },
+    { k: 'dropLen', t: 'range', l: 'Drop elongation', min: 1.1, max: 4, step: 0.05, show: is('foot', 'drop') },
+    { k: 'fScale', t: 'range', l: 'Base size', min: 0.1, max: 1, step: 0.01 },
+    { k: 'sizeLink', t: 'range', l: 'Size depends on height', min: 0, max: 0.9, step: 0.01 },
+    { k: 'topScale', t: 'range', l: 'Top: 0 — pyramid, 1 — prism', min: 0, max: 1.3, step: 0.01 },
+    { k: 'curv', t: 'range', l: 'Profile: − concave, + dome', min: -2, max: 2, step: 0.05 },
+    { k: 'layers', t: 'range', l: 'Segments along height', min: 2, max: 24, step: 1, int: true, show: (p) => Math.abs(p.curv) > 0.001 || p.twist !== 0 || p.twistJit !== 0 },
+    { k: 'plinth', t: 'range', l: 'Plinth (vertical rim)', min: 0, max: 20, step: 0.1, u: 'mm' },
   ] },
-  { title: 'Высота', items: [
-    { k: 'hMin', t: 'range', l: 'Мин. высота', min: 0.5, max: 300, step: 0.5, u: 'мм' },
-    { k: 'hMax', t: 'range', l: 'Макс. высота', min: 0.5, max: 300, step: 0.5, u: 'мм' },
+  { title: 'Height', items: [
+    { k: 'hMin', t: 'range', l: 'Min. height', min: 0.5, max: 300, step: 0.5, u: 'mm' },
+    { k: 'hMax', t: 'range', l: 'Max. height', min: 0.5, max: 300, step: 0.5, u: 'mm' },
     ...scalarControls('h'),
   ] },
-  { title: 'Наклон и поворот', items: [
-    { k: 'offset', t: 'range', l: 'Смещение вершины (в ячейках)', min: 0, max: 2.5, step: 0.01 },
-    { k: 'tilt', t: 'range', l: 'Наклон верхней грани', min: 0, max: 75, step: 0.5, u: '°' },
-    { k: 'twist', t: 'range', l: 'Закрутка', min: -180, max: 180, step: 1, u: '°' },
-    { k: 'twistJit', t: 'range', l: 'Случайная закрутка ±', min: 0, max: 90, step: 1, u: '°' },
-    { sub: 'Сила наклона по полю' },
-    { k: 'iMin', t: 'range', l: 'Минимальная сила', min: 0, max: 1, step: 0.01 },
+  { title: 'Tilt and rotation', items: [
+    { k: 'offset', t: 'range', l: 'Apex offset (in cells)', min: 0, max: 2.5, step: 0.01 },
+    { k: 'tilt', t: 'range', l: 'Top face tilt', min: 0, max: 75, step: 0.5, u: '°' },
+    { k: 'twist', t: 'range', l: 'Twist', min: -180, max: 180, step: 1, u: '°' },
+    { k: 'twistJit', t: 'range', l: 'Random twist ±', min: 0, max: 90, step: 1, u: '°' },
+    { sub: 'Tilt strength by field' },
+    { k: 'iMin', t: 'range', l: 'Minimum strength', min: 0, max: 1, step: 0.01 },
     ...scalarControls('i'),
   ] },
-  { title: 'Направление наклона', items: [
-    { k: 'd_mode', t: 'select', l: 'Поле направлений', opts: [
-      ['linear', 'Одно направление'], ['point', 'От точки / вихрь'], ['wave', 'Волна'], ['noise', 'Шум'],
-      ['alternate', 'Чередование рядов / колец'], ['random', 'Случайно'],
+  { title: 'Tilt direction', items: [
+    { k: 'd_mode', t: 'select', l: 'Direction field', opts: [
+      ['linear', 'Single direction'], ['point', 'From a point / vortex'], ['wave', 'Wave'], ['noise', 'Noise'],
+      ['alternate', 'Alternating rows / rings'], ['random', 'Random'],
     ] },
-    { k: 'd_angle', t: 'range', l: 'Угол (0° вправо, 90° вверх)', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'linear', 'wave', 'noise', 'alternate') },
-    { k: 'd_px', t: 'range', l: 'Точка X', min: -1.5, max: 1.5, step: 0.01, show: is('d_mode', 'point') },
-    { k: 'd_py', t: 'range', l: 'Точка Y', min: -1.5, max: 1.5, step: 0.01, show: is('d_mode', 'point') },
-    { k: 'd_rot', t: 'range', l: 'Поворот: 0 от точки, 90 вихрь, 180 к точке', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'point') },
-    { k: 'd_amp', t: 'range', l: 'Амплитуда', min: 0, max: 180, step: 1, u: '°', show: is('d_mode', 'wave', 'noise', 'alternate') },
-    { k: 'd_freq', t: 'range', l: 'Частота волны', min: 0.1, max: 6, step: 0.05, show: is('d_mode', 'wave') },
-    { k: 'd_wAngle', t: 'range', l: 'Направление волны', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'wave') },
-    { k: 'd_noise', t: 'range', l: 'Масштаб шума', min: 0.2, max: 6, step: 0.05, show: is('d_mode', 'noise') },
-    { k: 'd_jit', t: 'range', l: 'Случайное отклонение ±', min: 0, max: 90, step: 1, u: '°' },
+    { k: 'd_angle', t: 'range', l: 'Angle (0° right, 90° up)', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'linear', 'wave', 'noise', 'alternate') },
+    { k: 'd_px', t: 'range', l: 'Point X', min: -1.5, max: 1.5, step: 0.01, show: is('d_mode', 'point') },
+    { k: 'd_py', t: 'range', l: 'Point Y', min: -1.5, max: 1.5, step: 0.01, show: is('d_mode', 'point') },
+    { k: 'd_rot', t: 'range', l: 'Rotation: 0 from point, 90 vortex, 180 to point', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'point') },
+    { k: 'd_amp', t: 'range', l: 'Amplitude', min: 0, max: 180, step: 1, u: '°', show: is('d_mode', 'wave', 'noise', 'alternate') },
+    { k: 'd_freq', t: 'range', l: 'Wave frequency', min: 0.1, max: 6, step: 0.05, show: is('d_mode', 'wave') },
+    { k: 'd_wAngle', t: 'range', l: 'Wave direction', min: -180, max: 180, step: 1, u: '°', show: is('d_mode', 'wave') },
+    { k: 'd_noise', t: 'range', l: 'Noise scale', min: 0.2, max: 6, step: 0.05, show: is('d_mode', 'noise') },
+    { k: 'd_jit', t: 'range', l: 'Random deviation ±', min: 0, max: 90, step: 1, u: '°' },
     { k: 'seed', t: 'range', l: 'Seed', min: 1, max: 9999, step: 1, int: true },
   ] },
-  { title: 'Цвет и подложка', items: [
-    { k: 'colMain', t: 'color', l: 'Основной цвет' },
-    { k: 'acc', t: 'select', l: 'Второй цвет — какие детали', opts: [
-      ['none', 'Нет'], ['random', 'Случайные детали'], ['checker', 'Шахматы'], ['border', 'Рамка по краю'],
-      ['stripes', 'Полосы (ряды / кольца)'], ['height', 'Самые высокие'],
+  { title: 'Colour and backing', items: [
+    { k: 'colMain', t: 'color', l: 'Main colour' },
+    { k: 'acc', t: 'select', l: 'Second colour — which pieces', opts: [
+      ['none', 'None'], ['random', 'Random pieces'], ['checker', 'Checkerboard'], ['border', 'Border frame'],
+      ['stripes', 'Stripes (rows / rings)'], ['height', 'Tallest'],
     ] },
-    { k: 'colAcc', t: 'color', l: 'Цвет второй группы', show: not('acc', 'none') },
-    { k: 'accN', t: 'range', l: 'Ширина рамки / полосы', min: 1, max: 10, step: 1, int: true, show: is('acc', 'border', 'stripes') },
-    { k: 'accP', t: 'range', l: 'Доля деталей', min: 0, max: 1, step: 0.01, show: is('acc', 'random', 'height') },
-    { k: 'board', t: 'check', l: 'Подложка (панель)' },
-    { k: 'colBoard', t: 'color', l: 'Цвет подложки', show: is('board', true) },
-    { k: 'bMargin', t: 'range', l: 'Поле вокруг', min: 0, max: 200, step: 1, u: 'мм', show: is('board', true) },
-    { k: 'bThick', t: 'range', l: 'Толщина подложки', min: 1, max: 40, step: 0.5, u: 'мм', show: is('board', true) },
+    { k: 'colAcc', t: 'color', l: 'Second group colour', show: not('acc', 'none') },
+    { k: 'accN', t: 'range', l: 'Frame / stripe width', min: 1, max: 10, step: 1, int: true, show: is('acc', 'border', 'stripes') },
+    { k: 'accP', t: 'range', l: 'Fraction of pieces', min: 0, max: 1, step: 0.01, show: is('acc', 'random', 'height') },
+    { k: 'board', t: 'check', l: 'Backing (panel)' },
+    { k: 'colBoard', t: 'color', l: 'Backing colour', show: is('board', true) },
+    { k: 'bMargin', t: 'range', l: 'Margin around', min: 0, max: 200, step: 1, u: 'mm', show: is('board', true) },
+    { k: 'bThick', t: 'range', l: 'Backing thickness', min: 1, max: 40, step: 0.5, u: 'mm', show: is('board', true) },
   ] },
-  { title: 'Свет', collapsed: true, items: [
-    { k: 'lightAz', t: 'range', l: 'Направление света', min: -180, max: 180, step: 1, u: '°' },
-    { k: 'lightEl', t: 'range', l: 'Высота света', min: 5, max: 90, step: 1, u: '°' },
+  { title: 'Light', collapsed: true, items: [
+    { k: 'lightAz', t: 'range', l: 'Light direction', min: -180, max: 180, step: 1, u: '°' },
+    { k: 'lightEl', t: 'range', l: 'Light elevation', min: 5, max: 90, step: 1, u: '°' },
   ] },
-  { title: 'Экспорт', id: 'g-export', items: [
-    { k: 'exBoard', t: 'check', l: 'Включить подложку в экспорт', show: is('board', true) },
-    { sub: 'Стол принтера (для раскладки по столам)' },
-    { k: 'bedX', t: 'range', l: 'Стол X', min: 50, max: 1000, step: 1, u: 'мм' },
-    { k: 'bedY', t: 'range', l: 'Стол Y', min: 50, max: 1000, step: 1, u: 'мм' },
-    { k: 'bedGap', t: 'range', l: 'Отступ между деталями', min: 0.5, max: 20, step: 0.5, u: 'мм' },
+  { title: 'Export', id: 'g-export', items: [
+    { k: 'exBoard', t: 'check', l: 'Include backing in export', show: is('board', true) },
+    { sub: 'Printer bed (for per-bed layout)' },
+    { k: 'bedX', t: 'range', l: 'Bed X', min: 50, max: 1000, step: 1, u: 'mm' },
+    { k: 'bedY', t: 'range', l: 'Bed Y', min: 50, max: 1000, step: 1, u: 'mm' },
+    { k: 'bedGap', t: 'range', l: 'Spacing between pieces', min: 0.5, max: 20, step: 0.5, u: 'mm' },
     { html: `
-      <div class="btnrow"><button class="primary" id="ex-assembled">STL — вся инсталляция</button></div>
+      <div class="btnrow"><button class="primary" id="ex-assembled">STL — whole installation</button></div>
       <div class="btnrow">
-        <button id="ex-parts">ZIP — каждая деталь</button>
-        <button id="ex-plates">ZIP — по столам</button>
+        <button id="ex-parts">ZIP — every piece</button>
+        <button id="ex-plates">ZIP — per bed</button>
       </div>
       <div class="btnrow">
-        <button id="ex-svg">SVG — схема сборки 1:1</button>
+        <button id="ex-svg">SVG — 1:1 assembly map</button>
       </div>
       <div class="btnrow">
-        <button id="ex-json">Сохранить параметры</button>
-        <button id="im-json">Загрузить…</button>
+        <button id="ex-json">Save parameters</button>
+        <button id="im-json">Load…</button>
         <input type="file" id="im-file" accept=".json,application/json" hidden />
       </div>
-      <p class="hint">Все детали — отдельные замкнутые тела, основанием на z = 0. Имена файлов совпадают с номерами на схеме сборки
-      (R — ряд, C — колонка; K — кольцо, S — сегмент; у сот «гранью вверх» C — колонка, R — место в ней сверху вниз). Красная стрелка на схеме показывает, куда смотрит вершина.</p>` },
+      <p class="hint">All pieces are separate closed solids with their base on z = 0. File names match the numbers on the assembly map
+      (R — row, C — column; K — ring, S — segment; for "flat side up" hexagons C — column, R — position in it from top to bottom). The red arrow on the map shows where the apex points.</p>` },
   ] },
 ];
 
@@ -551,14 +551,14 @@ function showStats() {
     maxH = Math.max(maxH, pb.max[2]);
   }
   const lines = [];
-  lines.push(`<b>${G.parts.length}</b> деталей` + (P.acc !== 'none' ? ` (${count[0]} + ${count[1]} второго цвета)` : '') + ` · ${tris.toLocaleString('ru')} треугольников`);
+  lines.push(`<b>${G.parts.length}</b> pieces` + (P.acc !== 'none' ? ` (${count[0]} + ${count[1]} in the second colour)` : '') + ` · ${tris.toLocaleString('en-US')} triangles`);
   if (G.parts.length) {
-    lines.push(`Габарит: ${fmt(b.max[0] - b.min[0])} × ${fmt(b.max[1] - b.min[1])} × ${fmt(b.max[2] - Math.min(0, b.min[2]))} мм`);
-    lines.push(`Самая крупная деталь: ${fmt(maxW)} × ${fmt(maxD)} × ${fmt(maxH)} мм`);
+    lines.push(`Overall size: ${fmt(b.max[0] - b.min[0])} × ${fmt(b.max[1] - b.min[1])} × ${fmt(b.max[2] - Math.min(0, b.min[2]))} mm`);
+    lines.push(`Largest piece: ${fmt(maxW)} × ${fmt(maxD)} × ${fmt(maxH)} mm`);
   }
   const warn = [...G.warnings];
-  if (maxW > P.bedX || maxD > P.bedY) warn.push('Деталь больше стола принтера');
-  if (P.hMin > P.hMax) warn.push('Мин. высота больше максимальной');
+  if (maxW > P.bedX || maxD > P.bedY) warn.push('A piece is larger than the printer bed');
+  if (P.hMin > P.hMax) warn.push('Min. height is greater than max. height');
   for (const w of warn) lines.push(`<span class="warn">⚠ ${w}</span>`);
   document.getElementById('stats').innerHTML = lines.join('<br/>');
 }
@@ -588,15 +588,15 @@ const boardItem = () => (G.board && P.exBoard ? [G.board] : []);
 
 function readme() {
   return [
-    'Tiles — комплект деталей',
+    'Tiles — piece set',
     '',
-    `Деталей: ${G.parts.length}. Все размеры в мм, каждая деталь стоит основанием на z = 0.`,
-    'Номер детали: R — ряд (сверху вниз), C — колонка (слева направо);',
-    'для радиальной сетки: K — кольцо (от центра), S — сегмент (против часовой от 0°), C00 — центр;',
-    'для сот «гранью вверх»: C — колонка (слева направо), R — место в колонке (сверху вниз).',
-    'assembly.svg — шаблон сборки в масштабе 1:1: контур основания, номер,',
-    'красная стрелка — куда смещена вершина детали.',
-    P.acc !== 'none' ? 'Папки color1 / color2 — детали основного и второго цвета.' : '',
+    `Pieces: ${G.parts.length}. All dimensions in mm, each piece stands with its base on z = 0.`,
+    'Piece number: R — row (top to bottom), C — column (left to right);',
+    'for the radial grid: K — ring (from centre), S — segment (counter-clockwise from 0°), C00 — centre;',
+    'for "flat side up" hexagons: C — column (left to right), R — position in the column (top to bottom).',
+    'assembly.svg — 1:1 assembly template: base outline, number,',
+    'red arrow — where the piece apex is offset.',
+    P.acc !== 'none' ? 'Folders color1 / color2 — pieces in the main and second colour.' : '',
   ].join('\r\n');
 }
 
@@ -636,7 +636,7 @@ function wireExports() {
       });
     });
     for (const b of boardItem()) files.push({ name: 'BOARD.stl', data: TileCore.stlBinary([{ tris: b.tris, dz: P.bThick }], 'BOARD') });
-    if (over.length) list.push('', 'Больше стола (напечатаны по одной): ' + over.join(', '));
+    if (over.length) list.push('', 'Larger than the bed (printed one per bed): ' + over.join(', '));
     files.push({ name: 'plates.txt', data: list.join('\r\n') });
     files.push({ name: 'assembly.svg', data: TileCore.assemblySVG(G) });
     files.push({ name: 'params.json', data: JSON.stringify(P, null, 2) });
@@ -656,7 +656,7 @@ function wireExports() {
       rebuild(true);
       store();
     } catch (err) {
-      alert('Не удалось прочитать файл параметров: ' + err.message);
+      alert('Could not read the parameters file: ' + err.message);
     }
     e.target.value = '';
   };

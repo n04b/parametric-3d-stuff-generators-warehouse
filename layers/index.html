@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Слоистые волны</title>
+  <title>Layered Waves</title>
   <style>
 :root {
   --bg: #f4f4f2;
@@ -180,12 +180,12 @@ button:disabled { opacity: 0.5; cursor: progress; }
 <body>
   <aside id="panel">
     <header>
-      <h1>Слоистые волны</h1>
-      <p class="hint">Волнистые пластины, уложенные внахлёст. Размеры в миллиметрах, экспорт в STL.</p>
+      <h1>Layered Waves</h1>
+      <p class="hint">Wavy plates laid with an overlap. Dimensions in millimetres, export to STL.</p>
     </header>
 
     <label class="field">
-      <span>Пресет</span>
+      <span>Preset</span>
       <select id="preset"></select>
     </label>
 
@@ -194,19 +194,19 @@ button:disabled { opacity: 0.5; cursor: progress; }
     <section id="stats"></section>
 
     <div class="actions">
-      <button id="export" type="button" class="primary">Скачать STL</button>
-      <button id="share" type="button">Скопировать ссылку</button>
+      <button id="export" type="button" class="primary">Download STL</button>
+      <button id="share" type="button">Copy link</button>
     </div>
     <p id="message" class="hint" role="status"></p>
   </aside>
 
   <main id="viewport">
-    <div id="busy" hidden>Генерация…</div>
+    <div id="busy" hidden>Generating…</div>
     <div class="view-tools">
-      <label><input type="checkbox" id="dark" checked> Тёмный материал</label>
-      <label><input type="checkbox" id="raking" checked> Косой свет</label>
-      <label><input type="checkbox" id="wire"> Сетка</label>
-      <button id="reset-view" type="button">Сбросить вид</button>
+      <label><input type="checkbox" id="dark" checked> Dark material</label>
+      <label><input type="checkbox" id="raking" checked> Raking light</label>
+      <label><input type="checkbox" id="wire"> Wireframe</label>
+      <button id="reset-view" type="button">Reset view</button>
     </div>
   </main>
 
@@ -316,66 +316,66 @@ const bell = (z) => (z < 1 ? (1 - z * z) * (1 - z * z) : 0);
 // ===== params =====
 
 const GROUPS = {
-  board: 'Панель',
-  field: 'Рисунок слоёв',
-  layers: 'Пластины',
-  edge: 'Кромка',
-  surface: 'Поверхность',
+  board: 'Panel',
+  field: 'Layer pattern',
+  layers: 'Plates',
+  edge: 'Edge',
+  surface: 'Surface',
 };
 
 const MODES = [
-  ['strata', 'Полосы'],
-  ['rings', 'Кольца вокруг точки'],
-  ['topo', 'Горизонтали (рельеф)'],
+  ['strata', 'Stripes'],
+  ['rings', 'Rings around a point'],
+  ['topo', 'Contours (relief)'],
 ];
 
 const isRings = (s) => s.mode === 'rings';
 
 const PARAMS = [
-  { key: 'width', group: 'board', label: 'Ширина, мм', type: 'number', min: 10, max: 2000, step: 1, value: 150 },
-  { key: 'height', group: 'board', label: 'Высота, мм', type: 'number', min: 10, max: 2000, step: 1, value: 260 },
-  { key: 'base', group: 'board', label: 'Толщина основания, мм', type: 'number', min: 0.4, max: 100, step: 0.1, value: 3 },
-  { key: 'edgeFade', group: 'board', label: 'Затухание к краям, мм', type: 'number', min: 0, max: 500, step: 1, value: 0 },
-  { key: 'edgeLevel', group: 'board', label: 'Уровень края (низ ↔ верх рельефа)', type: 'number', min: 0, max: 1, step: 0.01, value: 0, when: (s) => s.edgeFade > 0 },
-  { key: 'resolution', group: 'board', label: 'Шаг сетки, мм', type: 'number', min: 0.05, max: 5, step: 0.05, value: 0.4 },
+  { key: 'width', group: 'board', label: 'Width, mm', type: 'number', min: 10, max: 2000, step: 1, value: 150 },
+  { key: 'height', group: 'board', label: 'Height, mm', type: 'number', min: 10, max: 2000, step: 1, value: 260 },
+  { key: 'base', group: 'board', label: 'Base thickness, mm', type: 'number', min: 0.4, max: 100, step: 0.1, value: 3 },
+  { key: 'edgeFade', group: 'board', label: 'Edge fade, mm', type: 'number', min: 0, max: 500, step: 1, value: 0 },
+  { key: 'edgeLevel', group: 'board', label: 'Edge level (relief bottom ↔ top)', type: 'number', min: 0, max: 1, step: 0.01, value: 0, when: (s) => s.edgeFade > 0 },
+  { key: 'resolution', group: 'board', label: 'Mesh step, mm', type: 'number', min: 0.05, max: 5, step: 0.05, value: 0.4 },
 
-  { key: 'mode', group: 'field', label: 'Рисунок', type: 'select', options: MODES, value: 'strata' },
-  { key: 'cx', group: 'field', label: 'Центр колец X, мм', type: 'number', min: -2000, max: 2000, step: 1, value: -90, when: isRings },
-  { key: 'cy', group: 'field', label: 'Центр колец Y, мм', type: 'number', min: -2000, max: 2000, step: 1, value: -170, when: isRings },
-  { key: 'seed', group: 'field', label: 'Сид', type: 'int', min: 0, max: 99999, step: 1, value: 7 },
-  { key: 'angle', group: 'field', label: 'Направление слоёв, °', type: 'number', min: 0, max: 180, step: 1, value: 20 },
-  { key: 'flip', group: 'field', label: 'Кромки в другую сторону', type: 'bool', value: false },
-  { key: 'warpAmp', group: 'field', label: 'Изгиб слоёв, мм', type: 'number', min: 0, max: 300, step: 0.5, value: 28 },
-  { key: 'warpScale', group: 'field', label: 'Масштаб изгибов, мм', type: 'number', min: 10, max: 1000, step: 1, value: 200 },
-  { key: 'warpOctaves', group: 'field', label: 'Детализация изгибов', type: 'int', min: 1, max: 5, step: 1, value: 2 },
-  { key: 'stretch', group: 'field', label: 'Вытянутость вдоль слоёв', type: 'number', min: 1, max: 8, step: 0.1, value: 2.5 },
-  { key: 'swirl', group: 'field', label: 'Завихрения', type: 'number', min: 0, max: 3, step: 0.05, value: 0.4 },
-  { key: 'jag', group: 'field', label: 'Рваность кромки, мм', type: 'number', min: 0, max: 10, step: 0.05, value: 0 },
-  { key: 'jagScale', group: 'field', label: 'Размер рваностей, мм', type: 'number', min: 0.5, max: 60, step: 0.1, value: 5, when: (s) => s.jag > 0 },
+  { key: 'mode', group: 'field', label: 'Pattern', type: 'select', options: MODES, value: 'strata' },
+  { key: 'cx', group: 'field', label: 'Ring centre X, mm', type: 'number', min: -2000, max: 2000, step: 1, value: -90, when: isRings },
+  { key: 'cy', group: 'field', label: 'Ring centre Y, mm', type: 'number', min: -2000, max: 2000, step: 1, value: -170, when: isRings },
+  { key: 'seed', group: 'field', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 7 },
+  { key: 'angle', group: 'field', label: 'Layer direction, °', type: 'number', min: 0, max: 180, step: 1, value: 20 },
+  { key: 'flip', group: 'field', label: 'Flip edge direction', type: 'bool', value: false },
+  { key: 'warpAmp', group: 'field', label: 'Layer bend, mm', type: 'number', min: 0, max: 300, step: 0.5, value: 28 },
+  { key: 'warpScale', group: 'field', label: 'Bend scale, mm', type: 'number', min: 10, max: 1000, step: 1, value: 200 },
+  { key: 'warpOctaves', group: 'field', label: 'Bend detail', type: 'int', min: 1, max: 5, step: 1, value: 2 },
+  { key: 'stretch', group: 'field', label: 'Stretch along layers', type: 'number', min: 1, max: 8, step: 0.1, value: 2.5 },
+  { key: 'swirl', group: 'field', label: 'Swirls', type: 'number', min: 0, max: 3, step: 0.05, value: 0.4 },
+  { key: 'jag', group: 'field', label: 'Edge raggedness, mm', type: 'number', min: 0, max: 10, step: 0.05, value: 0 },
+  { key: 'jagScale', group: 'field', label: 'Raggedness size, mm', type: 'number', min: 0.5, max: 60, step: 0.1, value: 5, when: (s) => s.jag > 0 },
 
-  { key: 'spacing', group: 'layers', label: 'Ширина пластины, мм', type: 'number', min: 1, max: 200, step: 0.1, value: 8 },
-  { key: 'spacingVar', group: 'layers', label: 'Разброс ширины', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
-  { key: 'step', group: 'layers', label: 'Высота ступени, мм', type: 'number', min: 0, max: 30, step: 0.1, value: 4 },
-  { key: 'stack', group: 'layers', label: 'Внахлёст ↔ лестница', type: 'number', min: 0, max: 1, step: 0.01, value: 0 },
-  { key: 'sheetShape', group: 'layers', label: 'Профиль: выпуклый ↔ вогнутый', type: 'number', min: 0.15, max: 4, step: 0.05, value: 0.45, when: (s) => s.stack < 1 },
-  { key: 'heightVar', group: 'layers', label: 'Разброс высоты', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
-  { key: 'fade', group: 'layers', label: 'Выклинивание пластин', type: 'number', min: 0, max: 1, step: 0.01, value: 0, when: (s) => s.stack < 1 },
-  { key: 'fadeScale', group: 'layers', label: 'Длина выклинивания, мм', type: 'number', min: 5, max: 600, step: 1, value: 60, when: (s) => s.stack < 1 && s.fade > 0 },
+  { key: 'spacing', group: 'layers', label: 'Plate width, mm', type: 'number', min: 1, max: 200, step: 0.1, value: 8 },
+  { key: 'spacingVar', group: 'layers', label: 'Width spread', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
+  { key: 'step', group: 'layers', label: 'Step height, mm', type: 'number', min: 0, max: 30, step: 0.1, value: 4 },
+  { key: 'stack', group: 'layers', label: 'Overlap ↔ staircase', type: 'number', min: 0, max: 1, step: 0.01, value: 0 },
+  { key: 'sheetShape', group: 'layers', label: 'Profile: convex ↔ concave', type: 'number', min: 0.15, max: 4, step: 0.05, value: 0.45, when: (s) => s.stack < 1 },
+  { key: 'heightVar', group: 'layers', label: 'Height spread', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
+  { key: 'fade', group: 'layers', label: 'Plate pinch-out', type: 'number', min: 0, max: 1, step: 0.01, value: 0, when: (s) => s.stack < 1 },
+  { key: 'fadeScale', group: 'layers', label: 'Pinch-out length, mm', type: 'number', min: 5, max: 600, step: 1, value: 60, when: (s) => s.stack < 1 && s.fade > 0 },
 
-  { key: 'riser', group: 'edge', label: 'Ширина уступа, мм', type: 'number', min: 0, max: 30, step: 0.05, value: 2 },
-  { key: 'round', group: 'edge', label: 'Скругление кромки', type: 'number', min: 0, max: 1, step: 0.01, value: 0.8 },
-  { key: 'gapDepth', group: 'edge', label: 'Теневой шов: глубина, мм', type: 'number', min: 0, max: 20, step: 0.05, value: 1.5 },
-  { key: 'gapWidth', group: 'edge', label: 'Теневой шов: ширина, мм', type: 'number', min: 0.1, max: 20, step: 0.05, value: 1.2, when: (s) => s.gapDepth > 0 },
-  { key: 'rimHeight', group: 'edge', label: 'Бортик: высота, мм', type: 'number', min: 0, max: 10, step: 0.05, value: 0 },
-  { key: 'rimWidth', group: 'edge', label: 'Бортик: ширина, мм', type: 'number', min: 0.1, max: 10, step: 0.05, value: 0.8, when: (s) => s.rimHeight > 0 },
+  { key: 'riser', group: 'edge', label: 'Step width, mm', type: 'number', min: 0, max: 30, step: 0.05, value: 2 },
+  { key: 'round', group: 'edge', label: 'Edge rounding', type: 'number', min: 0, max: 1, step: 0.01, value: 0.8 },
+  { key: 'gapDepth', group: 'edge', label: 'Shadow gap: depth, mm', type: 'number', min: 0, max: 20, step: 0.05, value: 1.5 },
+  { key: 'gapWidth', group: 'edge', label: 'Shadow gap: width, mm', type: 'number', min: 0.1, max: 20, step: 0.05, value: 1.2, when: (s) => s.gapDepth > 0 },
+  { key: 'rimHeight', group: 'edge', label: 'Lip: height, mm', type: 'number', min: 0, max: 10, step: 0.05, value: 0 },
+  { key: 'rimWidth', group: 'edge', label: 'Lip: width, mm', type: 'number', min: 0.1, max: 10, step: 0.05, value: 0.8, when: (s) => s.rimHeight > 0 },
 
-  { key: 'macro', group: 'surface', label: 'Крупные волны, мм', type: 'number', min: 0, max: 100, step: 0.1, value: 10 },
-  { key: 'macroScale', group: 'surface', label: 'Размер волн, мм', type: 'number', min: 10, max: 2000, step: 1, value: 160, when: (s) => s.macro > 0 },
-  { key: 'fibers', group: 'surface', label: 'Волокна вдоль слоёв, мм', type: 'number', min: 0, max: 3, step: 0.05, value: 0 },
-  { key: 'fiberWidth', group: 'surface', label: 'Толщина волокна, мм', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.5, when: (s) => s.fibers > 0 },
-  { key: 'lines', group: 'surface', label: 'Тонкие линии, мм', type: 'number', min: 0, max: 3, step: 0.05, value: 0 },
-  { key: 'lineSpacing', group: 'surface', label: 'Шаг линий, мм', type: 'number', min: 0.3, max: 20, step: 0.05, value: 1.2, when: (s) => s.lines > 0 },
-  { key: 'blur', group: 'surface', label: 'Сглаживание, мм', type: 'number', min: 0, max: 5, step: 0.05, value: 0 },
+  { key: 'macro', group: 'surface', label: 'Large waves, mm', type: 'number', min: 0, max: 100, step: 0.1, value: 10 },
+  { key: 'macroScale', group: 'surface', label: 'Wave size, mm', type: 'number', min: 10, max: 2000, step: 1, value: 160, when: (s) => s.macro > 0 },
+  { key: 'fibers', group: 'surface', label: 'Fibres along layers, mm', type: 'number', min: 0, max: 3, step: 0.05, value: 0 },
+  { key: 'fiberWidth', group: 'surface', label: 'Fibre thickness, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.5, when: (s) => s.fibers > 0 },
+  { key: 'lines', group: 'surface', label: 'Fine lines, mm', type: 'number', min: 0, max: 3, step: 0.05, value: 0 },
+  { key: 'lineSpacing', group: 'surface', label: 'Line spacing, mm', type: 'number', min: 0.3, max: 20, step: 0.05, value: 1.2, when: (s) => s.lines > 0 },
+  { key: 'blur', group: 'surface', label: 'Smoothing, mm', type: 'number', min: 0, max: 5, step: 0.05, value: 0 },
 ];
 
 const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
@@ -383,11 +383,11 @@ const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
 // Starting points modelled on the reference photos; unlisted keys keep defaults.
 const PRESETS = [
   {
-    name: 'Графитовые ленты',
+    name: 'Graphite ribbons',
     params: {},
   },
   {
-    name: 'Сланцевые пластины',
+    name: 'Slate plates',
     params: {
       seed: 21, angle: 65, warpAmp: 24, warpScale: 180, stretch: 3, swirl: 0.5, jag: 0.7, jagScale: 4,
       spacing: 18, spacingVar: 0.6, step: 2.5, stack: 0.1, sheetShape: 1, heightVar: 0.4, fade: 0.4, fadeScale: 70,
@@ -396,7 +396,7 @@ const PRESETS = [
     },
   },
   {
-    name: 'Шпон внахлёст',
+    name: 'Overlapping veneer',
     params: {
       seed: 5, angle: 30, warpAmp: 40, warpScale: 240, stretch: 1.4, swirl: 0.4,
       spacing: 20, spacingVar: 0.5, step: 3.5, stack: 0.25, sheetShape: 0.9, heightVar: 0.35, fade: 0.55, fadeScale: 90,
@@ -405,7 +405,7 @@ const PRESETS = [
     },
   },
   {
-    name: 'Топографическая карта',
+    name: 'Topographic map',
     params: {
       mode: 'topo', seed: 3, warpAmp: 40, warpScale: 150, stretch: 1.3, swirl: 0.5,
       spacing: 5, spacingVar: 0.1, step: 0.8, stack: 1, heightVar: 0,
@@ -413,7 +413,7 @@ const PRESETS = [
     },
   },
   {
-    name: 'Круги на воде',
+    name: 'Ripples on water',
     params: {
       mode: 'rings', cx: -40, cy: -80, warpAmp: 14, warpScale: 220, warpOctaves: 1, stretch: 1, swirl: 0.2,
       spacing: 9, spacingVar: 0.2, step: 2.5, sheetShape: 0.5, heightVar: 0.2,
@@ -794,7 +794,7 @@ const reseed = document.createElement('div');
 reseed.className = 'group-actions';
 const reseedBtn = document.createElement('button');
 reseedBtn.type = 'button';
-reseedBtn.textContent = 'Случайный сид';
+reseedBtn.textContent = 'Random seed';
 reseedBtn.addEventListener('click', () => {
   update('seed', Math.floor(Math.random() * 100000));
   controlsByKey.get('seed').set(state.seed);
@@ -803,7 +803,7 @@ reseed.append(reseedBtn);
 groupBodies.field.append(reseed);
 
 PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
-$('preset').add(new Option('— свои настройки —', 'custom'));
+$('preset').add(new Option('— custom settings —', 'custom'));
 $('preset').value = fromHash ? 'custom' : 0;
 $('preset').addEventListener('change', () => {
   const pr = PRESETS[Number($('preset').value)];
@@ -939,14 +939,14 @@ function renderStats(previewRes, mesh) {
   const tris = estimateTriangles(state, state.resolution);
   const mb = (84 + tris * 50) / 1048576;
   const rows = [
-    ['Габариты, мм', `${state.width} × ${state.height} × ${+(state.base + mesh.maxH).toFixed(1)}`],
-    ['Пластин', `${mesh.layers}`],
-    ['Треугольников в STL', tris.toLocaleString('ru')],
-    ['Размер файла', `${mb.toFixed(1)} МБ`],
+    ['Dimensions, mm', `${state.width} × ${state.height} × ${+(state.base + mesh.maxH).toFixed(1)}`],
+    ['Plates', `${mesh.layers}`],
+    ['Triangles in STL', tris.toLocaleString('en-US')],
+    ['File size', `${mb.toFixed(1)} MB`],
   ];
-  if (previewRes > state.resolution * 1.01) rows.push(['Шаг превью', `${previewRes.toFixed(2)} мм`]);
+  if (previewRes > state.resolution * 1.01) rows.push(['Preview step', `${previewRes.toFixed(2)} mm`]);
   $('stats').innerHTML = '<dl style="display:contents">' + rows
-    .map(([k, v]) => `<dt>${k}</dt><dd${tris > EXPORT_WARN_TRIANGLES && k.startsWith('Тре') ? ' class="warn"' : ''}>${v}</dd>`)
+    .map(([k, v]) => `<dt>${k}</dt><dd${tris > EXPORT_WARN_TRIANGLES && k.startsWith('Tri') ? ' class="warn"' : ''}>${v}</dd>`)
     .join('') + '</dl>';
 }
 
@@ -956,10 +956,10 @@ $('export').addEventListener('click', () => {
   const params = { ...state };
   const tris = estimateTriangles(params, params.resolution);
   if (tris > EXPORT_WARN_TRIANGLES &&
-    !confirm(`Будет ${tris.toLocaleString('ru')} треугольников (~${Math.round((tris * 50) / 1048576)} МБ). Продолжить? Можно увеличить шаг сетки.`)) return;
+    !confirm(`This will produce ${tris.toLocaleString('en-US')} triangles (~${Math.round((tris * 50) / 1048576)} MB). Continue? You can increase the mesh step.`)) return;
   const btn = $('export');
   btn.disabled = true;
-  $('message').textContent = 'Строю сетку для экспорта…';
+  $('message').textContent = 'Building export mesh…';
   setTimeout(() => {
     try {
       const mesh = buildMesh(params, params.resolution);
@@ -972,9 +972,9 @@ $('export').addEventListener('click', () => {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-      $('message').textContent = `Сохранено: ${name}`;
+      $('message').textContent = `Saved: ${name}`;
     } catch (e) {
-      $('message').textContent = `Ошибка: ${e.message}`;
+      $('message').textContent = `Error: ${e.message}`;
     } finally {
       btn.disabled = false;
     }
@@ -1004,9 +1004,9 @@ function readHash() {
 $('share').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(location.href);
-    $('message').textContent = 'Ссылка с параметрами скопирована.';
+    $('message').textContent = 'Link with parameters copied.';
   } catch {
-    $('message').textContent = 'Скопируйте адрес страницы: параметры сохранены в нём.';
+    $('message').textContent = 'Copy the page URL: the parameters are saved in it.';
   }
 });
 

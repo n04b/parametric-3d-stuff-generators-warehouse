@@ -77,7 +77,7 @@
   // Each preset only lists what differs from DEFAULTS.
   const PRESETS = [
     {
-      name: 'Бумажные волны',
+      name: 'Paper waves',
       p: {
         W: 420, H: 600, cols: 20, rows: 14, gap: 0.6, topScale: 0, plinth: 0.8,
         hMin: 18, hMax: 26, h_mode: 'noise', h_noise: 1.2,
@@ -86,7 +86,7 @@
       },
     },
     {
-      name: 'Наклонные блоки',
+      name: 'Tilted blocks',
       p: {
         W: 400, H: 420, cols: 13, rows: 14, gap: 1.2, topScale: 1, plinth: 0,
         hMin: 30, hMax: 40, h_mode: 'noise', h_noise: 1,
@@ -96,7 +96,7 @@
       },
     },
     {
-      name: 'Капли',
+      name: 'Drops',
       p: {
         W: 360, H: 400, cols: 9, rows: 10, gap: 1, foot: 'drop', sides: 16, dropLen: 1.9, fScale: 1,
         topScale: 0, curv: 1.3, layers: 7, plinth: 0,
@@ -107,7 +107,7 @@
       },
     },
     {
-      name: 'Медная звезда',
+      name: 'Copper star',
       p: {
         W: 480, H: 480, cols: 16, rows: 16, gap: 0.6, topScale: 0, plinth: 1,
         hMin: 18, hMax: 34, h_mode: 'radial', h_px: 0.12, h_py: 0.05, h_gamma: 1.4,
@@ -117,7 +117,7 @@
       },
     },
     {
-      name: 'Диагональ',
+      name: 'Diagonal',
       p: {
         W: 400, H: 400, cols: 8, rows: 8, gap: 0.8, topScale: 0, plinth: 1,
         hMin: 24, hMax: 30, h_mode: 'const',
@@ -127,7 +127,7 @@
       },
     },
     {
-      name: 'Кубики',
+      name: 'Cubes',
       p: {
         W: 400, H: 400, cols: 8, rows: 8, gap: 3, topScale: 1, plinth: 0,
         hMin: 40, hMax: 46, h_mode: 'random',
@@ -136,7 +136,7 @@
       },
     },
     {
-      name: 'Цилиндры',
+      name: 'Cylinders',
       p: {
         W: 400, H: 400, cols: 17, rows: 17, gap: 1, foot: 'circle', sides: 32, fScale: 0.72, sizeLink: 0.35,
         topScale: 1, plinth: 0, hMin: 6, hMax: 42, h_mode: 'wave', h_angle: 30, h_freq: 0.7, h_phase: 30,
@@ -144,7 +144,7 @@
       },
     },
     {
-      name: 'Шипы из угла',
+      name: 'Spikes from a corner',
       p: {
         W: 300, H: 375, cols: 12, rows: 15, gap: 0.6, topScale: 0, plinth: 1,
         hMin: 16, hMax: 22, h_mode: 'radial', h_px: -1.1, h_py: -1.2,
@@ -154,7 +154,7 @@
       },
     },
     {
-      name: 'Вихрь',
+      name: 'Vortex',
       p: {
         W: 420, H: 420, cols: 12, rows: 12, gap: 0.8, topScale: 0.42, plinth: 0,
         hMin: 20, hMax: 40, h_mode: 'radial', h_inv: true, h_gamma: 0.8,
@@ -163,7 +163,7 @@
       },
     },
     {
-      name: 'Соты',
+      name: 'Honeycomb',
       p: {
         layout: 'hex', hexShape: 'rect', hexOrient: 'pointy', W: 420, H: 420, cols: 12, gap: 0.8,
         topScale: 0, plinth: 1, hMin: 16, hMax: 28, h_mode: 'radial', h_inv: true,
@@ -172,7 +172,7 @@
       },
     },
     {
-      name: 'Шестиугольник',
+      name: 'Hexagon',
       p: {
         layout: 'hex', hexShape: 'hexagon', hexOrient: 'flat', hexRings: 6, hexSize: 38, gap: 1,
         topScale: 0.5, plinth: 0, hMin: 14, hMax: 34, h_mode: 'ring', h_freq: 1.2,
@@ -181,7 +181,7 @@
       },
     },
     {
-      name: 'Радиальная звезда',
+      name: 'Radial star',
       p: {
         layout: 'radial', rIn: 0, rings: 9, ringW: 22, segMode: 'equal', aspect: 1, stagger: true, arcDiv: 1,
         gap: 0.8, topScale: 0, plinth: 1, hMin: 16, hMax: 28, h_mode: 'radial', h_inv: true,
@@ -190,7 +190,7 @@
       },
     },
     {
-      name: 'Радиальный вихрь',
+      name: 'Radial vortex',
       p: {
         layout: 'radial', rIn: 24, rings: 8, ringW: 24, segMode: 'fixed', segs: 28, stagger: false, arcDiv: 2,
         centerPiece: true, gap: 0.8, topScale: 0.4, plinth: 0, hMin: 18, hMax: 36, h_mode: 'radial', h_inv: true,
@@ -199,7 +199,7 @@
       },
     },
     {
-      name: 'Радиальные цилиндры',
+      name: 'Radial cylinders',
       p: {
         layout: 'radial', rIn: 0, rings: 10, ringW: 20, segMode: 'equal', aspect: 1, stagger: true,
         gap: 1, foot: 'circle', sides: 28, fScale: 0.8, sizeLink: 0.3, topScale: 1, plinth: 0,
@@ -726,7 +726,7 @@
       cell.pn = [c[0] / L.ext, c[1] / L.ext];
       cells.push(cell);
     }
-    if (dropped) warnings.push(`${dropped} ячеек пропущено: зазор больше самой ячейки`);
+    if (dropped) warnings.push(`${dropped} cells skipped: gap is larger than the cell itself`);
 
     const sH = scalarField(P, 'h', cells, noise, rngFor(seed, 1));
     const sI = scalarField(P, 'i', cells, noise, rngFor(seed, 2));

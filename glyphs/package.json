@@ -1,7 +1,7 @@
 {
   "name": "glyph-tiles",
   "version": "0.1.0",
-  "description": "Параметрический генератор стены из буквенных бетонных плиток с экспортом в STL",
+  "description": "Parametric generator of a wall of concrete letter tiles with STL export",
   "type": "module",
   "private": true,
   "scripts": {
