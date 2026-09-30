@@ -424,7 +424,9 @@ function worley(seed, x, y, z, out) {
 }
 
 // Returns f(x, y, z) -> [0, 1] for coordinates in millimetres.
-function createField(params) {
+// `res` is the mesh step the field will be sampled at: sharp transitions are
+// widened to at least two steps so walls and terraces don't alias on the grid.
+function createField(params, res = 0) {
   const p = { ...defaultFieldParams(), ...params };
   const seed = p.seed | 0;
   const noise = createNoise3D(seed);
@@ -482,7 +484,7 @@ function createField(params) {
     lv[1] = Math.max(Math.sqrt(gx * gx + gy * gy + gz * gz) / fd, 1e-6);
   }
 
-  const edge = Math.max(p.edge, 0.05);
+  const edge = Math.max(p.edge, 2 * res, 0.05);
   let field;
   switch (p.pattern) {
     case 'topo': {
@@ -599,6 +601,20 @@ function defaultShapeParams() {
   return out;
 }
 
+// Emits the quad a-b-c-d (counter-clockwise) as two triangles, split along the
+// diagonal with the smaller height difference so the split follows steep
+// walls instead of cutting across them (which leaves a sawtooth).
+function pushQuad(tris, o, h, a, b, c, d) {
+  if (Math.abs(h[a] - h[c]) <= Math.abs(h[b] - h[d])) {
+    tris[o] = a; tris[o + 1] = b; tris[o + 2] = c;
+    tris[o + 3] = a; tris[o + 4] = c; tris[o + 5] = d;
+  } else {
+    tris[o] = a; tris[o + 1] = b; tris[o + 2] = d;
+    tris[o + 3] = b; tris[o + 4] = c; tris[o + 5] = d;
+  }
+  return o + 6;
+}
+
 const edgeRamp = (a, b, x) => {
   if (b <= a) return x < a ? 0 : 1;
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -694,9 +710,8 @@ function buildRect(s, field, res) {
   let o = 0;
   for (let j = 0; j < ny - 1; j++) {
     for (let i = 0; i < nx - 1; i++) {
-      const a = j * nx + i, b = a + 1, c = a + nx + 1, d = a + nx;
-      tris[o++] = a; tris[o++] = b; tris[o++] = c;
-      tris[o++] = a; tris[o++] = c; tris[o++] = d;
+      const a = j * nx + i;
+      o = pushQuad(tris, o, z, a, a + 1, a + nx + 1, a + nx);
     }
   }
   const loop = [];
@@ -734,9 +749,7 @@ function buildDisk(s, field, res) {
   }
   for (let k = 1; k < rings; k++) {
     for (let m = 0; m < segs; m++) {
-      const a = ring(k, m), b = ring(k + 1, m), c = ring(k + 1, m + 1), d = ring(k, m + 1);
-      tris[o++] = a; tris[o++] = b; tris[o++] = c;
-      tris[o++] = a; tris[o++] = c; tris[o++] = d;
+      o = pushQuad(tris, o, z, ring(k, m), ring(k + 1, m), ring(k + 1, m + 1), ring(k, m + 1));
     }
   }
   const loop = [];
@@ -749,9 +762,11 @@ function buildSphere(s, field, res) {
   const R = s.diameter / 2;
   const n = 2 + (rings - 1) * segs;
   const positions = new Float32Array(n * 3);
+  const radius = new Float64Array(n);
   // Relief is carved inwards so the outer diameter stays as specified.
   const put = (idx, ux, uy, uz) => {
     const r = R - s.depth * (1 - field(ux * R, uy * R, uz * R));
+    radius[idx] = r;
     positions[idx * 3] = ux * r;
     positions[idx * 3 + 1] = uy * r;
     positions[idx * 3 + 2] = uz * r;
@@ -775,9 +790,7 @@ function buildSphere(s, field, res) {
   }
   for (let k = 1; k < rings - 1; k++) {
     for (let m = 0; m < segs; m++) {
-      const a = ring(k, m), b = ring(k + 1, m), c = ring(k + 1, m + 1), d = ring(k, m + 1);
-      indices[o++] = a; indices[o++] = b; indices[o++] = c;
-      indices[o++] = a; indices[o++] = c; indices[o++] = d;
+      o = pushQuad(indices, o, radius, ring(k, m), ring(k + 1, m), ring(k + 1, m + 1), ring(k, m + 1));
     }
   }
   for (let m = 0; m < segs; m++) {
@@ -1048,7 +1061,7 @@ function schedule() {
 function regenerate() {
   const [shape, field] = split();
   const res = previewResolution(shape);
-  const mesh = buildMesh(shape, createField(field), res);
+  const mesh = buildMesh(shape, createField(field, res), res);
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
@@ -1097,7 +1110,7 @@ $('export').addEventListener('click', () => {
   $('message').textContent = 'Building export mesh…';
   setTimeout(() => {
     try {
-      const mesh = buildMesh(shape, createField(field));
+      const mesh = buildMesh(shape, createField(field, shape.resolution));
       const blob = new Blob([meshToSTL(mesh)], { type: 'model/stl' });
       const name = `texture-${field.pattern}-${shape.shape}-${field.seed}.stl`;
       const a = document.createElement('a');

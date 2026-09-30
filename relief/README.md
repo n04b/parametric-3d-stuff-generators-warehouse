@@ -17,7 +17,9 @@ as well as an "edge fade": over the given width from the edge the relief
 smoothly settles to a flat field, and the corners of a rectangular panel are rounded.
 "Edge level" sets where that field ends up: 0 — at the level of the deepest points
 of the relief, 1 — flush with the peaks. The mesh step
-defines the STL detail; the preview is built coarser if needed.
+defines the STL detail; the preview is built coarser if needed. Walls and
+terrace steps are never sharper than two mesh steps (otherwise they come out
+jagged on the grid), so for crisp thin walls reduce the mesh step.
 
 **Patterns**:
 
