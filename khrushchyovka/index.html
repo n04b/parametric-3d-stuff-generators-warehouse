@@ -1,0 +1,2015 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Khrushchyovka</title>
+  <style>
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --accent-text: #ffffff;
+  --view: #d9dadb;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --panel: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9b9a94;
+    --line: #34332f;
+    --accent: #5b92ec;
+    --view: #2a2a28;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --panel: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #9b9a94;
+  --line: #34332f;
+  --accent: #5b92ec;
+  --view: #2a2a28;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 100vh;
+}
+
+#panel {
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+h1 { font-size: 18px; margin: 0 0 4px; }
+
+details { border-top: 1px solid var(--line); padding: 4px 0 8px; }
+summary {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 10px 0 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hint { color: var(--muted); margin: 0; font-size: 13px; }
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.field > span { font-size: 13px; }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+.field.bool { grid-template-columns: 1fr auto; }
+.field.select { grid-template-columns: 1fr 170px; }
+#panel > .field { grid-template-columns: 1fr 200px; margin: 16px 0; }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: progress; }
+.group-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+#stats {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+#stats dt { color: var(--muted); }
+#stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+#stats .warn { color: #c9582b; grid-column: 1 / -1; text-align: left; }
+
+.actions { display: flex; gap: 8px; margin: 16px 0 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; }
+
+#viewport { position: relative; background: var(--view); min-height: 0; overflow: hidden; }
+#viewport canvas { display: block; width: 100%; height: 100%; }
+
+#busy {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.view-tools {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
+  #viewport { grid-row: 1; height: 55vh; }
+  #panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+}
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>Khrushchyovka</h1>
+      <p class="hint">A Soviet five-storey block of flats from the 1960s as a printable model. The building is set in metres, print details in millimetres; export to STL.</p>
+    </header>
+
+    <label class="field">
+      <span>Preset</span>
+      <select id="preset"></select>
+    </label>
+
+    <div id="groups"></div>
+
+    <section id="stats"></section>
+
+    <div class="actions">
+      <button id="export" type="button" class="primary" disabled>Download STL</button>
+      <button id="share" type="button">Copy link</button>
+    </div>
+    <p id="message" class="hint" role="status"></p>
+  </aside>
+
+  <main id="viewport">
+    <div id="busy">Loading the geometry engine…</div>
+    <div class="view-tools">
+      <label><input type="checkbox" id="colours" checked> Colours</label>
+      <label><input type="checkbox" id="shadows" checked> Shadows</label>
+      <label><input type="checkbox" id="explode" checked> Exploded parts</label>
+      <label><input type="checkbox" id="wire"> Wireframe</label>
+      <button id="reset-view" type="button">Reset view</button>
+    </div>
+  </main>
+
+  <!-- The geometry runs as a module both on the page (parameters, layout) and
+       in Web Workers (the solid modelling), loaded from this text. -->
+  <script type="text/plain" id="geometry">
+// ===== util =====
+
+function hashInt(a, b, c) {
+  let h = a ^ Math.imul(b, 0x8da6b343) ^ Math.imul(c, 0xd8163841);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+// ===== params =====
+
+// Sizes of the building are in metres of the real house; they are scaled down
+// by "Scale". Print details (recesses, joints, frame bars) are in millimetres
+// of the model, so they stay printable at any scale.
+
+const GROUPS = {
+  print: 'Scale and print',
+  building: 'Building',
+  walls: 'Walls',
+  windows: 'Windows',
+  entrances: 'Entrances',
+  balconies: 'Balconies',
+  roof: 'Roof',
+  life: 'Lived-in details',
+  parts: 'Hollow shell and parts',
+};
+
+const isFlat = (s) => s.roof === 'flat';
+const hasBalconies = (s) => s.balconySide !== 'none';
+const hasJoints = (s) => s.finish !== 'smooth';
+
+const PARAMS = [
+  { key: 'scale', group: 'print', label: 'Scale 1:', type: 'int', min: 25, max: 1000, step: 1, value: 200 },
+  { key: 'minFeature', group: 'print', label: 'Thinnest detail, mm', type: 'number', min: 0.1, max: 2, step: 0.05, value: 0.4 },
+  { key: 'selfSupport', group: 'print', label: 'Self-supporting overhangs (45°)', type: 'bool', value: true },
+  { key: 'plate', group: 'print', label: 'Ground plate', type: 'bool', value: false },
+  { key: 'plateMargin', group: 'print', label: 'Plate margin, mm', type: 'number', min: 0, max: 60, step: 0.5, value: 5, when: (s) => s.plate },
+  { key: 'plateThickness', group: 'print', label: 'Plate thickness, mm', type: 'number', min: 0.4, max: 10, step: 0.1, value: 1.6, when: (s) => s.plate },
+
+  { key: 'sections', group: 'building', label: 'Entrances', type: 'int', min: 1, max: 12, step: 1, value: 4 },
+  { key: 'bays', group: 'building', label: 'Window bays per entrance', type: 'int', min: 2, max: 10, step: 1, value: 4 },
+  { key: 'bayWidth', group: 'building', label: 'Bay width, m', type: 'number', min: 2.4, max: 4.5, step: 0.05, value: 3.2 },
+  { key: 'stairWidth', group: 'building', label: 'Stairwell width, m', type: 'number', min: 2, max: 4, step: 0.05, value: 2.6 },
+  { key: 'depth', group: 'building', label: 'Depth, m', type: 'number', min: 8, max: 16, step: 0.1, value: 11.6 },
+  { key: 'floors', group: 'building', label: 'Floors', type: 'int', min: 1, max: 12, step: 1, value: 5 },
+  { key: 'floorHeight', group: 'building', label: 'Floor height, m', type: 'number', min: 2.4, max: 3.6, step: 0.05, value: 2.7 },
+  { key: 'plinthHeight', group: 'building', label: 'Plinth height, m', type: 'number', min: 0, max: 2.5, step: 0.05, value: 1 },
+  { key: 'plinthOffset', group: 'building', label: 'Plinth projection, m', type: 'number', min: -0.3, max: 0.3, step: 0.01, value: 0.05, when: (s) => s.plinthHeight > 0 },
+  { key: 'topBand', group: 'building', label: 'Wall above the top floor, m', type: 'number', min: 0, max: 2, step: 0.05, value: 0.6 },
+
+  {
+    key: 'finish', group: 'walls', label: 'Finish', type: 'select', value: 'panels',
+    options: [['panels', 'Large panels'], ['blocks', 'Large blocks'], ['brick', 'Brick'], ['smooth', 'Smooth']],
+  },
+  { key: 'seamWidth', group: 'walls', label: 'Joint width, mm', type: 'number', min: 0.1, max: 2, step: 0.05, value: 0.4, when: hasJoints },
+  { key: 'seamDepth', group: 'walls', label: 'Joint depth, mm', type: 'number', min: 0.05, max: 2, step: 0.05, value: 0.3, when: hasJoints },
+  { key: 'brickPitch', group: 'walls', label: 'Brick course pitch, mm', type: 'number', min: 0.3, max: 5, step: 0.05, value: 0.8, when: (s) => s.finish === 'brick' },
+  { key: 'vents', group: 'walls', label: 'Basement vents', type: 'bool', value: true, when: (s) => s.plinthHeight >= 0.5 },
+
+  { key: 'windowWidth', group: 'windows', label: 'Width, m', type: 'number', min: 0.6, max: 2.4, step: 0.05, value: 1.5 },
+  { key: 'windowHeight', group: 'windows', label: 'Height, m', type: 'number', min: 0.6, max: 2.2, step: 0.05, value: 1.45 },
+  { key: 'sillHeight', group: 'windows', label: 'Sill above the floor, m', type: 'number', min: 0.3, max: 1.5, step: 0.05, value: 0.85 },
+  { key: 'kitchenWidth', group: 'windows', label: 'Kitchen windows by the stairwell, m', type: 'number', min: 0.6, max: 2.4, step: 0.05, value: 1.2 },
+  { key: 'endWindows', group: 'windows', label: 'On each end wall, per floor', type: 'int', min: 0, max: 4, step: 1, value: 0 },
+  { key: 'windowDepth', group: 'windows', label: 'Recess depth, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.8 },
+  { key: 'frames', group: 'windows', label: 'Frames', type: 'bool', value: true },
+  { key: 'frameWidth', group: 'windows', label: 'Frame bar, mm', type: 'number', min: 0.1, max: 2, step: 0.05, value: 0.4, when: (s) => s.frames },
+  { key: 'sills', group: 'windows', label: 'Sills', type: 'bool', value: true },
+  {
+    key: 'stairGlazing', group: 'windows', label: 'Stairwell', type: 'select', value: 'windows',
+    options: [['windows', 'Windows at the landings'], ['strip', 'Glass-block strip']],
+  },
+
+  { key: 'doorWidth', group: 'entrances', label: 'Door width, m', type: 'number', min: 0.9, max: 2.4, step: 0.05, value: 1.3 },
+  { key: 'doorHeight', group: 'entrances', label: 'Door height, m', type: 'number', min: 1.8, max: 3, step: 0.05, value: 2.2 },
+  {
+    key: 'canopy', group: 'entrances', label: 'Canopy', type: 'select', value: 'slab',
+    options: [['none', 'None'], ['slab', 'Cantilever slab'], ['posts', 'Slab on posts']],
+  },
+  { key: 'canopyWidth', group: 'entrances', label: 'Canopy width, m', type: 'number', min: 1, max: 4, step: 0.05, value: 2.2, when: (s) => s.canopy !== 'none' },
+  { key: 'canopyDepth', group: 'entrances', label: 'Canopy depth, m', type: 'number', min: 0.5, max: 2.5, step: 0.05, value: 1.2, when: (s) => s.canopy !== 'none' },
+  { key: 'porch', group: 'entrances', label: 'Porch step', type: 'bool', value: true },
+
+  {
+    key: 'balconySide', group: 'balconies', label: 'Balconies', type: 'select', value: 'back',
+    options: [['none', 'None'], ['back', 'Back facade'], ['front', 'Entrance facade'], ['both', 'Both facades']],
+  },
+  {
+    key: 'balconyBays', group: 'balconies', label: 'Bays', type: 'select', value: 'outer', when: hasBalconies,
+    options: [['outer', 'Outer bays'], ['inner', 'By the stairwell'], ['alternate', 'Every other bay'], ['all', 'All bays']],
+  },
+  { key: 'balconyFrom', group: 'balconies', label: 'From floor', type: 'int', min: 1, max: 12, step: 1, value: 2, when: hasBalconies },
+  {
+    key: 'balconyType', group: 'balconies', label: 'Type', type: 'select', value: 'balcony', when: hasBalconies,
+    options: [['balcony', 'Balcony'], ['loggia', 'Loggia']],
+  },
+  { key: 'balconyWidth', group: 'balconies', label: 'Width, m', type: 'number', min: 1.2, max: 4.5, step: 0.05, value: 2.8, when: hasBalconies },
+  { key: 'balconyDepth', group: 'balconies', label: 'Depth, m', type: 'number', min: 0.5, max: 2, step: 0.05, value: 0.9, when: hasBalconies },
+  { key: 'parapetHeight', group: 'balconies', label: 'Parapet height, m', type: 'number', min: 0.6, max: 1.4, step: 0.05, value: 1, when: hasBalconies },
+  {
+    key: 'parapetStyle', group: 'balconies', label: 'Parapet', type: 'select', value: 'solid',
+    when: (s) => hasBalconies(s) && s.balconyType === 'balcony',
+    options: [['solid', 'Solid panel'], ['fluted', 'Fluted sheet'], ['railing', 'Railing']],
+  },
+  { key: 'balconySlab', group: 'balconies', label: 'Slab thickness, m', type: 'number', min: 0.08, max: 0.3, step: 0.01, value: 0.15, when: (s) => hasBalconies(s) && s.balconyType === 'balcony' },
+
+  {
+    key: 'roof', group: 'roof', label: 'Roof', type: 'select', value: 'flat',
+    options: [['flat', 'Flat'], ['gable', 'Gable'], ['hip', 'Hip']],
+  },
+  { key: 'roofParapet', group: 'roof', label: 'Parapet height, m', type: 'number', min: 0, max: 1.5, step: 0.05, value: 0.3, when: isFlat },
+  { key: 'cornice', group: 'roof', label: 'Cornice overhang, m', type: 'number', min: 0, max: 1, step: 0.05, value: 0.15, when: isFlat },
+  { key: 'pitch', group: 'roof', label: 'Pitch, °', type: 'number', min: 8, max: 45, step: 0.5, value: 22, when: (s) => !isFlat(s) },
+  { key: 'overhang', group: 'roof', label: 'Eave overhang, m', type: 'number', min: 0, max: 1.2, step: 0.05, value: 0.5, when: (s) => !isFlat(s) },
+  { key: 'dormers', group: 'roof', label: 'Dormers per entrance', type: 'int', min: 0, max: 3, step: 1, value: 1, when: (s) => !isFlat(s) },
+  { key: 'stacks', group: 'roof', label: 'Vent stacks per entrance', type: 'int', min: 0, max: 4, step: 1, value: 2 },
+  { key: 'roofExit', group: 'roof', label: 'Roof exit over each stairwell', type: 'bool', value: false, when: isFlat },
+
+  { key: 'seed', group: 'life', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 7 },
+  { key: 'glazed', group: 'life', label: 'Glazed balconies', type: 'number', min: 0, max: 1, step: 0.01, value: 0, when: hasBalconies },
+  { key: 'pvc', group: 'life', label: 'Replaced windows', type: 'number', min: 0, max: 1, step: 0.01, value: 0 },
+  { key: 'ac', group: 'life', label: 'Air conditioners', type: 'number', min: 0, max: 1, step: 0.01, value: 0 },
+
+  { key: 'hollow', group: 'parts', label: 'Hollow, open bottom', type: 'bool', value: false },
+  { key: 'wall', group: 'parts', label: 'Wall thickness, mm', type: 'number', min: 0.8, max: 10, step: 0.1, value: 2.4, when: (s) => s.hollow },
+  { key: 'through', group: 'parts', label: 'Windows cut through (for lighting)', type: 'bool', value: false, when: (s) => s.hollow },
+  { key: 'partLength', group: 'parts', label: 'Max part length, mm (0 = one piece)', type: 'number', min: 0, max: 1000, step: 1, value: 250 },
+  { key: 'pins', group: 'parts', label: 'Pin holes at the joints', type: 'bool', value: true, when: (s) => s.partLength > 0 },
+  { key: 'pinDiameter', group: 'parts', label: 'Pin hole diameter, mm', type: 'number', min: 1, max: 5, step: 0.05, value: 2, when: (s) => s.partLength > 0 && s.pins },
+  { key: 'pinDepth', group: 'parts', label: 'Pin hole depth, mm', type: 'number', min: 2, max: 20, step: 0.5, value: 6, when: (s) => s.partLength > 0 && s.pins },
+];
+
+const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
+
+// Starting points; unlisted keys keep the defaults.
+const PRESETS = [
+  {
+    name: 'Large-panel, series 1-464',
+    params: {},
+  },
+  {
+    name: 'Brick with a hip roof, series 1-447',
+    params: {
+      bayWidth: 3, depth: 11.2, plinthHeight: 0.8, plinthOffset: 0.06, topBand: 0.35,
+      finish: 'brick', seamWidth: 0.35, seamDepth: 0.25,
+      windowWidth: 1.35, windowHeight: 1.5, kitchenWidth: 1.1,
+      balconyBays: 'alternate', balconyWidth: 2.4, balconyDepth: 0.85, parapetStyle: 'railing',
+      roof: 'hip', pitch: 24, overhang: 0.55, dormers: 1, stacks: 2,
+    },
+  },
+  {
+    name: 'Large-block with a cornice',
+    params: {
+      sections: 3, plinthHeight: 1.2, plinthOffset: 0.08, topBand: 0.5,
+      finish: 'blocks', windowWidth: 1.6,
+      balconyBays: 'inner', parapetStyle: 'fluted', balconyWidth: 3,
+      roofParapet: 0, cornice: 0.35, stacks: 3,
+    },
+  },
+  {
+    name: 'Lived-in today',
+    params: {
+      balconyBays: 'all', canopy: 'posts',
+      glazed: 0.65, pvc: 0.55, ac: 0.3, seed: 7,
+    },
+  },
+  {
+    name: 'Loggias and glass-block stairs',
+    params: {
+      sections: 3, bays: 4, balconySide: 'both', balconyBays: 'outer', balconyType: 'loggia', balconyDepth: 1.1,
+      stairGlazing: 'strip', canopy: 'posts', roofParapet: 0.5, cornice: 0, roofExit: true,
+    },
+  },
+  {
+    name: 'Three-storey brick, gable roof',
+    params: {
+      sections: 2, floors: 3, plinthHeight: 0.6, topBand: 0.3, finish: 'brick',
+      endWindows: 1, balconySide: 'none', roof: 'gable', pitch: 30, overhang: 0.45, dormers: 1, stacks: 2,
+    },
+  },
+  {
+    name: 'H0 1:87 hollow shell for lighting',
+    params: {
+      scale: 87, windowDepth: 1.2, seamWidth: 0.5, seamDepth: 0.4, frameWidth: 0.5,
+      hollow: true, wall: 2.4, through: true, partLength: 220,
+    },
+  },
+];
+
+// ===== engine =====
+
+// manifold-3d (WASM) does the solid modelling: every boolean result is a
+// closed, oriented 2-manifold, which is what a slicer wants. WASM objects are
+// not garbage-collected, so every object created while a model is built is
+// recorded in an arena and freed in one go afterwards.
+
+const MANIFOLD_URL = 'https://cdn.jsdelivr.net/npm/manifold-3d@3.5.4/manifold.js';
+
+let Manifold = null;
+let CrossSection = null;
+let arena = null;
+
+function track(r) {
+  if (arena && r && typeof r === 'object') {
+    if (Array.isArray(r)) r.forEach(track);
+    else if (typeof r.isDeleted === 'function') arena.push(r);
+  }
+  return r;
+}
+
+const UNWRAPPED = new Set(['constructor', 'prototype', 'length', 'name', 'delete', 'isDeleted', 'deleteLater', 'isAliasOf', 'clone']);
+
+function wrapFunctions(target) {
+  for (const name of Object.getOwnPropertyNames(target)) {
+    if (UNWRAPPED.has(name)) continue;
+    const d = Object.getOwnPropertyDescriptor(target, name);
+    if (!d || typeof d.value !== 'function' || !d.writable) continue;
+    const f = d.value;
+    target[name] = function (...args) {
+      return track(f.apply(this, args));
+    };
+  }
+}
+
+async function loadEngine(url = MANIFOLD_URL) {
+  const { default: Module } = await import(url);
+  const wasm = await Module();
+  wasm.setup();
+  ({ Manifold, CrossSection } = wasm);
+  const probe = CrossSection.square(1);
+  const crossProto = Object.getPrototypeOf(probe);
+  probe.delete();
+  wrapFunctions(Manifold);
+  wrapFunctions(Manifold.prototype);
+  wrapFunctions(CrossSection);
+  wrapFunctions(crossProto);
+}
+
+function withArena(fn) {
+  arena = [];
+  try {
+    return fn();
+  } finally {
+    const list = arena;
+    arena = null;
+    for (const o of list) if (!o.isDeleted()) o.delete();
+  }
+}
+
+const EPS = 0.02; // overlap that welds touching solids, mm
+const OUT = 0.5; // how far a cutter reaches past the surface it cuts, mm
+const OV = 0.15; // how far attached details sink into the wall, mm
+const SHRINK = 0.01; // keeps nested cutters from sharing a face, mm
+
+function box(x0, y0, z0, x1, y1, z1) {
+  if (x1 - x0 < 1e-4 || y1 - y0 < 1e-4 || z1 - z0 < 1e-4) return null;
+  return Manifold.cube([x1 - x0, y1 - y0, z1 - z0]).translate([x0, y0, z0]);
+}
+
+const rect = (a0, b0, a1, b1) => [[a0, b0], [a1, b0], [a1, b1], [a0, b1]];
+const rectPts = (hx, hy, z) => [[-hx, -hy, z], [hx, -hy, z], [hx, hy, z], [-hx, hy, z]];
+
+function compose(list) {
+  const l = list.filter(Boolean);
+  if (!l.length) return null;
+  return l.length === 1 ? l[0] : Manifold.compose(l);
+}
+
+// a minus whichever of bs exist; null when a is null.
+function minus(a, ...bs) {
+  const cut = bs.filter(Boolean);
+  return a && cut.length ? Manifold.difference([a, ...cut]) : a;
+}
+
+function polygon(pts) {
+  const clean = pts.filter((q, i) => {
+    const r = pts[(i + pts.length - 1) % pts.length];
+    return Math.abs(q[0] - r[0]) > 1e-6 || Math.abs(q[1] - r[1]) > 1e-6;
+  });
+  return CrossSection.ofPolygons([clean]);
+}
+
+// Extrudes a cross-section by len along c and maps its x, y onto a, b; the
+// basis (a, b, c) must be right-handed. t is where the origin lands.
+function extrudeTo(cs, len, a, b, c, t) {
+  if (cs.isEmpty() || !(len > 0)) return null;
+  return cs.extrude(len).transform([a[0], a[1], a[2], 0, b[0], b[1], b[2], 0, c[0], c[1], c[2], 0, t[0], t[1], t[2], 1]);
+}
+
+// A facade frame: u runs along the wall (left to right seen from outside), v is
+// the height, w points out of the wall; (U, V, W) is right-handed.
+const UP = [0, 0, 1];
+
+function facadeFrames(L, D) {
+  return {
+    front: { name: 'front', U: [1, 0, 0], W: [0, -1, 0], O: [0, -D / 2, 0] },
+    back: { name: 'back', U: [-1, 0, 0], W: [0, 1, 0], O: [0, D / 2, 0] },
+    right: { name: 'right', U: [0, 1, 0], W: [1, 0, 0], O: [L / 2, 0, 0] },
+    left: { name: 'left', U: [0, -1, 0], W: [-1, 0, 0], O: [-L / 2, 0, 0] },
+  };
+}
+
+function fpoint(f, u, v, w) {
+  return [f.O[0] + u * f.U[0] + w * f.W[0], f.O[1] + u * f.U[1] + w * f.W[1], v];
+}
+
+function fbox(f, u0, u1, v0, v1, w0, w1) {
+  const a = fpoint(f, u0, v0, w0), b = fpoint(f, u1, v1, w1);
+  return box(Math.min(a[0], b[0]), Math.min(a[1], b[1]), v0, Math.max(a[0], b[0]), Math.max(a[1], b[1]), v1);
+}
+
+// A facade drawing in (u, v) extruded outwards from w0 to w1.
+function felev(f, cs, w0, w1) {
+  return extrudeTo(cs, w1 - w0, f.U, UP, f.W, fpoint(f, 0, 0, w0));
+}
+
+// A section drawn in (v, w) extruded along the wall from u0 to u1.
+function fprofile(f, cs, u0, u1) {
+  return extrudeTo(cs, u1 - u0, UP, f.W, f.U, fpoint(f, u0, 0, 0));
+}
+
+// ===== layout =====
+
+// Plain numbers: the bays, every opening, balcony and entrance of the house in
+// model millimetres. Nothing here touches the geometry engine.
+
+function layout(p) {
+  const s = 1000 / p.scale;
+  const M = (v) => v * s;
+  const thin = (v) => Math.max(v * s, p.minFeature);
+  const bay = M(p.bayWidth), stairW = M(p.stairWidth);
+  const left = Math.floor(p.bays / 2);
+  const secLen = p.bays * bay + stairW;
+  const L = p.sections * secLen, D = M(p.depth);
+  const hp = M(p.plinthHeight), hf = M(p.floorHeight), N = p.floors;
+  const zFloor = (k) => hp + k * hf;
+  const zTop = zFloor(N) + M(p.topBand);
+  const po = hp > 0 ? M(p.plinthOffset) : 0;
+  const F = facadeFrames(L, D);
+  const wd = p.windowDepth;
+  const rnd = (a, b, c, salt) => hashInt(hashInt(p.seed, a, b), c, salt) / 4294967296;
+  const uRange = (f, x0, x1) => (f === 'back' ? [-x1, -x0] : [x0, x1]);
+
+  // Bays along the building: per entrance, half the window bays, the
+  // stairwell, the other half. dist counts bays from the stairwell.
+  const cols = [];
+  for (let i = 0; i < p.sections; i++) {
+    let x = -L / 2 + i * secLen;
+    for (let j = 0; j <= p.bays; j++) {
+      const stair = j === left;
+      const w = stair ? stairW : bay;
+      const right = j > left;
+      cols.push({
+        section: i, index: j, stair, x0: x, x1: x + w, xc: x + w / 2,
+        dist: stair ? 0 : right ? j - left : left - j,
+        half: right ? p.bays - left : left,
+        side: stair ? 0 : right ? 1 : -1,
+      });
+      x += w;
+    }
+  }
+
+  // Window sizes are kept inside the bay and the floor.
+  const pier = M(0.2);
+  const ww = Math.min(M(p.windowWidth), bay - 2 * pier);
+  const kw = Math.min(M(p.kitchenWidth), bay - 2 * pier);
+  const wh = Math.min(M(p.windowHeight), hf - M(0.5));
+  const sill = Math.min(M(p.sillHeight), hf - wh - M(0.25));
+  const twoLeaves = M(1.05);
+  const frameOf = (a, b, c, salt) => (p.pvc > 0 && rnd(a, b, c, salt) < p.pvc ? 'pvc' : 'classic');
+
+  const bd = M(p.balconyDepth);
+  const pt = p.parapetStyle === 'fluted' && p.balconyType === 'balcony' ? Math.max(thin(0.07), 2 * p.minFeature) : thin(0.07);
+  const balconyDoor = M(0.75);
+  const loggia = p.balconyType === 'loggia';
+  const balconyFacades = { none: [], back: ['back'], front: ['front'], both: ['front', 'back'] }[p.balconySide] || [];
+  const bayPattern = (c) => {
+    switch (p.balconyBays) {
+      case 'outer': return c.dist === c.half;
+      case 'inner': return c.dist === 1;
+      case 'alternate': return (c.half - c.dist) % 2 === 0;
+      default: return true;
+    }
+  };
+
+  const openings = [];
+  const balconies = [];
+  const acs = [];
+  const entrances = [];
+
+  function addWindow(o, salt, colU0, colU1) {
+    openings.push(o);
+    if (p.ac > 0 && colU0 !== undefined && rnd(o.k, Math.round(o.u0 * 10), salt, 41) < p.ac) {
+      // An outdoor unit on the pier next to the window, in the lower half.
+      const w = M(0.8), gap = M(0.15);
+      let u0 = o.u1 + gap;
+      if (u0 + w > colU1 - M(0.05)) u0 = o.u0 - gap - w;
+      if (u0 >= colU0 + M(0.05)) acs.push({ f: o.f, u0, u1: u0 + w, v0: o.v0 + M(0.1), v1: o.v0 + M(0.6), depth: M(0.3) });
+    }
+  }
+
+  for (const fname of ['front', 'back']) {
+    const front = fname === 'front';
+    for (const c of cols) {
+      const [cu0, cu1] = uRange(fname, c.x0, c.x1);
+      const cu = (cu0 + cu1) / 2;
+      if (c.stair) {
+        const sw = Math.min(kw, stairW - 2 * pier);
+        if (!front) {
+          for (let k = 0; k < N; k++) {
+            const v0 = zFloor(k) + sill;
+            addWindow({ f: fname, k, u0: cu - sw / 2, u1: cu + sw / 2, v0, v1: v0 + wh, w0: 0, role: 'glass', frame: frameOf(c.section, c.index, k, 3), two: sw > twoLeaves, sill: true, through: true });
+          }
+          continue;
+        }
+        // Entrance at the ground, landing windows half a floor up.
+        const porchH = p.porch ? M(0.15) : 0;
+        const dw = Math.min(M(p.doorWidth), stairW - 2 * pier);
+        const dh = M(p.doorHeight);
+        const zc = porchH + dh + M(0.2);
+        const ct = thin(0.12);
+        entrances.push({ u: cu, porchH, zc, ct, dw });
+        openings.push({ f: fname, k: -1, u0: cu - dw / 2, u1: cu + dw / 2, v0: porchH, v1: porchH + dh, w0: 0, role: 'door', frame: 'entrance', two: true, sill: false, through: true, entrance: true });
+        const clear = (p.canopy === 'none' ? porchH + dh : zc + ct) + M(0.3);
+        const sh = Math.min(wh, M(1.3));
+        const landings = [];
+        for (let k = 0; k < N - 1; k++) {
+          const v0 = zFloor(k) + hf / 2 + sill;
+          if (v0 >= clear) landings.push([k, v0, v0 + sh]);
+        }
+        if (!landings.length) continue;
+        if (p.stairGlazing === 'strip') {
+          openings.push({ f: fname, k: -1, u0: cu - sw / 2, u1: cu + sw / 2, v0: landings[0][1], v1: landings.at(-1)[2], w0: 0, role: 'glass', frame: 'blocks', sill: true, through: true, stair: true });
+        } else {
+          for (const [k, v0, v1] of landings) {
+            openings.push({ f: fname, k, u0: cu - sw / 2, u1: cu + sw / 2, v0, v1, w0: 0, role: 'glass', frame: frameOf(c.section, c.index, k, 4), two: sw > twoLeaves, sill: true, through: true, stair: true });
+          }
+        }
+        continue;
+      }
+
+      if (p.vents && hp >= M(0.5)) {
+        openings.push({ f: fname, k: -1, u0: cu - M(0.25), u1: cu + M(0.25), v0: hp * 0.4, v1: hp * 0.4 + M(0.22), w0: po, role: 'vent', frame: null, sill: false, through: false });
+      }
+      const balc = balconyFacades.includes(fname) && bayPattern(c);
+      const salt = front ? 1 : 2;
+      for (let k = 0; k < N; k++) {
+        const zf = zFloor(k);
+        const width = front && c.dist === 1 ? kw : ww;
+        if (balc && k + 1 >= p.balconyFrom) {
+          // A window and a balcony door side by side, the door towards the stairwell.
+          const total = Math.min(width + balconyDoor, bay - 2 * pier);
+          const winW = total - balconyDoor;
+          const x0 = c.xc - total / 2;
+          const doorX = c.side < 0 ? [x0 + winW, x0 + total] : [x0, x0 + balconyDoor];
+          const winX = c.side < 0 ? [x0, x0 + winW] : [x0 + balconyDoor, x0 + total];
+          const [du0, du1] = uRange(fname, ...doorX);
+          const [wu0, wu1] = uRange(fname, ...winX);
+          const w0 = loggia ? -bd : 0;
+          const doorSide = (c.side < 0 ? 1 : -1) * (front ? 1 : -1); // +1: the door is at larger u
+          openings.push({ f: fname, k, u0: wu0, u1: wu1, v0: zf + sill, v1: zf + sill + wh, w0, role: 'glass', frame: frameOf(c.section, c.index, k, salt), two: winW > twoLeaves, sill: true, through: true, combo: true, doorSide, colU0: cu0, colU1: cu1 });
+          openings.push({ f: fname, k, u0: du0, u1: du1, v0: zf, v1: zf + sill + wh, w0, role: 'glass', frame: 'door', sill: false, through: true, combo: true, colU0: cu0, colU1: cu1 });
+          const bw = Math.min(Math.max(M(p.balconyWidth), total + 2 * (pt + M(0.1))), bay - M(0.15));
+          balconies.push({
+            f: fname, u0: cu - bw / 2, u1: cu + bw / 2, k, zf, loggia,
+            glazed: p.glazed > 0 && rnd(c.section, c.index, k, salt + 30) < p.glazed,
+            plainGlazing: rnd(c.section, c.index, k, salt + 40) < 0.3,
+          });
+        } else {
+          const v0 = zf + sill;
+          addWindow({ f: fname, k, u0: cu - width / 2, u1: cu + width / 2, v0, v1: v0 + wh, w0: 0, role: 'glass', frame: frameOf(c.section, c.index, k, salt), two: width > twoLeaves, sill: true, through: true, colU0: cu0, colU1: cu1 }, salt + c.section * 16 + c.index, cu0, cu1);
+        }
+      }
+    }
+  }
+
+  // End walls: evenly spaced columns of narrow windows.
+  if (p.endWindows > 0) {
+    const n = p.endWindows;
+    const w = Math.min(kw, D / n - 2 * pier);
+    for (const fname of ['right', 'left']) {
+      for (let k = 0; k < N; k++) {
+        for (let j = 0; j < n; j++) {
+          const uc = -D / 2 + (D * (j + 0.5)) / n;
+          const v0 = zFloor(k) + sill;
+          addWindow({ f: fname, k, u0: uc - w / 2, u1: uc + w / 2, v0, v1: v0 + wh, w0: 0, role: 'glass', frame: frameOf(j, fname === 'left' ? 1 : 2, k, 5), two: w > twoLeaves, sill: true, through: true }, 50 + j);
+        }
+      }
+    }
+  }
+
+  const loggiaOn = { front: false, back: false, left: false, right: false };
+  for (const b of balconies) if (b.loggia) loggiaOn[b.f] = true;
+
+  // Joints between printable parts, at the boundaries between entrances.
+  const ends = p.roof === 'flat' ? M(p.cornice) : M(p.overhang);
+  const extra = Math.max(ends, po, 0) + (p.plate ? p.plateMargin : 0);
+  const cuts = [];
+  let cutsFit = true;
+  if (p.partLength > 0 && p.sections > 1 && L + 2 * extra > p.partLength) {
+    const bounds = [];
+    for (let i = 1; i < p.sections; i++) bounds.push(-L / 2 + i * secLen);
+    const lengths = (cs) => {
+      const xs = [-L / 2 - extra, ...cs, L / 2 + extra];
+      return xs.slice(1).map((x, i) => x - xs[i]);
+    };
+    let best = bounds;
+    for (let n = Math.ceil((L + 2 * extra) / p.partLength); n <= p.sections; n++) {
+      // Cut at the entrance boundaries closest to equal shares.
+      const cs = [];
+      for (let k = 1; k < n; k++) {
+        const ideal = -L / 2 + (L * k) / n;
+        let pick = bounds[0];
+        for (const b of bounds) if (Math.abs(b - ideal) < Math.abs(pick - ideal)) pick = b;
+        if (!cs.includes(pick)) cs.push(pick);
+      }
+      cs.sort((a, b) => a - b);
+      if (Math.max(...lengths(cs)) <= p.partLength + 1e-6) {
+        best = cs;
+        break;
+      }
+    }
+    cuts.push(...best);
+    cutsFit = Math.max(...lengths(best)) <= p.partLength + 1e-6;
+  } else if (p.partLength > 0 && L + 2 * extra > p.partLength) {
+    cutsFit = false;
+  }
+
+  return {
+    p, s, M, thin, bay, stairW, secLen, L, D, hp, hf, N, zFloor, zTop, po, F, wd, sill, wh,
+    cols, openings, balconies, acs, entrances, loggiaOn, bd, pt, uRange, cuts, cutsFit, extra,
+  };
+}
+
+// ===== house =====
+
+// The solid is the main volume (walls, plinth, roof parapet) minus everything
+// recessed into it (relief, loggias, the hollow inside, pin holes), plus
+// everything stuck onto it. Booleans cost time in proportion to the triangles
+// they touch, so small groups are prepared first and the whole part goes
+// through only two booleans. Pieces that do not touch are composed without
+// booleans; each group gets its own mesh ID so the preview can colour it.
+
+function seamRects(P, fname) {
+  const { p, L, D, hp, hf, N, zFloor, zTop, cols, bay } = P;
+  if (p.finish === 'smooth') return [];
+  const end = fname === 'left' || fname === 'right';
+  const span = end ? D : L;
+  const a0 = -span / 2 - 0.7 * OUT, a1 = span / 2 + 0.7 * OUT;
+  // The roof parapet carries on the wall pattern.
+  const top = p.roof === 'flat' ? zTop + P.M(p.roofParapet) : zTop;
+  const out = [];
+  const half = p.seamWidth / 2;
+  const hline = (v, u0, u1) => {
+    if (v - half > hp + EPS && v + half < top - EPS) out.push(rect(u0, v - half, u1, v + half));
+  };
+  const vline = (u, v0, v1) => out.push(rect(u - half, v0, u + half, v1));
+
+  if (p.finish === 'brick') {
+    const gh = Math.min(p.seamWidth, p.brickPitch * 0.45) / 2;
+    for (let v = hp + p.brickPitch; v < top - p.brickPitch / 2; v += p.brickPitch) out.push(rect(a0, v - gh, a1, v + gh));
+    return out;
+  }
+  if (end) {
+    for (let k = 1; k <= N; k++) hline(zFloor(k), a0, a1);
+    const n = Math.max(1, Math.round(D / bay));
+    for (let j = 1; j < n; j++) vline(-D / 2 + (D * j) / n, hp + 2 * EPS, top + OUT);
+    return out;
+  }
+  for (const c of cols) {
+    let [u0, u1] = P.uRange(fname, c.x0, c.x1);
+    const outerLeft = u0 <= -L / 2 + 1e-6;
+    if (outerLeft) u0 = a0;
+    if (u1 >= L / 2 - 1e-6) u1 = a1;
+    // The stairwell panels sit half a floor up, between the landing windows.
+    if (c.stair && fname === 'front') for (let k = 1; k < N; k++) hline(zFloor(k) + hf / 2, u0, u1);
+    else for (let k = 1; k <= N; k++) hline(zFloor(k), u0, u1);
+    if (!outerLeft) vline(u0, hp + 2 * EPS, top + OUT);
+  }
+  if (p.finish === 'blocks') {
+    // Sill and lintel blocks across the bay, pier blocks beside the window.
+    const g = P.M(0.15);
+    for (const o of P.openings) {
+      if (o.f !== fname || o.role !== 'glass' || o.colU0 === undefined || o.frame === 'door') continue;
+      hline(o.v0, o.colU0, o.colU1);
+      hline(o.v1, o.colU0, o.colU1);
+      if (!o.combo) {
+        vline(o.u0 - g, o.v0, o.v1);
+        vline(o.u1 + g, o.v0, o.v1);
+      }
+    }
+  }
+  return out;
+}
+
+// Frame bars of one opening, slightly overlapping its reveals.
+function frameRects(o, fb, cell) {
+  const { u0, u1, v0, v1 } = o;
+  const w = u1 - u0, h = v1 - v0;
+  if (w < 3 * fb || h < 3 * fb) return [];
+  const out = [];
+  const bar = (a0, b0, a1, b1) => out.push(rect(a0, b0, a1, b1));
+  const vbar = (u, b0 = v0, b1 = v1) => bar(u - fb / 2, b0, u + fb / 2, b1);
+  const hbar = (v, a0 = u0, a1 = u1) => bar(a0, v - fb / 2, a1, v + fb / 2);
+  const um = (u0 + u1) / 2;
+  bar(u0 - EPS, v0 - EPS, u1 + EPS, v0 + fb);
+  bar(u0 - EPS, v1 - fb, u1 + EPS, v1 + EPS);
+  bar(u0 - EPS, v0 - EPS, u0 + fb, v1 + EPS);
+  bar(u1 - fb, v0 - EPS, u1 + EPS, v1 + EPS);
+  switch (o.frame) {
+    case 'classic':
+      // Two leaves, a small vent pane at the top of one of them.
+      if (o.two && w > 6 * fb) {
+        vbar(um);
+        hbar(v0 + 0.72 * h, u0, um);
+      } else hbar(v0 + 0.72 * h);
+      break;
+    case 'pvc':
+      if (o.two && w > 6 * fb) vbar(u0 + w * 0.5);
+      break;
+    case 'door':
+      bar(u0, v0, u1, v0 + 0.42 * h);
+      break;
+    case 'entrance': {
+      const vt = v1 - 0.22 * h;
+      vbar(um, v0, vt);
+      hbar(vt);
+      bar(u0, v0, u1, v0 + 0.32 * h);
+      break;
+    }
+    case 'blocks': {
+      const g = Math.max(4 * fb, cell);
+      for (let u = u0 + g; u < u1 - g * 0.4; u += g) vbar(u);
+      for (let v = v0 + g; v < v1 - g * 0.4; v += g) hbar(v);
+      break;
+    }
+  }
+  return out;
+}
+
+function pitchedRoof(p, P) {
+  const { M, thin, L, D, zTop } = P;
+  const a = (p.pitch * Math.PI) / 180, ta = Math.tan(a);
+  // Without an overhang the roof edge stays just inside the walls, so that no
+  // roof face lies in the plane of a wall.
+  const o = M(p.overhang) > 2 * EPS ? M(p.overhang) : -EPS;
+  const rt = thin(0.22) / Math.cos(a); // slab thickness, measured vertically
+  const zt = zTop;
+  const ze = zt - o * ta; // underside at the eave edge
+  const zr = zt + (D / 2) * ta + rt; // ridge top
+  const ss = p.selfSupport && o > 0;
+  // With self-support the soffit is a 45° chamfer from the wall to the eave.
+  const zLow = ss ? ze - o - EPS : zt - EPS;
+  const info = { ta, o, rt, zt, ze, zr, rh: Math.max(0, (L - D) / 2) };
+
+  if (p.roof === 'hip') {
+    // Convex, so a hull of its corners; without self-support the soffit is flat.
+    const pts = [
+      ...rectPts(L / 2 + o, D / 2 + o, ze), ...rectPts(L / 2 + o, D / 2 + o, ze + rt),
+      [-info.rh, 0, zr], [info.rh, 0, zr],
+      ...rectPts(L / 2 - EPS, D / 2 - EPS, Math.min(zLow, ze) - EPS),
+    ];
+    return { solid: Manifold.hull(pts), info };
+  }
+
+  // Gable: the end section extruded over the whole length with the overhangs,
+  // minus the space under the rake overhangs beyond the end walls.
+  const prof = [
+    [-(D / 2 - EPS), zt - EPS], [D / 2 - EPS, zt - EPS], [D / 2 - EPS, ss ? zLow : zt], [D / 2 + o, ze],
+    [D / 2 + o, ze + rt], [0, zr], [-(D / 2 + o), ze + rt], [-(D / 2 + o), ze], [-(D / 2 - EPS), ss ? zLow : zt],
+  ];
+  const X = [1, 0, 0], Y = [0, 1, 0];
+  let roof = extrudeTo(polygon(prof), L + 2 * o, Y, UP, X, [-L / 2 - o, 0, 0]);
+  if (o > 0) {
+    // The removed space is convex: below the underside of the slab (lowered at
+    // 45° towards the wall with self-support), beyond the gable.
+    const zu0 = zr - rt - EPS;
+    const yb = D / 2 + o + 1;
+    const zub = zu0 - yb * ta;
+    const zMin = Math.min(zLow, ze) - 1;
+    const holes = [-1, 1].map((sx) => {
+      const pts = [];
+      for (const x of [sx * (L / 2 - EPS), sx * (L / 2 + o + 1)]) {
+        const drop = ss ? L / 2 + o - Math.abs(x) : 0;
+        pts.push([x, 0, zu0 - drop], [x, yb, zub - drop], [x, -yb, zub - drop], [x, yb, zMin], [x, -yb, zMin]);
+      }
+      return Manifold.hull(pts);
+    });
+    roof = Manifold.difference([roof, ...holes]);
+  }
+  return { solid: roof, info };
+}
+
+// Builds the part of the house between x = xa and x = xb (±Infinity at the
+// ends). Everything is clipped to that span, so a part costs no more than its
+// share of the house, and parts can be built in parallel.
+function buildHouse(p, P, xa, xb) {
+  const { M, thin, L, D, hp, hf, N, zTop, po, F, wd, bd, pt } = P;
+  const roleList = [{ role: 'inner' }];
+  const roleById = new Map();
+  const tag = (m, role, extra) => {
+    if (!m) return null;
+    const t = m.asOriginal();
+    const r = { role, ...extra, index: roleList.length };
+    roleList.push(r);
+    roleById.set(t.originalID(), r);
+    return t;
+  };
+  const flat = p.roof === 'flat';
+  const first = xa === -Infinity, last = xb === Infinity;
+  const xIn = (x0, x1) => x1 > xa && x0 < xb;
+  // Whether a stretch [u0, u1] of a facade belongs to this part.
+  const onPart = (fname, u0, u1) => {
+    if (fname === 'left') return first;
+    if (fname === 'right') return last;
+    return fname === 'front' ? xIn(u0, u1) : xIn(-u1, -u0);
+  };
+  // The part's stretch of a long facade, in u, with room for the cutters.
+  const uSpan = (fname) => (fname === 'front' ? [xa - OUT, xb + OUT] : fname === 'back' ? [-xb - OUT, -xa + OUT] : [-Infinity, Infinity]);
+  // Trims a small solid to the part. Details stop a hair short of a joint, so
+  // their ends never lie in the plane of the wall's end.
+  const clipX = (m, gap = EPS) => {
+    if (!m) return null;
+    if (!first) m = m.trimByPlane([1, 0, 0], xa + gap);
+    if (!last) m = m.trimByPlane([-1, 0, 0], -xb + gap);
+    return m.isEmpty() ? null : m;
+  };
+  const tHollow = p.wall;
+  // How far the hollow stays from each facade: wall plus loggia depth.
+  const inset = {};
+  for (const f of ['front', 'back', 'left', 'right']) inset[f] = tHollow + (P.loggiaOn[f] ? bd : 0) + Math.max(0, -po);
+  const openings = P.openings.filter((o) => onPart(o.f, o.u0, o.u1));
+  const balconies = P.balconies.filter((b) => onPart(b.f, b.u0, b.u1));
+
+  // ---------- main volume ----------
+  // Walls and plinth run on past a joint and are trimmed together, so their
+  // ends never lie in one plane; a plinth flush with the walls is set back a
+  // hair for the same reason.
+  const roofParapet = flat ? M(p.roofParapet) : 0;
+  const zCrown = zTop + roofParapet;
+  const poe = Math.abs(po) < 2 * EPS ? -2 * EPS : po;
+  const main = tag(box(first ? -L / 2 : xa - 1, -D / 2, hp > 0 ? hp - EPS : 0, last ? L / 2 : xb + 1, D / 2, zCrown), 'wall');
+  const plinth = hp > 0 ? tag(box(first ? -L / 2 - poe : xa - 2, -D / 2 - poe, 0, last ? L / 2 + poe : xb + 2, D / 2 + poe, hp), 'plinth') : null;
+  let body = clipX(plinth ? Manifold.union(main, plinth) : main, 0);
+
+  // ---------- recesses ----------
+  // Each wall plane (a facade, or the back wall of its loggias) is cut as a
+  // stepped relief: joints, window and door openings, each region with its
+  // depth. Window frames are what the glass level leaves standing: the whole
+  // opening is cut to the face of the frames, the panes between the bars down
+  // to the glass. The preview tells joints, frames and glass apart by depth.
+  const cuts = [];
+  const through = p.hollow && p.through;
+  const fb = Math.max(p.frameWidth, p.minFeature);
+  const doorDepth = wd * 1.6;
+  let fd = wd * 0.5;
+  if (Math.abs(wd - fd - p.seamDepth) < 0.03) fd += 0.05;
+  const glassPlane = (o) => o.w0 - (o.entrance ? doorDepth : wd);
+  const reach = Math.max(po, 0) + OUT;
+  const planes = new Map();
+  const planeOf = (fname, w0) => {
+    const key = `${fname}|${w0.toFixed(4)}`;
+    if (!planes.has(key)) planes.set(key, { fname, w0, seams: null, classes: new Map() });
+    return planes.get(key);
+  };
+  for (const fname of ['front', 'back', 'left', 'right']) {
+    if (!onPart(fname, -Infinity, Infinity)) continue;
+    const [ua, ub] = uSpan(fname);
+    const rects = [];
+    for (const r of seamRects(P, fname)) {
+      const u0 = Math.max(r[0][0], ua), u1 = Math.min(r[1][0], ub);
+      if (u1 > u0) rects.push(rect(u0, r[0][1], u1, r[2][1]));
+    }
+    if (rects.length) planeOf(fname, 0).seams = CrossSection.union(rects);
+  }
+  const vents = [];
+  for (const o of openings) {
+    if (o.role === 'vent') {
+      vents.push(fbox(F[o.f], o.u0, o.u1, o.v0, o.v1, o.w0 - wd, o.w0 + 0.9 * OUT));
+      continue;
+    }
+    const pl = planeOf(o.f, o.w0);
+    const depth = o.entrance ? doorDepth : wd;
+    if (!pl.classes.has(depth)) pl.classes.set(depth, { rects: [], bars: [] });
+    const cl = pl.classes.get(depth);
+    cl.rects.push(rect(o.u0, o.v0, o.u1, o.v1));
+    if (p.frames && o.frame) cl.bars.push(...frameRects(o, fb, M(0.45)));
+  }
+  for (const pl of planes.values()) {
+    const f = F[pl.fname];
+    const items = [];
+    const behind = [];
+    if (pl.seams) items.push({ region: pl.seams, depth: p.seamDepth });
+    for (const [depth, cl] of pl.classes) {
+      const all = CrossSection.union(cl.rects);
+      if (cl.bars.length) {
+        items.push({ region: all, depth: depth - fd });
+        items.push({ region: all.subtract(CrossSection.union(cl.bars)), depth });
+      } else items.push({ region: all, depth });
+      if (through) behind.push({ region: all, from: depth });
+    }
+    // The cutter is a stack of layers, one per depth, each holding every
+    // region at least that deep (merged in 2D, which is cheap). A deeper layer
+    // is shrunk by a hair, so that no two layers share a side face.
+    const role = { O: f.O, W: f.W, w0: pl.w0, sd: pl.seams ? p.seamDepth : -1, wd, dd: doorDepth, fd: p.frames ? fd : -1 };
+    const depths = [...new Set(items.map((it) => it.depth))].sort((a, b) => a - b);
+    depths.forEach((d, i) => {
+      let region = CrossSection.union(items.filter((it) => it.depth >= d).map((it) => it.region));
+      if (i > 0) region = region.offset(-i * SHRINK, 'Miter');
+      const top = i === 0 ? reach : -depths[i - 1] + EPS;
+      cuts.push(tag(felev(f, region, pl.w0 - d, pl.w0 + top), 'relief', role));
+    });
+    // Windows cut through: below the glass the opening runs on to the hollow.
+    const tDepth = (pl.w0 !== 0 ? tHollow : inset[pl.fname]) + 1;
+    for (const b of behind) cuts.push(tag(felev(f, b.region, pl.w0 - tDepth, pl.w0 - b.from + EPS), 'relief', role));
+  }
+  cuts.push(tag(compose(vents), 'vent'));
+
+  // Loggias: the room behind the facade and the opening above the parapet.
+  const ph = M(p.parapetHeight);
+  const loggias = balconies.filter((b) => b.loggia);
+  if (loggias.length) {
+    const list = loggias.map((b) => {
+      const lt = b.zf + hf - M(0.35);
+      const z0 = b.zf - 2 * EPS, out = OUT + 0.013;
+      const prof = [[z0, -bd], [lt, -bd], [lt, out], [b.zf + ph, out], [b.zf + ph, -pt], [z0, -pt]];
+      return fprofile(F[b.f], polygon(prof), b.u0, b.u1);
+    });
+    cuts.push(tag(compose(list), 'loggia'));
+  }
+
+  const pw = thin(0.25);
+  if (roofParapet > 0) {
+    cuts.push(tag(box(first ? -L / 2 + pw : xa - OUT, -D / 2 + pw, zTop, last ? L / 2 - pw : xb + OUT, D / 2 - pw, zCrown + OUT), 'roofwell'));
+  }
+
+  // ---------- hollow inside and joints ----------
+  const plateT = p.plate ? p.plateThickness : 0;
+  const pins = p.partLength > 0 && p.pins;
+  const bulk = pins ? Math.max(tHollow, p.pinDepth + 0.6) : tHollow;
+  if (p.hollow) {
+    // Every part gets its own cavity, so it is a closed box with an open bottom.
+    const x0 = first ? -L / 2 + inset.left : xa + bulk;
+    const x1 = last ? L / 2 - inset.right : xb - bulk;
+    const y0 = -D / 2 + inset.front, y1 = D / 2 - inset.back;
+    const zb = -plateT - OUT;
+    // A peaked ceiling prints without a long bridge, but would hide the top
+    // windows from the light inside.
+    const peaked = p.selfSupport && !through;
+    const zPeak = zTop - tHollow;
+    const z1 = peaked ? zPeak - (y1 - y0) / 2 : zPeak;
+    if (x1 - x0 > 1 && y1 - y0 > 1 && z1 - zb > 1) {
+      const yc = (y0 + y1) / 2;
+      cuts.push(tag(peaked
+        ? Manifold.hull([[x0, y0, zb], [x1, y0, zb], [x1, y1, zb], [x0, y1, zb], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [x0, yc, zPeak], [x1, yc, zPeak]])
+        : box(x0, y0, zb, x1, y1, z1), 'inner'));
+    }
+  }
+  if (pins) {
+    // Two holes per joint, diagonally apart, for short pieces of filament.
+    const r = p.pinDiameter / 2;
+    const holes = [];
+    const spots = [[-D / 4, hp + (zTop - hp) * 0.25], [D / 4, hp + (zTop - hp) * 0.6]];
+    for (const x of [first ? null : xa, last ? null : xb]) {
+      if (x === null) continue;
+      for (const [y, z] of spots) holes.push(Manifold.cylinder(2 * p.pinDepth, r, r, 24).rotate([0, 90, 0]).translate([x - p.pinDepth, y, z]));
+    }
+    cuts.push(tag(compose(holes), 'inner'));
+  }
+
+  // ---------- attached details ----------
+  const adds = [];
+
+  if (p.sills) {
+    const st = Math.max(M(0.05), p.minFeature * 0.75);
+    const out = Math.max(M(0.08), p.minFeature);
+    // A little wider than the window, but not into a balcony door next to it;
+    // the top a hair below the opening.
+    const so = M(0.05);
+    const list = openings.filter((o) => o.sill).map((o) => fbox(F[o.f], o.u0 + (o.doorSide < 0 ? so : -so), o.u1 + (o.doorSide > 0 ? -so : so),
+      o.v0 - st, o.v0 - 2 * EPS, glassPlane(o), o.w0 + out));
+    adds.push(tag(compose(list), 'sill'));
+  }
+
+  // Balconies: slab plus parapet as one box minus the space above the slab.
+  const slab = thin(p.balconySlab);
+  const open = balconies.filter((b) => !b.loggia);
+  if (open.length) {
+    const outers = [], inners = [], slots = [], brackets = [];
+    const style = p.parapetStyle;
+    const bar = thin(0.03);
+    const gapTarget = Math.max(M(0.12), 1.5 * p.minFeature);
+    const kick = Math.max(M(0.1), p.minFeature), rail = Math.max(M(0.05), p.minFeature);
+    const reachSlot = Math.min(OUT, bar * 0.5);
+    // n slots and n - 1 bars across a span.
+    const slotsAcross = (a, b) => {
+      const span = b - a;
+      const n = Math.max(1, Math.round((span + bar) / (bar + gapTarget)));
+      const gap = (span - (n - 1) * bar) / n;
+      if (gap < p.minFeature * 0.5) return [];
+      return Array.from({ length: n }, (_, i) => [a + i * (gap + bar), a + i * (gap + bar) + gap]);
+    };
+    for (const b of open) {
+      const f = F[b.f];
+      const floor = b.zf - 2 * EPS; // a hair below the door threshold
+      outers.push(fbox(f, b.u0, b.u1, floor - slab, b.zf + ph, -OV, bd));
+      inners.push(fbox(f, b.u0 + pt, b.u1 - pt, floor, b.zf + ph + OUT, -OV - OUT, bd - pt));
+      if (style === 'fluted') {
+        // Vertical ribs of a corrugated sheet on the front.
+        const fw = Math.max(M(0.09), p.minFeature);
+        const fdp = pt * 0.45;
+        const n = Math.floor((b.u1 - b.u0 - 2 * pt) / (2 * fw));
+        const start = (b.u0 + b.u1) / 2 - (n * 2 * fw - fw) / 2;
+        for (let i = 0; i < n; i++) {
+          const u = start + i * 2 * fw;
+          inners.push(fbox(f, u, u + fw, b.zf + M(0.06), b.zf + ph - M(0.06), bd - fdp, bd + OUT));
+        }
+      } else if (style === 'railing') {
+        const v0 = b.zf + kick, v1 = b.zf + ph - rail;
+        for (const [a, c] of slotsAcross(b.u0 + pt, b.u1 - pt)) slots.push(fbox(f, a, c, v0, v1, bd - pt - reachSlot, bd + reachSlot));
+        for (const [a, c] of slotsAcross(M(0.05), bd - pt)) {
+          slots.push(fbox(f, b.u0 - reachSlot, b.u0 + pt + reachSlot, v0, v1, a, c));
+          slots.push(fbox(f, b.u1 - pt - reachSlot, b.u1 + reachSlot, v0, v1, a, c));
+        }
+      }
+      if (p.selfSupport) {
+        // Triangular brackets under the slab edges carry it at 45°.
+        const zb = b.zf - 2 * EPS - slab;
+        const tri = polygon([[zb + EPS, -OV], [zb + EPS, bd - EPS], [zb - bd - OV, -OV]]);
+        brackets.push(fprofile(f, tri, b.u0 + EPS, b.u0 + pt - EPS), fprofile(f, tri, b.u1 - pt + EPS, b.u1 - EPS));
+      }
+    }
+    const bal = minus(minus(compose(outers), compose(inners)), compose(slots));
+    adds.push(tag(bal, 'balcony'), tag(compose(brackets), 'balcony'));
+  }
+
+  // Glazing put up by the residents: a frame box above the parapet with
+  // recessed panes, or plain panels.
+  const glazed = balconies.filter((b) => b.glazed);
+  if (glazed.length) {
+    const blocks = [], panes = [];
+    const mb = Math.max(p.frameWidth, p.minFeature);
+    for (const b of glazed) {
+      const f = F[b.f];
+      const lastFloor = b.k === N - 1;
+      let w0, w1, top;
+      if (b.loggia) {
+        top = b.zf + hf - M(0.35) + EPS;
+        w0 = -pt - p.minFeature;
+        w1 = -M(0.04);
+      } else {
+        top = lastFloor ? b.zf + hf - M(0.2) : b.zf + hf - 2 * EPS - slab + EPS;
+        w0 = -OV;
+        w1 = bd - EPS;
+      }
+      // Into the loggia side walls, or a hair inside the balcony outline.
+      const u0 = b.loggia ? b.u0 - EPS : b.u0 + EPS, u1 = b.loggia ? b.u1 + EPS : b.u1 - EPS;
+      blocks.push(fbox(f, u0, u1, b.zf + ph - EPS, top, w0, w1));
+      if (b.plainGlazing) continue;
+      const n = Math.max(2, Math.round((b.u1 - b.u0) / M(0.7)));
+      const cellW = (b.u1 - b.u0 - mb) / n;
+      const pd = Math.min(Math.max(wd * 0.6, 0.15), (w1 - w0) * 0.45);
+      for (let i = 0; i < n; i++) {
+        const a = b.u0 + mb + i * cellW;
+        panes.push(fbox(f, a, a + cellW - mb, b.zf + ph + mb, top - mb - EPS, w1 - pd, w1 + OUT));
+      }
+    }
+    const glazing = tag(compose(blocks), 'glazing');
+    adds.push(minus(glazing, tag(compose(panes), 'pane')));
+  }
+
+  // Entrances: porch with a step, canopy, its posts or brackets.
+  const entrances = P.entrances.filter((en) => xIn(en.u - en.dw, en.u + en.dw));
+  if (entrances.length) {
+    const f = F.front;
+    const porches = [], canopies = [], supports = [];
+    const cd = M(p.canopyDepth);
+    for (const en of entrances) {
+      const cw = Math.max(M(p.canopyWidth), en.dw + M(0.3));
+      const reachPorch = Math.max(cd, M(0.9)) + M(0.25);
+      if (p.porch) {
+        // The part sunk into the plinth keeps off its bottom, the top stays a
+        // hair below the door threshold.
+        const h = en.porchH - 2 * EPS, wIn = Math.max(po, 0) + OV, step = reachPorch + M(0.3);
+        const prof = [[2 * EPS, -OV], [h, -OV], [h, reachPorch], [h / 2, reachPorch], [h / 2, step], [0, step], [0, wIn], [2 * EPS, wIn]];
+        porches.push(fprofile(f, polygon(prof), en.u - cw / 2 - M(0.1), en.u + cw / 2 + M(0.1)));
+      }
+      if (p.canopy === 'none') continue;
+      canopies.push(fbox(f, en.u - cw / 2, en.u + cw / 2, en.zc, en.zc + en.ct, -OV, cd));
+      const ps = thin(0.08);
+      if (p.canopy === 'posts') {
+        const w1 = cd - M(0.08), w0 = w1 - ps;
+        const z0 = p.porch ? en.porchH - EPS : 0;
+        const a = en.u - cw / 2 + M(0.05), b = en.u + cw / 2 - M(0.05);
+        supports.push(fbox(f, a, a + ps, z0, en.zc + EPS, w0, w1), fbox(f, b - ps, b, z0, en.zc + EPS, w0, w1));
+      } else if (p.selfSupport) {
+        const tri = polygon([[en.zc + EPS, -OV], [en.zc + EPS, cd - EPS], [en.zc - cd - OV, -OV]]);
+        supports.push(fprofile(f, tri, en.u - cw / 2 + EPS, en.u - cw / 2 + ps), fprofile(f, tri, en.u + cw / 2 - ps, en.u + cw / 2 - EPS));
+      }
+    }
+    adds.push(tag(compose(porches), 'canopy'), tag(compose(canopies), 'canopy'), tag(compose(supports), 'canopy'));
+  }
+
+  const acs = P.acs.filter((a) => onPart(a.f, a.u0, a.u1));
+  if (acs.length) adds.push(tag(compose(acs.map((a) => fbox(F[a.f], a.u0, a.u1, a.v0, a.v1, -OV, a.depth))), 'ac'));
+
+  // ---------- roof ----------
+  const stacks = [], huts = [], hutDoors = [], dormers = [], louvres = [];
+  const secX = (i, j, n) => -L / 2 + i * P.secLen + (P.secLen * (j + 0.5)) / n;
+  if (flat) {
+    const c = M(p.cornice);
+    if (c > 0) {
+      const ct = thin(0.2);
+      // The top a hair below the crown of the wall, the chamfer starting a hair inside it.
+      const zc = zCrown - 2 * EPS;
+      let ring = p.selfSupport
+        ? Manifold.hull([...rectPts(L / 2 - EPS, D / 2 - EPS, zc - ct - c), ...rectPts(L / 2 + c, D / 2 + c, zc - ct), ...rectPts(L / 2 + c, D / 2 + c, zc)])
+        : box(-L / 2 - c, -D / 2 - c, zc - ct, L / 2 + c, D / 2 + c, zc);
+      if (roofParapet > 0) ring = minus(ring, box(-L / 2 + pw, -D / 2 + pw, zTop, L / 2 - pw, D / 2 - pw, zCrown + OUT));
+      adds.push(tag(clipX(ring), 'wall'));
+    }
+    for (let i = 0; i < p.sections; i++) {
+      for (let j = 0; j < p.stacks; j++) {
+        const x = secX(i, j, p.stacks);
+        if (xIn(x - M(0.7), x + M(0.7))) stacks.push(box(x - M(0.7), M(0.4), zTop - EPS, x + M(0.7), M(1.0), zTop + M(1.1)));
+      }
+    }
+    if (p.roofExit) {
+      const yF = -D / 2 + (roofParapet > 0 ? pw : 0) + M(0.5);
+      const hutF = { U: [1, 0, 0], W: [0, -1, 0], O: [0, yF, 0] };
+      for (const c of P.cols) {
+        if (!c.stair || !xIn(c.x0, c.x1)) continue;
+        huts.push(box(c.xc - M(1.2), yF, zTop - EPS, c.xc + M(1.2), yF + M(2.6), zTop + M(2.3)));
+        hutDoors.push(fbox(hutF, c.xc - M(0.45), c.xc + M(0.45), zTop, zTop + M(1.9), -doorDepth, OUT));
+      }
+    }
+  } else {
+    const { solid, info } = pitchedRoof(p, P);
+    adds.push(tag(clipX(solid), 'roof'));
+    const { ta, rt, zt, zr, rh } = info;
+    for (let i = 0; i < p.sections; i++) {
+      for (let j = 0; j < p.stacks; j++) {
+        const x = secX(i, j, p.stacks);
+        if (p.roof === 'hip' && Math.abs(x) + M(0.45) > rh) continue;
+        if (xIn(x - M(0.45), x + M(0.45))) stacks.push(box(x - M(0.45), M(0.3), zt + 2 * EPS, x + M(0.45), M(0.9), zr + M(0.6)));
+      }
+    }
+    // Dormers: small gabled vents on both slopes, buried in the roof at the back.
+    if (p.dormers > 0) {
+      const dw = M(1.3), dpitch = Math.tan((40 * Math.PI) / 180);
+      const yd = (D / 2) * 0.55;
+      const dh = Math.min(M(0.8), yd * ta * 0.85 - (dw / 2) * dpitch);
+      if (dh > M(0.3)) {
+        const zs = zt + rt + (D / 2 - yd) * ta; // roof surface at the dormer face
+        const pent = polygon([[-dw / 2, zs - M(0.3)], [dw / 2, zs - M(0.3)], [dw / 2, zs + dh], [0, zs + dh + (dw / 2) * dpitch], [-dw / 2, zs + dh]]);
+        for (let i = 0; i < p.sections; i++) {
+          for (let j = 0; j < p.dormers; j++) {
+            const x = secX(i, j, p.dormers);
+            if (p.roof === 'hip' && Math.abs(x) + dw / 2 > L / 2 - D / 2 + yd - M(0.3)) continue;
+            if (!xIn(x - dw / 2, x + dw / 2)) continue;
+            for (const side of [-1, 1]) {
+              dormers.push(extrudeTo(pent, yd - 2 * EPS, [1, 0, 0], UP, [0, -1, 0], [x, side > 0 ? yd : -2 * EPS, 0]));
+              const y0 = side * (yd - wd), y1 = side * (yd + OUT);
+              louvres.push(box(x - dw * 0.28, Math.min(y0, y1), zs + dh * 0.2, x + dw * 0.28, Math.max(y0, y1), zs + dh * 0.85));
+            }
+          }
+        }
+      }
+    }
+  }
+  adds.push(tag(compose(stacks), 'chimney'));
+  adds.push(minus(tag(compose(huts), 'wall'), tag(compose(hutDoors), 'door', { W: [0, -1, 0] })));
+  adds.push(minus(tag(compose(dormers), 'roof'), tag(compose(louvres), 'vent')));
+
+  // ---------- ground plate ----------
+  if (p.plate) {
+    const bb = { min: [Infinity, Infinity], max: [-Infinity, -Infinity] };
+    for (const m of [body, ...adds]) {
+      if (!m) continue;
+      const b = m.boundingBox();
+      for (const i of [0, 1]) {
+        bb.min[i] = Math.min(bb.min[i], b.min[i]);
+        bb.max[i] = Math.max(bb.max[i], b.max[i]);
+      }
+    }
+    const mg = p.plateMargin;
+    // A plate under a hollow part keeps the bottom open.
+    const plate = tag(box(first ? bb.min[0] - mg : xa + EPS, bb.min[1] - mg, -plateT, last ? bb.max[0] + mg : xb - EPS, bb.max[1] + mg, EPS), 'plate');
+    const cavities = cuts.filter((c) => c && roleById.get(c.originalID())?.role === 'inner' && p.hollow);
+    adds.push(minus(plate, ...cavities));
+  }
+
+  // Two booleans over the whole part: carve the walls, then attach the rest.
+  body = Manifold.difference([body, ...cuts.filter(Boolean)]);
+  const solid = Manifold.union([body, ...adds.filter(Boolean)]);
+  return { solid, roleList, roleById, plateT };
+}
+
+// ===== mesh =====
+
+function extractMesh(m, roleById, zShift) {
+  const mesh = m.getMesh();
+  const np = mesh.numProp;
+  const vp = mesh.vertProperties;
+  const nv = vp.length / np;
+  // Weld vertices that land on the same float32 position: the engine keeps
+  // coincident vertices apart symbolically, an STL cannot. The zero-area
+  // triangles left between welded vertices are dropped.
+  const index = new Map();
+  const remap = new Uint32Array(nv);
+  const pos = [];
+  const f32 = new Float32Array(3), bits = new Uint32Array(f32.buffer);
+  for (let i = 0; i < nv; i++) {
+    f32[0] = vp[i * np];
+    f32[1] = vp[i * np + 1];
+    f32[2] = vp[i * np + 2] + zShift;
+    const key = `${bits[0]},${bits[1]},${bits[2]}`;
+    let j = index.get(key);
+    if (j === undefined) {
+      j = pos.length / 3;
+      index.set(key, j);
+      pos.push(f32[0], f32[1], f32[2]);
+    }
+    remap[i] = j;
+  }
+  const tv = mesh.triVerts;
+  const runRole = new Uint16Array(tv.length / 3);
+  const ids = mesh.runOriginalID, runs = mesh.runIndex;
+  for (let r = 0; r < ids.length; r++) {
+    const role = roleById.get(ids[r]);
+    if (role) runRole.fill(role.index, runs[r] / 3, runs[r + 1] / 3);
+  }
+  const tris = [], triRole = [];
+  for (let t = 0; t < tv.length / 3; t++) {
+    const a = remap[tv[t * 3]], b = remap[tv[t * 3 + 1]], c = remap[tv[t * 3 + 2]];
+    if (a === b || b === c || a === c) continue;
+    tris.push(a, b, c);
+    triRole.push(runRole[t]);
+  }
+  const b = m.boundingBox();
+  return {
+    positions: Float32Array.from(pos), tris: Uint32Array.from(tris), triRole: Uint16Array.from(triRole), volume: m.volume(),
+    min: [b.min[0], b.min[1], b.min[2] + zShift], max: [b.max[0], b.max[1], b.max[2] + zShift],
+  };
+}
+
+// Builds one printable part (the whole house when it is not split).
+function buildPart(p, index) {
+  const P = layout(p);
+  const xs = [-Infinity, ...P.cuts, Infinity];
+  const { solid, roleList, roleById, plateT } = buildHouse(p, P, xs[index], xs[index + 1]);
+  const out = extractMesh(solid, roleById, plateT);
+  out.roleList = roleList;
+  out.status = solid.status();
+  return out;
+}
+
+// ===== stl =====
+
+function meshToSTL({ positions, tris }, header = '3d-textures khrushchyovka generator') {
+  const triCount = tris.length / 3;
+  const buffer = new ArrayBuffer(84 + triCount * 50);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < Math.min(80, header.length); i++) bytes[i] = header.charCodeAt(i) & 0x7f;
+  view.setUint32(80, triCount, true);
+
+  let o = 84;
+  for (let t = 0; t < tris.length; t += 3) {
+    const a = tris[t] * 3, b = tris[t + 1] * 3, c = tris[t + 2] * 3;
+    const ax = positions[a], ay = positions[a + 1], az = positions[a + 2];
+    const bx = positions[b], by = positions[b + 1], bz = positions[b + 2];
+    const cx = positions[c], cy = positions[c + 1], cz = positions[c + 2];
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    view.setFloat32(o, nx, true); view.setFloat32(o + 4, ny, true); view.setFloat32(o + 8, nz, true);
+    view.setFloat32(o + 12, ax, true); view.setFloat32(o + 16, ay, true); view.setFloat32(o + 20, az, true);
+    view.setFloat32(o + 24, bx, true); view.setFloat32(o + 28, by, true); view.setFloat32(o + 32, bz, true);
+    view.setFloat32(o + 36, cx, true); view.setFloat32(o + 40, cy, true); view.setFloat32(o + 44, cz, true);
+    view.setUint16(o + 48, 0, true);
+    o += 50;
+  }
+  return buffer;
+}
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+// Uncompressed ZIP (method 0, UTF-8 names). files: [{ name, data: Uint8Array }]
+function zip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+    const lh = new Uint8Array(30 + name.length), lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0x0800, true);
+    lv.setUint16(8, 0, true); lv.setUint16(10, 0, true); lv.setUint16(12, 0x21, true);
+    lv.setUint32(14, crc, true); lv.setUint32(18, size, true); lv.setUint32(22, size, true);
+    lv.setUint16(26, name.length, true); lv.setUint16(28, 0, true);
+    lh.set(name, 30);
+    const ch = new Uint8Array(46 + name.length), cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true); cv.setUint16(10, 0, true); cv.setUint16(12, 0, true); cv.setUint16(14, 0x21, true);
+    cv.setUint32(16, crc, true); cv.setUint32(20, size, true); cv.setUint32(24, size, true);
+    cv.setUint16(28, name.length, true); cv.setUint32(42, offset, true);
+    ch.set(name, 46);
+    parts.push(lh, f.data); central.push(ch);
+    offset += lh.length + size;
+  }
+  const cdSize = central.reduce((s, a) => s + a.length, 0);
+  const end = new Uint8Array(22), ev = new DataView(end.buffer);
+  ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+  const all = parts.concat(central, [end]);
+  const out = new Uint8Array(all.reduce((s, a) => s + a.length, 0));
+  let o = 0;
+  for (const a of all) { out.set(a, o); o += a.length; }
+  return out;
+}
+
+// ===== worker =====
+
+// A worker builds the parts it is sent, one at a time: { id, params, part }.
+if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+  const ready = loadEngine();
+  self.onmessage = async ({ data }) => {
+    try {
+      await ready;
+      const t0 = performance.now();
+      const out = withArena(() => buildPart(data.params, data.part));
+      out.ms = performance.now() - t0;
+      self.postMessage({ id: data.id, part: data.part, out }, [out.positions.buffer, out.tris.buffer, out.triRole.buffer]);
+    } catch (e) {
+      self.postMessage({ id: data.id, part: data.part, error: String(e?.message ?? e) });
+    }
+  };
+}
+
+export { PARAMS, GROUPS, DEFAULTS, PRESETS, layout, loadEngine, withArena, buildPart, meshToSTL, zip };
+  </script>
+
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===== main =====
+
+const $ = (id) => document.getElementById(id);
+const geometryURL = URL.createObjectURL(new Blob([$('geometry').textContent], { type: 'text/javascript' }));
+const { PARAMS, GROUPS, DEFAULTS, PRESETS, layout, loadEngine, withArena, buildPart, meshToSTL, zip } = await import(geometryURL);
+
+const state = { ...DEFAULTS, ...PRESETS[0].params };
+const fromHash = readHash();
+
+const controlsByKey = new Map();
+let result = null; // { params, P, meshes, ms } of the last finished build
+
+// ---------- form ----------
+
+function makeControl(p) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  wrap.append(title);
+
+  if (p.type === 'bool') {
+    wrap.classList.add('bool');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => update(p.key, box.checked));
+    wrap.append(box);
+    controlsByKey.set(p.key, { wrap, set: (v) => (box.checked = v) });
+  } else if (p.type === 'select') {
+    wrap.classList.add('select');
+    const sel = document.createElement('select');
+    for (const [value, text] of p.options) sel.add(new Option(text, value));
+    sel.addEventListener('change', () => update(p.key, sel.value));
+    wrap.append(sel);
+    controlsByKey.set(p.key, { wrap, set: (v) => (sel.value = v) });
+  } else {
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.min = p.min; num.max = p.max; num.step = p.step;
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = p.min; range.max = p.max; range.step = p.step;
+    const parse = (v) => {
+      let x = Number(v);
+      if (!Number.isFinite(x)) return null;
+      if (p.type === 'int') x = Math.round(x);
+      return Math.min(p.max, Math.max(p.min, x));
+    };
+    num.addEventListener('change', () => {
+      const x = parse(num.value);
+      if (x === null) { num.value = state[p.key]; return; }
+      num.value = x; range.value = x;
+      update(p.key, x);
+    });
+    range.addEventListener('input', () => {
+      const x = parse(range.value);
+      num.value = x;
+      update(p.key, x);
+    });
+    wrap.append(num, range);
+    controlsByKey.set(p.key, { wrap, set: (v) => { num.value = v; range.value = v; } });
+  }
+  return wrap;
+}
+
+const groupBodies = {};
+for (const [id, title] of Object.entries(GROUPS)) {
+  const det = document.createElement('details');
+  det.open = true;
+  const sum = document.createElement('summary');
+  sum.textContent = title;
+  det.append(sum);
+  groupBodies[id] = det;
+  $('groups').append(det);
+}
+for (const p of PARAMS) groupBodies[p.group].append(makeControl(p));
+
+const reseed = document.createElement('div');
+reseed.className = 'group-actions';
+const reseedBtn = document.createElement('button');
+reseedBtn.type = 'button';
+reseedBtn.textContent = 'Random seed';
+reseedBtn.addEventListener('click', () => {
+  update('seed', Math.floor(Math.random() * 100000));
+  controlsByKey.get('seed').set(state.seed);
+});
+reseed.append(reseedBtn);
+groupBodies.life.append(reseed);
+
+PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
+$('preset').add(new Option('— custom settings —', 'custom'));
+$('preset').value = fromHash ? 'custom' : 0;
+$('preset').addEventListener('change', () => {
+  const pr = PRESETS[Number($('preset').value)];
+  if (!pr) return;
+  Object.assign(state, DEFAULTS, pr.params);
+  syncForm();
+  schedule();
+});
+
+function syncVisibility() {
+  for (const p of PARAMS) controlsByKey.get(p.key).wrap.hidden = p.when ? !p.when(state) : false;
+}
+
+function syncForm() {
+  for (const p of PARAMS) controlsByKey.get(p.key).set(state[p.key]);
+  syncVisibility();
+}
+
+function update(key, value) {
+  state[key] = value;
+  $('preset').value = 'custom';
+  syncVisibility();
+  schedule();
+}
+
+// ---------- scene ----------
+
+const viewport = $('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+viewport.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50000);
+camera.up.set(0, 0, 1);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.zoomToCursor = true;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.2);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+scene.add(sun, sun.target);
+const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+fill.position.set(1, 1, 0.6);
+scene.add(fill);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.22 }));
+ground.receiveShadow = true;
+scene.add(ground);
+
+const material = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, vertexColors: true });
+const group = new THREE.Group();
+scene.add(group);
+
+function sceneSize() {
+  if (!result) return { L: 100, D: 50, H: 50 };
+  const m = result.meshes;
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (const x of m) for (let i = 0; i < 3; i++) { min[i] = Math.min(min[i], x.min[i]); max[i] = Math.max(max[i], x.max[i]); }
+  return { L: max[0] - min[0], D: max[1] - min[1], H: max[2] - min[2] };
+}
+
+function applyView() {
+  material.wireframe = $('wire').checked;
+  const { L, D, H } = sceneSize();
+  const size = Math.max(L, D, H);
+  sun.position.set(-0.55 * size, -0.9 * size, 0.85 * size);
+  sun.castShadow = $('shadows').checked;
+  const cam = sun.shadow.camera;
+  cam.left = cam.bottom = -size * 0.8;
+  cam.right = cam.top = size * 0.8;
+  cam.near = size * 0.1;
+  cam.far = size * 4;
+  cam.updateProjectionMatrix();
+  sun.shadow.bias = -0.0002;
+  sun.shadow.normalBias = (2 * size) / sun.shadow.mapSize.x;
+  ground.scale.set(size * 4, size * 4, 1);
+}
+for (const id of ['wire', 'shadows']) $(id).addEventListener('change', applyView);
+$('colours').addEventListener('change', () => buildPreview());
+$('explode').addEventListener('change', () => buildPreview());
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewport);
+
+function frameObject() {
+  const { L, D, H } = sceneSize();
+  const r = 0.5 * Math.hypot(L, D, H);
+  // Fit the bounding sphere into the narrower of the two fields of view.
+  const half = ((camera.fov / 2) * Math.PI) / 180;
+  const halfH = Math.atan(Math.tan(half) * camera.aspect);
+  const d = (r / Math.sin(Math.min(half, halfH))) * 0.9;
+  const dir = new THREE.Vector3(-0.35, -1, 0.5).normalize();
+  orbit.target.set(0, 0, H * 0.35);
+  camera.position.copy(orbit.target).addScaledVector(dir, d);
+  camera.near = r / 100;
+  camera.far = r * 40;
+  camera.updateProjectionMatrix();
+  orbit.update();
+}
+$('reset-view').addEventListener('click', frameObject);
+
+(function loop() {
+  orbit.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+// ---------- preview colours ----------
+
+const WALL = { panels: 0xdcd6cb, blocks: 0xd6cbb7, brick: 0xc0866a, smooth: 0xe4dfd4 };
+const COLOR = {
+  plinth: 0x8e8981, glass: 0x3b4d5a, frame: 0xf3f1ec, door: 0x6a4a35, vent: 0x2a2a2a,
+  doorFrame: 0x4a3324, sill: 0xb4b1a9, balcony: 0xcfcbc2, glazing: 0xecebe6, pane: 0x6c8494, canopy: 0xb9b5ac,
+  ac: 0xf4f4f1, roofFlat: 0x56575a, roof: 0x7a8381, chimney: 0x9f5e4a, plate: 0x6a6a67,
+  plain: 0xe9e7e2,
+};
+const tint = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
+
+function triangleColour(role, n, c, P, wall) {
+  switch (role.role) {
+    case 'wall': return n[2] > 0.7 && c[2] > P.zTop - 0.05 ? COLOR.roofFlat : wall;
+    case 'plinth': return COLOR.plinth;
+    case 'relief': {
+      // Depth below the wall plane tells a joint, a frame, glass and a door apart.
+      const W = role.W;
+      const w = (c[0] - role.O[0]) * W[0] + (c[1] - role.O[1]) * W[1] - role.w0;
+      const facing = n[0] * W[0] + n[1] * W[1];
+      const near = (d) => d > 0 && Math.abs(w + d) < 0.01;
+      const inFrame = (d) => role.fd > 0 && w > -d - 0.01 && w < -d + role.fd + 0.01;
+      if (facing > 0.9) {
+        if (near(role.sd)) return tint(wall, 0.78);
+        if (near(role.wd)) return COLOR.glass;
+        if (near(role.dd)) return COLOR.door;
+        if (role.fd > 0 && near(role.wd - role.fd)) return COLOR.frame;
+        if (role.fd > 0 && near(role.dd - role.fd)) return COLOR.doorFrame;
+        return tint(wall, 0.85);
+      }
+      if (Math.abs(facing) < 0.1 && inFrame(role.wd)) return COLOR.frame;
+      if (Math.abs(facing) < 0.1 && inFrame(role.dd)) return COLOR.doorFrame;
+      return tint(wall, 0.85);
+    }
+    case 'door': return n[0] * role.W[0] + n[1] * role.W[1] > 0.9 ? COLOR.door : tint(wall, 0.85);
+    case 'vent': return COLOR.vent;
+    case 'loggia': return tint(wall, 0.88);
+    case 'roofwell': return n[2] > 0.7 ? COLOR.roofFlat : tint(wall, 0.92);
+    case 'roof':
+      if (n[2] > 0.05) return COLOR.roof;
+      if (Math.abs(n[0]) > 0.9 && Math.abs(c[0]) < P.L / 2 + 0.05) return wall;
+      return tint(COLOR.roof, 0.75);
+    case 'frame': return COLOR.frame;
+    case 'sill': return COLOR.sill;
+    case 'balcony': return COLOR.balcony;
+    case 'glazing': return COLOR.glazing;
+    case 'pane': return COLOR.pane;
+    case 'canopy': return COLOR.canopy;
+    case 'ac': return COLOR.ac;
+    case 'chimney': return COLOR.chimney;
+    case 'plate': return COLOR.plate;
+    default: return tint(wall, 0.9);
+  }
+}
+
+function buildPreview() {
+  for (const ch of [...group.children]) { group.remove(ch); ch.geometry.dispose(); }
+  if (!result) return;
+  const { meshes, P, params } = result;
+  const colours = $('colours').checked;
+  const wall = new THREE.Color(WALL[params.finish] ?? WALL.smooth);
+  const plain = new THREE.Color(COLOR.plain);
+  const n = meshes.length;
+  const gap = $('explode').checked && n > 1 ? Math.max(3, 0.03 * P.L) : 0;
+  const cache = new Map();
+  const col = new THREE.Color();
+  meshes.forEach((m, k) => {
+    const t = m.tris.length / 3;
+    const pos = new Float32Array(t * 9), clr = new Float32Array(t * 9);
+    const nn = [0, 0, 0], cc = [0, 0, 0];
+    for (let i = 0; i < t; i++) {
+      const a = m.tris[i * 3] * 3, b = m.tris[i * 3 + 1] * 3, c = m.tris[i * 3 + 2] * 3;
+      for (let j = 0; j < 3; j++) {
+        pos[i * 9 + j] = m.positions[a + j];
+        pos[i * 9 + 3 + j] = m.positions[b + j];
+        pos[i * 9 + 6 + j] = m.positions[c + j];
+      }
+      if (colours) {
+        const ux = pos[i * 9 + 3] - pos[i * 9], uy = pos[i * 9 + 4] - pos[i * 9 + 1], uz = pos[i * 9 + 5] - pos[i * 9 + 2];
+        const vx = pos[i * 9 + 6] - pos[i * 9], vy = pos[i * 9 + 7] - pos[i * 9 + 1], vz = pos[i * 9 + 8] - pos[i * 9 + 2];
+        let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        const len = Math.hypot(nx, ny, nz) || 1;
+        nn[0] = nx / len; nn[1] = ny / len; nn[2] = nz / len;
+        for (let j = 0; j < 3; j++) cc[j] = (pos[i * 9 + j] + pos[i * 9 + 3 + j] + pos[i * 9 + 6 + j]) / 3;
+        const v = triangleColour(m.roleList[m.triRole[i]], nn, cc, P, wall);
+        if (typeof v === 'number') {
+          if (!cache.has(v)) cache.set(v, new THREE.Color(v));
+          col.copy(cache.get(v));
+        } else col.copy(v);
+      } else col.copy(plain);
+      for (let j = 0; j < 3; j++) {
+        clr[i * 9 + j * 3] = col.r; clr[i * 9 + j * 3 + 1] = col.g; clr[i * 9 + j * 3 + 2] = col.b;
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(clr, 3));
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.position.x = (k - (n - 1) / 2) * gap;
+    group.add(mesh);
+  });
+  const minZ = Math.min(...meshes.map((m) => m.min[2]));
+  ground.position.z = minZ - 0.01;
+}
+
+// ---------- generation ----------
+
+// Parts are built in Web Workers, in parallel when the house is split. A new
+// build starts when the previous one has finished; edits made meanwhile are
+// collected into the next one. A page opened from disk may not be allowed to
+// start workers; then the parts are built on the page itself.
+const POOL_SIZE = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+const pool = [];
+let useWorkers = typeof Worker !== 'undefined';
+let engine = null;
+let jobId = 0;
+let job = null;
+let pending = false;
+let timer = 0;
+let lastFrameKey = '';
+
+function worker(i) {
+  if (!pool[i]) {
+    pool[i] = new Worker(geometryURL, { type: 'module' });
+    pool[i].onmessage = onPartBuilt;
+    pool[i].onerror = (e) => {
+      e.preventDefault();
+      buildOnPage();
+    };
+  }
+  return pool[i];
+}
+
+function buildOnPage() {
+  if (useWorkers) {
+    useWorkers = false;
+    for (const w of pool) w?.terminate();
+    pool.length = 0;
+  }
+  if (!job) return;
+  const j = job;
+  j.left = j.meshes.length;
+  j.workers = 1;
+  (async () => {
+    try {
+      engine ??= loadEngine();
+      await engine;
+    } catch (e) {
+      onPartBuilt({ data: { id: j.id, error: `could not load the engine: ${e.message ?? e}` } });
+      return;
+    }
+    for (let i = 0; i < j.meshes.length; i++) {
+      // One part per task, so the page repaints in between.
+      await new Promise((r) => setTimeout(r, 0));
+      if (job !== j) return;
+      try {
+        onPartBuilt({ data: { id: j.id, part: i, out: withArena(() => buildPart(j.params, i)) } });
+      } catch (e) {
+        onPartBuilt({ data: { id: j.id, part: i, error: String(e?.message ?? e) } });
+        return;
+      }
+    }
+  })();
+}
+
+function schedule() {
+  clearTimeout(timer);
+  $('busy').hidden = false;
+  if (result) $('busy').textContent = 'Generating…';
+  $('export').disabled = true;
+  timer = setTimeout(startBuild, 60);
+}
+
+function startBuild() {
+  if (job) { pending = true; return; }
+  const params = { ...state };
+  let P;
+  try {
+    P = layout(params);
+  } catch (e) {
+    $('message').textContent = `Could not lay out this house: ${e.message ?? e}`;
+    return;
+  }
+  const n = P.cuts.length + 1;
+  job = { id: ++jobId, params, P, meshes: new Array(n), left: n, t0: performance.now(), workers: useWorkers ? Math.min(n, POOL_SIZE) : 1 };
+  if (!useWorkers) return buildOnPage();
+  try {
+    for (let i = 0; i < n; i++) worker(i % POOL_SIZE).postMessage({ id: job.id, params, part: i });
+  } catch {
+    buildOnPage();
+  }
+}
+
+function onPartBuilt({ data }) {
+  if (!job || data.id !== job.id) return;
+  if (data.error) {
+    console.error(data.error);
+    $('message').textContent = /fetch|import|load|engine/i.test(data.error)
+      ? 'Could not load the geometry engine (needs an internet connection).'
+      : `Could not build this house: ${data.error}`;
+    finishBuild();
+    return;
+  }
+  job.meshes[data.part] = data.out;
+  if (--job.left > 0) return;
+  result = { params: job.params, P: job.P, meshes: job.meshes, ms: performance.now() - job.t0, workers: job.workers };
+  $('message').textContent = '';
+  buildPreview();
+  const { L, D, H } = sceneSize();
+  const frameKey = [L, D, H].map((v) => Math.round(v / 20)).join();
+  if (frameKey !== lastFrameKey) { applyView(); frameObject(); lastFrameKey = frameKey; }
+  renderStats();
+  writeHash();
+  finishBuild();
+}
+
+function finishBuild() {
+  job = null;
+  if (pending) {
+    pending = false;
+    startBuild();
+    return;
+  }
+  $('busy').hidden = true;
+  $('export').disabled = !result;
+  if (result) $('export').textContent = result.meshes.length > 1 ? `Download ${result.meshes.length} parts (ZIP)` : 'Download STL';
+}
+
+function renderStats() {
+  const { P, meshes, params } = result;
+  const { L, D, H } = sceneSize();
+  const tris = meshes.reduce((s, m) => s + m.tris.length / 3, 0);
+  const mb = meshes.reduce((s, m) => s + 84 + (m.tris.length / 3) * 50, 0) / 1048576;
+  const vol = meshes.reduce((s, m) => s + m.volume, 0) / 1000;
+  const longest = Math.max(...meshes.map((m) => m.max[0] - m.min[0]));
+  const real = (v) => (v / P.s).toFixed(1);
+  const rows = [
+    ['Model, mm', `${L.toFixed(1)} × ${D.toFixed(1)} × ${H.toFixed(1)}`],
+    ['Real house, m', `${real(P.L)} × ${real(P.D)} × ${real(P.zTop)}`],
+    ['One floor, mm', P.hf.toFixed(2)],
+    ['Parts', meshes.length > 1 ? `${meshes.length}, longest ${longest.toFixed(1)} mm` : '1'],
+    ['Triangles', tris.toLocaleString('en-US')],
+    ['STL size', `${mb.toFixed(1)} MB`],
+    ['Volume', `${vol.toFixed(1)} cm³`],
+    ['Built in', `${(result.ms / 1000).toFixed(1)} s` + (result.workers > 1 ? ` on ${result.workers} threads` : '')],
+  ];
+  const warns = [];
+  if (!P.cutsFit) warns.push('An entrance is longer than the max part length: parts are cut only between entrances.');
+  if (params.hollow && !params.through && params.wall < params.windowDepth + params.minFeature) warns.push('The wall is thinner than the window recess plus the thinnest detail.');
+  for (const m of meshes) if (m.status !== 'NoError') warns.push(`Geometry engine status: ${m.status}`);
+  $('stats').innerHTML = '<dl style="display:contents">' +
+    rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('') +
+    warns.map((w) => `<dd class="warn">${w}</dd>`).join('') + '</dl>';
+}
+
+// ---------- export & sharing ----------
+
+function download(data, name, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data], { type }));
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}
+
+$('export').addEventListener('click', () => {
+  if (!result) return;
+  const { params } = result;
+  const stem = `khrushchyovka-${params.sections}x${params.floors}-1to${params.scale}`;
+  try {
+    if (result.meshes.length === 1) {
+      download(meshToSTL(result.meshes[0]), `${stem}.stl`, 'model/stl');
+      $('message').textContent = `Saved: ${stem}.stl`;
+    } else {
+      const files = result.meshes.map((m, i) => ({ name: `${stem}-part${i + 1}.stl`, data: new Uint8Array(meshToSTL(m)) }));
+      download(zip(files), `${stem}.zip`, 'application/zip');
+      $('message').textContent = `Saved: ${stem}.zip (${files.length} parts)`;
+    }
+  } catch (e) {
+    $('message').textContent = `Error: ${e.message}`;
+  }
+});
+
+function writeHash() {
+  const q = new URLSearchParams();
+  for (const p of PARAMS) if (state[p.key] !== p.value) q.set(p.key, state[p.key]);
+  history.replaceState(null, '', `#${q}`);
+}
+
+function readHash() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (![...q.keys()].length) return false;
+  Object.assign(state, DEFAULTS);
+  for (const p of PARAMS) {
+    if (!q.has(p.key)) continue;
+    const raw = q.get(p.key);
+    if (p.type === 'bool') state[p.key] = raw === 'true';
+    else if (p.type === 'select') { if (p.options.some(([v]) => v === raw)) state[p.key] = raw; }
+    else if (Number.isFinite(Number(raw))) state[p.key] = Math.min(p.max, Math.max(p.min, Number(raw)));
+  }
+  return true;
+}
+
+$('share').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('message').textContent = 'Link with parameters copied.';
+  } catch {
+    $('message').textContent = 'Copy the page URL: the parameters are saved in it.';
+  }
+});
+
+syncForm();
+resize();
+applyView();
+frameObject();
+startBuild();
+  </script>
+</body>
+</html>
