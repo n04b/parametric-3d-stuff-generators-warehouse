@@ -61,6 +61,7 @@ jagged on the grid), so for crisp thin walls reduce the mesh step.
 | Rings | concentric waves around random centres |
 | Mountains | ridged multifractal: sharp crests with fine detail, smoother valleys |
 | Spikes | cones on a jittered grid, standing along the surface normal |
+| Gyroid / TPMS | triply periodic minimal surfaces (gyroid, Schwarz P, diamond, Neovius): walls, channels or smooth waves |
 
 Common parameters: seed, feature size (mm), octaves, distortion (domain warp),
 stretch and angle. For mountains, "Roughness" sets how much each finer octave
@@ -77,6 +78,16 @@ blunts the tips no sharper than the mesh can show. The spike distance is measure
 in the surface's tangent plane, so the tips stay sharp and point along the normal
 on every shape. On curved shapes a spike whose centre lies off the surface fades
 in or out instead of popping up, so some spikes there are lower.
+
+For gyroid / TPMS, the feature size is the cell (one period along every axis).
+The relief follows the surface's level set: "Walls" puts walls of the given
+thickness (mm) on it, "Channels" raises one side of it, "Smooth waves" maps the
+level function straight to height. "Level" moves the surface towards one side
+(thinner walls on one side, wider channels on the other), "Lattice tilt" and
+"Slice offset" choose how the lattice is cut, which changes the drawing on a flat
+panel a lot. Wall thickness is measured along the shape's surface, so it is the
+same on panels and on curved shapes; where the level set runs almost parallel to
+the surface the walls widen a little.
 
 Deep relief on a tight curve gets squeezed: the relief is carved inwards, so its
 bottom lies on a surface with a smaller radius. On the box's rounded edges tall

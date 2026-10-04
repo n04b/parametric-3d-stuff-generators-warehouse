@@ -6,7 +6,7 @@ Some parametric generators of relief 3D textures and printable models, all with 
 
 | Folder | What it does |
 | --- | --- |
-| [`relief/`](relief/) | Noise patterns: topography (terraces), contour lines, fibres, dunes, Voronoi cells, rings, mountains (ridges), spikes. Rectangular, round or polygon panel, cylinder, tube/vase, cube/box, sphere, torus. |
+| [`relief/`](relief/) | Noise patterns: topography (terraces), contour lines, fibres, dunes, Voronoi cells, rings, mountains (ridges), spikes, gyroid and other TPMS. Rectangular, round or polygon panel, cylinder, tube/vase, cube/box, sphere, torus. |
 | [`waves/`](waves/) | Interference of circular waves from several sources (moiré effect). |
 | [`tiles/`](tiles/) | Modular wall installations made of separate pieces: pyramids, spikes, tilted blocks, cylinders, drops. Rectangular, radial and hexagonal grids. Export the whole installation, each piece, or per printer bed, plus a 1:1 assembly map. |
 | [`ornament/`](ornament/) | Relief decorative tiles: square, hexagon, octagon, circle. The ornament is built from motif layers (rosettes, scrolls, leaves, stars, girih, frames, fluting, facets). Tile arrays with rotations and relief fade towards the edges. Export a single tile, the whole array, or every tile in a ZIP. |
