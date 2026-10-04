@@ -59,9 +59,14 @@ jagged on the grid), so for crisp thin walls reduce the mesh step.
 | Dunes | soft ridges, like sand or fabric |
 | Cells | Voronoi diagram: walls or bumps |
 | Rings | concentric waves around random centres |
+| Mountains | ridged multifractal: sharp crests with fine detail, smoother valleys |
 
 Common parameters: seed, feature size (mm), octaves, distortion (domain warp),
-stretch and angle. Line thickness, step width and stripe period are also in millimetres.
+stretch and angle. For mountains, "Roughness" sets how much each finer octave
+adds, "Valley flatness" widens and smooths the valleys, "Profile sharpness" sharpens
+the crests, and "Crest rounding" (mm) keeps them from getting sharper than the mesh
+can show; octaves finer than that fade out. Mountains use a continuous variant of
+the noise with a random rotation per octave, so no straight lattice creases show up. Line thickness, step width and stripe period are also in millimetres.
 The texture is computed in 3D coordinates, so the cylinder, cube, sphere and torus have no seams or stretching.
 
 All parameters are stored in the page URL, so you can share a link.

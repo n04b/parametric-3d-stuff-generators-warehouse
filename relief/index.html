@@ -239,7 +239,14 @@ function mulberry32(seed) {
   };
 }
 
-function createNoise3D(seed = 1) {
+// The classic kernel radius² of 0.6 leaves small jumps on the simplex faces;
+// they vanish under fbm, but ridged noise turns them into straight creases,
+// so it uses createSmoothNoise3D (radius² 0.5, continuous).
+function createSmoothNoise3D(seed) {
+  return createNoise3D(seed, 0.5, 76);
+}
+
+function createNoise3D(seed = 1, r2 = 0.6, gain = 32) {
   const rand = mulberry32(seed);
   const p = new Uint8Array(256);
   for (let i = 0; i < 256; i++) p[i] = i;
@@ -285,31 +292,31 @@ function createNoise3D(seed = 1) {
     const ii = i & 255, jj = j & 255, kk = k & 255;
     let n = 0;
 
-    let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+    let t0 = r2 - x0 * x0 - y0 * y0 - z0 * z0;
     if (t0 > 0) {
       const g = permMod12[ii + perm[jj + perm[kk]]] * 3;
       t0 *= t0;
       n += t0 * t0 * (GRAD3[g] * x0 + GRAD3[g + 1] * y0 + GRAD3[g + 2] * z0);
     }
-    let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+    let t1 = r2 - x1 * x1 - y1 * y1 - z1 * z1;
     if (t1 > 0) {
       const g = permMod12[ii + i1 + perm[jj + j1 + perm[kk + k1]]] * 3;
       t1 *= t1;
       n += t1 * t1 * (GRAD3[g] * x1 + GRAD3[g + 1] * y1 + GRAD3[g + 2] * z1);
     }
-    let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+    let t2 = r2 - x2 * x2 - y2 * y2 - z2 * z2;
     if (t2 > 0) {
       const g = permMod12[ii + i2 + perm[jj + j2 + perm[kk + k2]]] * 3;
       t2 *= t2;
       n += t2 * t2 * (GRAD3[g] * x2 + GRAD3[g + 1] * y2 + GRAD3[g + 2] * z2);
     }
-    let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+    let t3 = r2 - x3 * x3 - y3 * y3 - z3 * z3;
     if (t3 > 0) {
       const g = permMod12[ii + 1 + perm[jj + 1 + perm[kk + 1]]] * 3;
       t3 *= t3;
       n += t3 * t3 * (GRAD3[g] * x3 + GRAD3[g + 1] * y3 + GRAD3[g + 2] * z3);
     }
-    return 32 * n;
+    return gain * n;
   };
 }
 
@@ -327,22 +334,6 @@ function fbm(noise, x, y, z, octaves, lacunarity = 2, gain = 0.5) {
     f *= lacunarity;
   }
   return sum / Math.sqrt(norm);
-}
-
-// Ridged multifractal in [0, 1]: sharp crests where the noise crosses zero.
-function ridged(noise, x, y, z, octaves, lacunarity = 2, gain = 0.5) {
-  let sum = 0;
-  let amp = 1;
-  let norm = 0;
-  let f = 1;
-  for (let o = 0; o < octaves; o++) {
-    const r = 1 - Math.abs(noise(x * f, y * f, z * f));
-    sum += amp * r * r;
-    norm += amp;
-    amp *= gain;
-    f *= lacunarity;
-  }
-  return sum / norm;
 }
 
 // ===== patterns =====
@@ -367,6 +358,7 @@ const PATTERNS = {
   dunes: 'Dunes (ridges)',
   cells: 'Cells (Voronoi)',
   rings: 'Rings (concentric)',
+  ridges: 'Mountains (ridges)',
 };
 
 const FIELD_PARAMS = [
@@ -378,11 +370,13 @@ const FIELD_PARAMS = [
   { key: 'stretch', label: 'Stretch', type: 'number', min: 1, max: 8, step: 0.1, value: 1 },
   { key: 'angle', label: 'Angle, °', type: 'number', min: 0, max: 180, step: 1, value: 0 },
   { key: 'levels', label: 'Number of levels', type: 'int', min: 2, max: 60, step: 1, value: 12, patterns: ['topo', 'contours'] },
-  { key: 'edge', label: 'Step rounding, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6, patterns: ['topo', 'contours', 'cells'] },
+  { key: 'edge', label: 'Step rounding, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6, patterns: ['topo', 'contours', 'cells', 'ridges'], labels: { ridges: 'Crest rounding, mm' } },
   { key: 'lineWidth', label: 'Line thickness, mm', type: 'number', min: 0.2, max: 10, step: 0.1, value: 1.2, patterns: ['contours', 'cells'] },
   { key: 'baseSlope', label: 'Relief under lines', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['contours'] },
   { key: 'period', label: 'Period, mm', type: 'number', min: 1, max: 100, step: 0.5, value: 6, patterns: ['fibers', 'rings'] },
-  { key: 'profile', label: 'Profile sharpness', type: 'number', min: 0.2, max: 4, step: 0.05, value: 1, patterns: ['fibers', 'dunes', 'rings'] },
+  { key: 'profile', label: 'Profile sharpness', type: 'number', min: 0.2, max: 4, step: 0.05, value: 1, patterns: ['fibers', 'dunes', 'rings', 'ridges'] },
+  { key: 'roughness', label: 'Roughness', type: 'number', min: 0.2, max: 0.9, step: 0.01, value: 0.5, patterns: ['ridges'] },
+  { key: 'valley', label: 'Valley flatness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['ridges'] },
   { key: 'cellMode', label: 'Cell mode', type: 'select', options: { walls: 'Walls', bubbles: 'Bumps' }, value: 'walls', patterns: ['cells'] },
   { key: 'invert', label: 'Invert', type: 'bool', value: false },
 ];
@@ -426,6 +420,18 @@ function worley(seed, x, y, z, out) {
 // Returns f(x, y, z) -> [0, 1] for coordinates in millimetres.
 // `res` is the mesh step the field will be sampled at: sharp transitions are
 // widened to at least two steps so walls and terraces don't alias on the grid.
+// Uniformly random rotation matrix (row-major) from a unit quaternion.
+function randomRotation(rand) {
+  const u1 = rand(), u2 = TAU * rand(), u3 = TAU * rand();
+  const a = Math.sqrt(1 - u1), b = Math.sqrt(u1);
+  const x = a * Math.sin(u2), y = a * Math.cos(u2), z = b * Math.sin(u3), w = b * Math.cos(u3);
+  return [
+    1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w),
+    2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+    2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y),
+  ];
+}
+
 function createField(params, res = 0) {
   const p = { ...defaultFieldParams(), ...params };
   const seed = p.seed | 0;
@@ -446,16 +452,16 @@ function createField(params, res = 0) {
   // Rotates (u runs along the stretch direction), scales and warps a point
   // in mm, writing the noise-space coordinates into q.
   const q = new Float64Array(3);
-  function toNoiseSpace(x, y, z) {
+  function toNoiseSpace(x, y, z, wn = warpNoise) {
     const u = x * ca + y * sa;
     const v = -x * sa + y * ca;
     let qx = u / (scale * stretch);
     let qy = v / scale;
     let qz = z / scale;
     if (warp > 0) {
-      const wx = fbm(warpNoise, qx * 0.5 + off[0], qy * 0.5 + off[1], qz * 0.5 + off[2], 2);
-      const wy = fbm(warpNoise, qx * 0.5 + off[3], qy * 0.5 + off[4], qz * 0.5 + off[5], 2);
-      const wz = fbm(warpNoise, qx * 0.5 + off[6], qy * 0.5 + off[7], qz * 0.5 + off[8], 2);
+      const wx = fbm(wn, qx * 0.5 + off[0], qy * 0.5 + off[1], qz * 0.5 + off[2], 2);
+      const wy = fbm(wn, qx * 0.5 + off[3], qy * 0.5 + off[4], qz * 0.5 + off[5], 2);
+      const wz = fbm(wn, qx * 0.5 + off[6], qy * 0.5 + off[7], qz * 0.5 + off[8], 2);
       qx += warp * wx;
       qy += warp * wy;
       qz += warp * wz;
@@ -562,6 +568,53 @@ function createField(params, res = 0) {
         worley(seed, q[0], q[1], q[2], wv);
         const s = 0.5 + 0.5 * Math.cos((TAU * wv[0] * scale) / period);
         return Math.pow(s, exp);
+      };
+      break;
+    }
+    case 'ridges': {
+      // Ridged multifractal (after Musgrave): each octave is 1 - |noise|,
+      // weighted by the octave above it, so fine detail gathers on the crests
+      // and the valleys stay smoother. |noise| is softened over `width` mm, so a
+      // crest is never sharper than the mesh can show; octaves whose detail
+      // would be finer than that fade out.
+      const exp = 1 + p.profile;
+      const gain = p.roughness;
+      const curve = 1 + 2 * p.valley;
+      // Some detail reaches the valleys too, less the flatter they are.
+      const floor = 0.25 * (1 - p.valley);
+      const width = Math.max(p.edge, 2 * res, 0.05);
+      const smooth = createSmoothNoise3D(seed);
+      const smoothWarp = createSmoothNoise3D(seed + 1013);
+      // Each octave gets a random 3D rotation and offset: a plane through the
+      // simplex lattice parallel to its axes shows its grid as straight,
+      // axis-aligned crests, and aligned octaves would add them up.
+      const rotRand = mulberry32(seed + 991);
+      const rot = Array.from({ length: octaves }, () => randomRotation(rotRand));
+      const shift = Array.from({ length: octaves * 3 }, () => rotRand() * 1000);
+      // Noise change across `width` mm at each octave (slope ≈ 1.5 per unit).
+      const soft = Array.from({ length: octaves }, (_, o) => (1.5 * 2 ** o * width) / scale);
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z, smoothWarp);
+        let sum = 0, norm = 0, amp = 1, f = 1, weight = 1;
+        for (let o = 0; o < octaves; o++) {
+          const e = soft[o];
+          const fade = clamp01(2 - 2 * e);
+          if (fade <= 0) break;
+          const m = rot[o];
+          const n = smooth(
+            f * (m[0] * q[0] + m[1] * q[1] + m[2] * q[2]) + shift[o * 3],
+            f * (m[3] * q[0] + m[4] * q[1] + m[5] * q[2]) + shift[o * 3 + 1],
+            f * (m[6] * q[0] + m[7] * q[1] + m[8] * q[2]) + shift[o * 3 + 2],
+          );
+          const s = Math.pow(clamp01(1 - Math.sqrt(n * n + e * e) + e), exp) * weight;
+          sum += s * amp * fade;
+          norm += amp * fade;
+          weight = clamp01(floor + 2 * s);
+          amp *= gain;
+          f *= 2;
+        }
+        // The weighted sum already spans [0, 1]; the curve widens the valleys.
+        return Math.pow(clamp01(sum / norm), curve);
       };
       break;
     }
@@ -1220,6 +1273,14 @@ const PRESETS = [
     params: { shape: 'disk', diameter: 120, base: 2, depth: 2.5, pattern: 'rings', scale: 35, period: 3, profile: 1.5, warp: 0.3, seed: 3 },
   },
   {
+    name: 'Mountain range',
+    params: { shape: 'rect', width: 160, height: 110, base: 3, depth: 12, pattern: 'ridges', scale: 70, octaves: 6, warp: 0.15, roughness: 0.5, valley: 0.4, profile: 1, edge: 0.6, seed: 17 },
+  },
+  {
+    name: 'Rocky planet',
+    params: { shape: 'sphere', diameter: 90, depth: 5, pattern: 'ridges', scale: 40, octaves: 5, warp: 0.1, roughness: 0.55, valley: 0.5, profile: 1, seed: 8 },
+  },
+  {
     name: 'Hexagonal cell tile',
     params: { shape: 'polygon', sides: 6, diameter: 100, base: 3, depth: 3, margin: 4, edgeLevel: 1, pattern: 'cells', scale: 10, lineWidth: 1.2, warp: 0.25, octaves: 1, seed: 5 },
   },
@@ -1325,7 +1386,7 @@ function syncForm() {
   for (const p of ALL_PARAMS) {
     const c = controlsByKey.get(p.key);
     c.set(state[p.key]);
-    c.title.textContent = p.labels?.[state.shape] ?? p.label;
+    c.title.textContent = p.labels?.[state.shape] ?? p.labels?.[state.pattern] ?? p.label;
     const visible = (!p.shapes || p.shapes.includes(state.shape)) && (!p.patterns || p.patterns.includes(state.pattern)) && (!p.when || p.when(state));
     c.wrap.hidden = !visible;
   }
