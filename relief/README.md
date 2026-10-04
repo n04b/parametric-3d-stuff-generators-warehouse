@@ -60,13 +60,28 @@ jagged on the grid), so for crisp thin walls reduce the mesh step.
 | Cells | Voronoi diagram: walls or bumps |
 | Rings | concentric waves around random centres |
 | Mountains | ridged multifractal: sharp crests with fine detail, smoother valleys |
+| Spikes | cones on a jittered grid, standing along the surface normal |
 
 Common parameters: seed, feature size (mm), octaves, distortion (domain warp),
 stretch and angle. For mountains, "Roughness" sets how much each finer octave
 adds, "Valley flatness" widens and smooths the valleys, "Profile sharpness" sharpens
 the crests, and "Crest rounding" (mm) keeps them from getting sharper than the mesh
 can show; octaves finer than that fade out. Mountains use a continuous variant of
-the noise with a random rotation per octave, so no straight lattice creases show up. Line thickness, step width and stripe period are also in millimetres.
+the noise with a random rotation per octave, so no straight lattice creases show up.
+
+For spikes, the feature size is the spacing between them; "Base diameter" is a
+percentage of it (above 100 % neighbours merge), "Randomness" shifts them off a
+regular grid, "Height variation" mixes in lower spikes, "Spike shape" bends the
+cone (1 is straight, above 1 thorn-like, below 1 domed) and "Tip rounding" (mm)
+blunts the tips no sharper than the mesh can show. The spike distance is measured
+in the surface's tangent plane, so the tips stay sharp and point along the normal
+on every shape. On curved shapes a spike whose centre lies off the surface fades
+in or out instead of popping up, so some spikes there are lower.
+
+Deep relief on a tight curve gets squeezed: the relief is carved inwards, so its
+bottom lies on a surface with a smaller radius. On the box's rounded edges tall
+spikes turn into fins; use a larger edge rounding, or an edge fade so the spikes
+settle before the edges. Line thickness, step width and stripe period are also in millimetres.
 The texture is computed in 3D coordinates, so the cylinder, cube, sphere and torus have no seams or stretching.
 
 All parameters are stored in the page URL, so you can share a link.

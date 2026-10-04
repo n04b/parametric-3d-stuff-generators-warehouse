@@ -339,7 +339,8 @@ function fbm(noise, x, y, z, octaves, lacunarity = 2, gain = 0.5) {
 // ===== patterns =====
 
 // Parametric texture fields. A field maps a point in millimetres to a
-// relief value in [0, 1]; the mesh builder turns that into height.
+// relief value in [0, 1]; the mesh builder turns that into height. Builders
+// also pass the unit surface normal (nx, ny, nz), +z when omitted.
 
 const TAU = Math.PI * 2;
 
@@ -359,24 +360,28 @@ const PATTERNS = {
   cells: 'Cells (Voronoi)',
   rings: 'Rings (concentric)',
   ridges: 'Mountains (ridges)',
+  spikes: 'Spikes',
 };
 
 const FIELD_PARAMS = [
   { key: 'pattern', label: 'Pattern', type: 'select', options: PATTERNS, value: 'topo' },
   { key: 'seed', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 7 },
-  { key: 'scale', label: 'Feature size, mm', type: 'number', min: 2, max: 500, step: 1, value: 40 },
-  { key: 'octaves', label: 'Detail (octaves)', type: 'int', min: 1, max: 8, step: 1, value: 3 },
+  { key: 'scale', label: 'Feature size, mm', type: 'number', min: 2, max: 500, step: 1, value: 40, labels: { spikes: 'Spike spacing, mm' } },
+  { key: 'octaves', label: 'Detail (octaves)', type: 'int', min: 1, max: 8, step: 1, value: 3, patterns: Object.keys(PATTERNS).filter((k) => k !== 'spikes') },
   { key: 'warp', label: 'Distortion', type: 'number', min: 0, max: 3, step: 0.05, value: 0.4 },
   { key: 'stretch', label: 'Stretch', type: 'number', min: 1, max: 8, step: 0.1, value: 1 },
   { key: 'angle', label: 'Angle, °', type: 'number', min: 0, max: 180, step: 1, value: 0 },
   { key: 'levels', label: 'Number of levels', type: 'int', min: 2, max: 60, step: 1, value: 12, patterns: ['topo', 'contours'] },
-  { key: 'edge', label: 'Step rounding, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6, patterns: ['topo', 'contours', 'cells', 'ridges'], labels: { ridges: 'Crest rounding, mm' } },
+  { key: 'edge', label: 'Step rounding, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6, patterns: ['topo', 'contours', 'cells', 'ridges', 'spikes'], labels: { ridges: 'Crest rounding, mm', spikes: 'Tip rounding, mm' } },
   { key: 'lineWidth', label: 'Line thickness, mm', type: 'number', min: 0.2, max: 10, step: 0.1, value: 1.2, patterns: ['contours', 'cells'] },
   { key: 'baseSlope', label: 'Relief under lines', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['contours'] },
   { key: 'period', label: 'Period, mm', type: 'number', min: 1, max: 100, step: 0.5, value: 6, patterns: ['fibers', 'rings'] },
-  { key: 'profile', label: 'Profile sharpness', type: 'number', min: 0.2, max: 4, step: 0.05, value: 1, patterns: ['fibers', 'dunes', 'rings', 'ridges'] },
+  { key: 'profile', label: 'Profile sharpness', type: 'number', min: 0.2, max: 4, step: 0.05, value: 1, patterns: ['fibers', 'dunes', 'rings', 'ridges', 'spikes'], labels: { spikes: 'Spike shape (1 = cone)' } },
   { key: 'roughness', label: 'Roughness', type: 'number', min: 0.2, max: 0.9, step: 0.01, value: 0.5, patterns: ['ridges'] },
   { key: 'valley', label: 'Valley flatness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['ridges'] },
+  { key: 'spikeWidth', label: 'Base diameter, % of spacing', type: 'number', min: 20, max: 150, step: 1, value: 80, patterns: ['spikes'] },
+  { key: 'jitter', label: 'Randomness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.8, patterns: ['spikes'] },
+  { key: 'variation', label: 'Height variation', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['spikes'] },
   { key: 'cellMode', label: 'Cell mode', type: 'select', options: { walls: 'Walls', bubbles: 'Bumps' }, value: 'walls', patterns: ['cells'] },
   { key: 'invert', label: 'Invert', type: 'bool', value: false },
 ];
@@ -618,11 +623,53 @@ function createField(params, res = 0) {
       };
       break;
     }
+    case 'spikes': {
+      // Cones on jittered lattice points, one per spacing³ (a plain grid at
+      // randomness 0). The distance is measured in the tangent plane, so the
+      // tips stay sharp on any surface and the spikes stand along the normal.
+      // Points farther than half a spacing from the surface are skipped, and
+      // those near that limit shrink, so on curved shapes spikes fade in and
+      // out instead of popping up.
+      const r = p.spikeWidth / 200; // base radius, in spacings
+      const exp = p.profile;
+      const tip = Math.max(p.edge, 2 * res, 0.05) / scale;
+      const jitter = p.jitter, vary = p.variation;
+      const band = 0.03 + 0.47 * vary;
+      field = (x, y, z, nx = 0, ny = 0, nz = 1) => {
+        toNoiseSpace(x, y, z);
+        // The normal in noise space (inverse transpose of rotate + scale).
+        const nu = (nx * ca + ny * sa) * stretch, nv = -nx * sa + ny * ca;
+        const nl = Math.hypot(nu, nv, nz) || 1;
+        const mx = nu / nl, my = nv / nl, mz = nz / nl;
+        const xi = Math.round(q[0]), yi = Math.round(q[1]), zi = Math.round(q[2]);
+        let best = 0;
+        for (let dz = -1; dz <= 1; dz++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const cx = xi + dx, cy = yi + dy, cz = zi + dz;
+              const h = hash3(seed, cx, cy, cz);
+              const ddx = cx + jitter * ((h & 1023) / 1023 - 0.5) - q[0];
+              const ddy = cy + jitter * (((h >>> 10) & 1023) / 1023 - 0.5) - q[1];
+              const ddz = cz + jitter * (((h >>> 20) & 1023) / 1023 - 0.5) - q[2];
+              const dn = Math.abs(ddx * mx + ddy * my + ddz * mz);
+              if (dn >= 0.5) continue;
+              const dt = Math.sqrt(Math.max(0, ddx * ddx + ddy * ddy + ddz * ddz - dn * dn));
+              const g = 1 - (Math.sqrt(dt * dt + tip * tip) - tip) / r;
+              if (g <= 0) continue;
+              const height = (1 - vary * ((hash3(seed + 7919, cx, cy, cz) & 1023) / 1023)) * (1 - smoothstep(0.5 - band, 0.5, dn));
+              best = Math.max(best, Math.pow(g, exp) * height);
+            }
+          }
+        }
+        return best;
+      };
+      break;
+    }
     default:
       throw new Error(`Unknown pattern: ${p.pattern}`);
   }
 
-  return p.invert ? (x, y, z) => 1 - field(x, y, z) : field;
+  return p.invert ? (x, y, z, nx, ny, nz) => 1 - field(x, y, z, nx, ny, nz) : field;
 }
 
 // ===== mesh =====
@@ -945,7 +992,7 @@ function buildCylinder(s, field, res) {
     for (let m = 0; m < segs; m++) {
       const th = (2 * Math.PI * m) / segs;
       const c = Math.cos(th), sn = Math.sin(th);
-      const f = field(R * c, R * sn, z);
+      const f = field(R * c, R * sn, z, c, sn, 0);
       const r = R - depth * (1 - (s.edgeLevel + (f - s.edgeLevel) * fall));
       const idx = k * segs + m;
       radius[idx] = r;
@@ -1006,7 +1053,7 @@ function buildCube(s, field, res) {
     for (let i = 0; i < 3; i++) n[i] /= len;
     // Point on the rounded box: its core point plus rc along the normal.
     const px = q[0] - n[0] * (len - rc), py = q[1] - n[1] * (len - rc), pz = q[2] - n[2] * (len - rc);
-    const f = field(px, py, pz);
+    const f = field(px, py, pz, n[0], n[1], n[2]);
     const on = [];
     for (let ax = 0; ax < 3; ax++) if (c[ax] === 0 || c[ax] === N[ax]) on.push(ax);
     let h;
@@ -1082,7 +1129,7 @@ function buildTube(s, field, res) {
     const Rz = radiusAt(z), Ri = innerAt(z);
     const fall = edgeRamp(0, s.margin, Math.min(z, H - z));
     for (let m = 0; m < segs; m++) {
-      const r = Rz - s.depth - s.base + fadedHeight(s, field(Rz * cos[m], Rz * sin[m], z), fall);
+      const r = Rz - s.depth - s.base + fadedHeight(s, field(Rz * cos[m], Rz * sin[m], z, cos[m], sin[m], 0), fall);
       put(k * segs + m, Math.max(r, Ri + 0.01), m, z);
     }
   }
@@ -1127,7 +1174,7 @@ function buildTorus(s, field, res) {
     for (let j = 0; j < nv; j++) {
       const v = (2 * Math.PI * j) / nv;
       const cv = Math.cos(v), sv = Math.sin(v);
-      const f = field((Rm + r * cv) * cu, (Rm + r * cv) * su, r * sv);
+      const f = field((Rm + r * cv) * cu, (Rm + r * cv) * su, r * sv, cv * cu, cv * su, sv);
       const rr = r - depth * (1 - f);
       const idx = i * nv + j;
       radius[idx] = rr;
@@ -1153,7 +1200,7 @@ function buildSphere(s, field, res) {
   const radius = new Float64Array(n);
   // Relief is carved inwards so the outer diameter stays as specified.
   const put = (idx, ux, uy, uz) => {
-    const r = R - s.depth * (1 - field(ux * R, uy * R, uz * R));
+    const r = R - s.depth * (1 - field(ux * R, uy * R, uz * R, ux, uy, uz));
     radius[idx] = r;
     positions[idx * 3] = ux * r;
     positions[idx * 3 + 1] = uy * r;
@@ -1187,7 +1234,7 @@ function buildSphere(s, field, res) {
   return { positions, indices };
 }
 
-// Builds the solid for `shape` params using `field` (x, y, z mm -> [0, 1]).
+// Builds the solid for `shape` params using `field` (x, y, z mm, normal -> [0, 1]).
 // `resolution` overrides the grid step, e.g. for a coarse preview.
 function buildMesh(shape, field, resolution = shape.resolution) {
   const s = { ...defaultShapeParams(), ...shape };
@@ -1279,6 +1326,14 @@ const PRESETS = [
   {
     name: 'Rocky planet',
     params: { shape: 'sphere', diameter: 90, depth: 5, pattern: 'ridges', scale: 40, octaves: 5, warp: 0.1, roughness: 0.55, valley: 0.5, profile: 1, seed: 8 },
+  },
+  {
+    name: 'Spiky panel',
+    params: { shape: 'rect', width: 120, height: 80, base: 2, depth: 7, pattern: 'spikes', scale: 9, spikeWidth: 85, jitter: 0.7, variation: 0.3, profile: 1.2, edge: 0.4, warp: 0, seed: 11, resolution: 0.25 },
+  },
+  {
+    name: 'Sea urchin',
+    params: { shape: 'sphere', diameter: 70, depth: 9, pattern: 'spikes', scale: 6, spikeWidth: 70, jitter: 1, variation: 0.5, profile: 1.5, edge: 0.3, warp: 0, seed: 3, resolution: 0.25 },
   },
   {
     name: 'Hexagonal cell tile',
