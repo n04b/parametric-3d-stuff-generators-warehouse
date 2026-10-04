@@ -580,18 +580,38 @@ function createField(params, res = 0) {
 const SHAPES = {
   rect: 'Rectangular panel',
   disk: 'Round panel',
+  polygon: 'Polygon panel',
+  cylinder: 'Cylinder',
+  tube: 'Tube / vase',
+  cube: 'Cube',
   sphere: 'Sphere',
+  torus: 'Torus',
 };
 
+// Flat-bottomed plates, and the shapes whose relief fades towards an edge.
+const PANELS = ['rect', 'disk', 'polygon'];
+const EDGED = [...PANELS, 'cylinder', 'tube', 'cube'];
+
+// `labels` overrides the label for particular shapes.
 const SHAPE_PARAMS = [
   { key: 'shape', label: 'Shape', type: 'select', options: SHAPES, value: 'rect' },
   { key: 'width', label: 'Width, mm', type: 'number', min: 5, max: 2000, step: 1, value: 150, shapes: ['rect'] },
-  { key: 'height', label: 'Height, mm', type: 'number', min: 5, max: 2000, step: 1, value: 100, shapes: ['rect'] },
-  { key: 'diameter', label: 'Diameter, mm', type: 'number', min: 5, max: 2000, step: 1, value: 120, shapes: ['disk', 'sphere'] },
-  { key: 'base', label: 'Base thickness, mm', type: 'number', min: 0.2, max: 100, step: 0.1, value: 2, shapes: ['rect', 'disk'] },
+  { key: 'height', label: 'Height, mm', type: 'number', min: 5, max: 2000, step: 1, value: 100, shapes: ['rect', 'cylinder', 'tube'] },
+  {
+    key: 'diameter', label: 'Diameter, mm', type: 'number', min: 5, max: 2000, step: 1, value: 120,
+    shapes: ['disk', 'polygon', 'cylinder', 'tube', 'sphere', 'torus'],
+    labels: { polygon: 'Diameter across corners, mm', tube: 'Bottom diameter, mm', torus: 'Outer diameter, mm' },
+  },
+  { key: 'sides', label: 'Sides', type: 'int', min: 3, max: 12, step: 1, value: 6, shapes: ['polygon'] },
+  { key: 'size', label: 'Edge length, mm', type: 'number', min: 5, max: 2000, step: 1, value: 60, shapes: ['cube'] },
+  { key: 'rounding', label: 'Edge rounding, mm', type: 'number', min: 0, max: 200, step: 0.5, value: 0, shapes: ['cube'] },
+  { key: 'taper', label: 'Top diameter, % of bottom', type: 'int', min: 20, max: 300, step: 1, value: 100, shapes: ['tube'] },
+  { key: 'section', label: 'Section diameter, mm', type: 'number', min: 2, max: 1000, step: 1, value: 40, shapes: ['torus'] },
+  { key: 'base', label: 'Base thickness, mm', type: 'number', min: 0.2, max: 100, step: 0.1, value: 2, shapes: [...PANELS, 'tube'], labels: { tube: 'Wall thickness, mm' } },
+  { key: 'bottom', label: 'Bottom thickness, mm (0 = open tube)', type: 'number', min: 0, max: 100, step: 0.1, value: 0, shapes: ['tube'] },
   { key: 'depth', label: 'Relief depth, mm', type: 'number', min: 0, max: 100, step: 0.1, value: 4 },
-  { key: 'margin', label: 'Edge fade, mm', type: 'number', min: 0, max: 200, step: 0.5, value: 0, shapes: ['rect', 'disk'] },
-  { key: 'edgeLevel', label: 'Edge level (relief bottom ↔ top)', type: 'number', min: 0, max: 1, step: 0.01, value: 0, shapes: ['rect', 'disk'], when: (s) => s.margin > 0 },
+  { key: 'margin', label: 'Edge fade, mm', type: 'number', min: 0, max: 200, step: 0.5, value: 0, shapes: EDGED },
+  { key: 'edgeLevel', label: 'Edge level (relief bottom ↔ top)', type: 'number', min: 0, max: 1, step: 0.01, value: 0, shapes: EDGED, when: (s) => s.margin > 0 },
   { key: 'resolution', label: 'Mesh step, mm', type: 'number', min: 0.05, max: 10, step: 0.05, value: 0.4 },
 ];
 
@@ -599,6 +619,35 @@ function defaultShapeParams() {
   const out = {};
   for (const p of SHAPE_PARAMS) out[p.key] = p.value;
   return out;
+}
+
+// Derived sizes, clamped to something buildable (a torus section that does
+// not cross the axis, a floor below the rim, relief shallower than the core).
+function shapeDims(s) {
+  const R = s.diameter / 2;
+  switch (s.shape) {
+    case 'polygon': return { R, apothem: R * Math.cos(Math.PI / s.sides) };
+    case 'cylinder': return { R, H: s.height, depth: Math.min(s.depth, R * 0.9) };
+    case 'cube': {
+      const a = s.size / 2;
+      const depth = Math.min(s.depth, a * 0.9);
+      // Relief is pushed in along the normal of a rounded box; where the push
+      // reaches the edge radius the walls collapse or fold, so the edges are
+      // rounded a little more than the deepest push within the rounded band.
+      let rc = Math.max(s.rounding, a * 1e-4);
+      for (let i = 0; i < 8; i++) {
+        const fall = edgeRamp(0, s.margin, rc);
+        rc = Math.max(rc, 1.25 * depth * (1 - s.edgeLevel * (1 - fall)));
+      }
+      return { a, depth, rc: Math.min(rc, a) };
+    }
+    case 'tube': return { Rb: R, Rt: (R * s.taper) / 100, H: s.height, floor: Math.min(s.bottom, s.height * 0.9) };
+    case 'torus': {
+      const r = Math.min(s.section / 2, R * 0.49);
+      return { r, Rm: R - r };
+    }
+    default: return { R };
+  }
 }
 
 // Emits the quad a-b-c-d (counter-clockwise) as two triangles, split along the
@@ -633,27 +682,39 @@ function gridCounts(s, resolution) {
       ny: Math.max(2, Math.ceil(s.height / res) + 1),
     };
   }
-  if (s.shape === 'disk') {
-    const r = s.diameter / 2;
-    return { rings: Math.max(2, Math.ceil(r / res)), segs: Math.max(12, Math.ceil((2 * Math.PI * r) / res)) };
+  const d = shapeDims(s);
+  const around = (r, min = 12) => Math.max(min, Math.ceil((2 * Math.PI * r) / res));
+  switch (s.shape) {
+    case 'disk': return { rings: Math.max(2, Math.ceil(d.R / res)), segs: around(d.R) };
+    // A multiple of the side count puts a spoke exactly on every corner.
+    case 'polygon': return { rings: Math.max(2, Math.ceil(d.R / res)), segs: Math.ceil(around(d.R) / s.sides) * s.sides };
+    case 'cylinder': return { nz: Math.max(2, Math.ceil(d.H / res) + 1), segs: around(d.R) };
+    case 'cube': return { cells: Math.max(2, Math.ceil(s.size / res)) };
+    case 'tube': {
+      const slant = Math.hypot(d.H, d.Rt - d.Rb);
+      const nz = Math.max(2, Math.ceil(slant / res) + 1);
+      const nzIn = d.floor > 0 ? Math.max(2, Math.ceil((slant * (d.H - d.floor)) / d.H / res) + 1) : nz;
+      return { nz, nzIn, segs: around(Math.max(d.Rb, d.Rt)) };
+    }
+    case 'torus': return { nu: around(d.Rm + d.r), nv: around(d.r, 8) };
+    default: return { rings: Math.max(4, Math.ceil((Math.PI * d.R) / res)), segs: around(d.R, 8) };
   }
-  const r = s.diameter / 2;
-  return { rings: Math.max(4, Math.ceil((Math.PI * r) / res)), segs: Math.max(8, Math.ceil((2 * Math.PI * r) / res)) };
 }
 
 // Triangle count for a given shape and grid step, without building anything.
 function estimateTriangles(shape, resolution = shape.resolution) {
   const s = { ...defaultShapeParams(), ...shape };
   const g = gridCounts(s, resolution);
-  if (s.shape === 'rect') {
-    const top = 2 * (g.nx - 1) * (g.ny - 1);
-    return 2 * top + 4 * (g.nx - 1 + g.ny - 1);
+  switch (s.shape) {
+    case 'rect': return 2 * 2 * (g.nx - 1) * (g.ny - 1) + 4 * (g.nx - 1 + g.ny - 1);
+    case 'disk':
+    case 'polygon': return 2 * (g.segs + 2 * g.segs * (g.rings - 1)) + 2 * g.segs;
+    case 'cylinder': return 2 * g.segs * g.nz;
+    case 'cube': return 12 * g.cells * g.cells;
+    case 'tube': return 2 * g.segs * (g.nz + g.nzIn);
+    case 'torus': return 2 * g.nu * g.nv;
+    default: return 2 * g.segs + 2 * g.segs * (g.rings - 2);
   }
-  if (s.shape === 'disk') {
-    const top = g.segs + 2 * g.segs * (g.rings - 1);
-    return 2 * top + 2 * g.segs;
-  }
-  return 2 * g.segs + 2 * g.segs * (g.rings - 2);
 }
 
 // Turns a top surface (xy grid with heights) and its CCW boundary loop into a
@@ -722,23 +783,25 @@ function buildRect(s, field, res) {
   return closePlate(xy, z, tris, loop);
 }
 
-function buildDisk(s, field, res) {
+// Panels on a polar grid: spokes from a centre vertex out to the boundary
+// radius outer(θ). `fall(x, y)` is the edge fade factor, `a0` the angle of the
+// first spoke.
+function buildPolar(s, field, res, { outer, fall, a0 = 0 }) {
   const { rings, segs } = gridCounts(s, res);
-  const R = s.diameter / 2;
   const n = 1 + rings * segs;
   const xy = new Float64Array(n * 2);
   const z = new Float64Array(n);
-  z[0] = fadedHeight(s, field(0, 0, 0), edgeRamp(0, s.margin, R));
-  for (let k = 1; k <= rings; k++) {
-    const r = (R * k) / rings;
-    const fall = edgeRamp(0, s.margin, R - r);
-    for (let m = 0; m < segs; m++) {
-      const th = (2 * Math.PI * m) / segs;
-      const x = r * Math.cos(th), y = r * Math.sin(th);
+  z[0] = fadedHeight(s, field(0, 0, 0), fall(0, 0));
+  for (let m = 0; m < segs; m++) {
+    const th = a0 + (2 * Math.PI * m) / segs;
+    const c = Math.cos(th), sn = Math.sin(th), rb = outer(th);
+    for (let k = 1; k <= rings; k++) {
+      const r = (rb * k) / rings;
+      const x = r * c, y = r * sn;
       const idx = 1 + (k - 1) * segs + m;
       xy[idx * 2] = x;
       xy[idx * 2 + 1] = y;
-      z[idx] = fadedHeight(s, field(x, y, 0), fall);
+      z[idx] = fadedHeight(s, field(x, y, 0), fall(x, y));
     }
   }
   const ring = (k, m) => 1 + (k - 1) * segs + (m % segs);
@@ -752,9 +815,221 @@ function buildDisk(s, field, res) {
       o = pushQuad(tris, o, z, ring(k, m), ring(k + 1, m), ring(k + 1, m + 1), ring(k, m + 1));
     }
   }
-  const loop = [];
-  for (let m = 0; m < segs; m++) loop.push(ring(rings, m));
+  const loop = Array.from({ length: segs }, (_, m) => ring(rings, m));
   return closePlate(xy, z, tris, loop);
+}
+
+function buildDisk(s, field, res) {
+  const { R } = shapeDims(s);
+  return buildPolar(s, field, res, {
+    outer: () => R,
+    fall: (x, y) => edgeRamp(0, s.margin, R - Math.hypot(x, y)),
+  });
+}
+
+// Regular polygon with a flat bottom edge; the fade is the product of the
+// per-edge falloffs, which rounds the corners like on the rectangle.
+function buildPolygon(s, field, res) {
+  const { apothem } = shapeDims(s);
+  const n = s.sides;
+  const step = (2 * Math.PI) / n;
+  const a0 = -Math.PI / 2 + Math.PI / n; // first corner
+  const normals = Array.from({ length: n }, (_, i) => [Math.cos(a0 + step * (i + 0.5)), Math.sin(a0 + step * (i + 0.5))]);
+  return buildPolar(s, field, res, {
+    a0,
+    outer: (th) => apothem / Math.cos(((((th - a0) % step) + step) % step) - step / 2),
+    fall: (x, y) => normals.reduce((f, [nx, ny]) => f * edgeRamp(0, s.margin, apothem - x * nx - y * ny), 1),
+  });
+}
+
+// Solid cylinder standing on z = 0 with flat caps. Like the sphere, the
+// relief is carved inwards so the diameter stays as specified; the edge fade
+// works towards both rims.
+function buildCylinder(s, field, res) {
+  const { nz, segs } = gridCounts(s, res);
+  const { R, H, depth } = shapeDims(s);
+  const n = nz * segs + 2;
+  const positions = new Float32Array(n * 3);
+  const radius = new Float64Array(n);
+  for (let k = 0; k < nz; k++) {
+    const z = (H * k) / (nz - 1);
+    const fall = edgeRamp(0, s.margin, Math.min(z, H - z));
+    for (let m = 0; m < segs; m++) {
+      const th = (2 * Math.PI * m) / segs;
+      const c = Math.cos(th), sn = Math.sin(th);
+      const f = field(R * c, R * sn, z);
+      const r = R - depth * (1 - (s.edgeLevel + (f - s.edgeLevel) * fall));
+      const idx = k * segs + m;
+      radius[idx] = r;
+      positions[idx * 3] = r * c;
+      positions[idx * 3 + 1] = r * sn;
+      positions[idx * 3 + 2] = z;
+    }
+  }
+  const bottom = n - 2, top = n - 1;
+  positions[top * 3 + 2] = H;
+  const O = (k, m) => k * segs + (m % segs);
+  const indices = new Uint32Array(2 * segs * nz * 3);
+  let o = 0;
+  for (let m = 0; m < segs; m++) {
+    for (let k = 0; k < nz - 1; k++) o = pushQuad(indices, o, radius, O(k, m), O(k, m + 1), O(k + 1, m + 1), O(k + 1, m));
+    indices[o++] = bottom; indices[o++] = O(0, m + 1); indices[o++] = O(0, m);
+    indices[o++] = top; indices[o++] = O(nz - 1, m); indices[o++] = O(nz - 1, m + 1);
+  }
+  return { positions, indices };
+}
+
+// Cube centred on the origin with relief on all six faces. The faces share
+// one lattice, so the edges stay watertight; each lattice point is wrapped
+// onto a box with rounded edges (radius rc) and pushed inwards along that
+// box's normal. The edge fade is measured from the nearest cube edge.
+function buildCube(s, field, res) {
+  const N = gridCounts(s, res).cells;
+  const { a, depth, rc } = shapeDims(s);
+  const inner = a - rc;
+  const maxVerts = 6 * N * N + 2;
+  const positions = new Float32Array(maxVerts * 3);
+  const push = new Float64Array(maxVerts);
+  const ids = new Map();
+  let count = 0;
+  const q = [0, 0, 0];
+  const vertex = (c0, c1, c2) => {
+    const key = (c0 * (N + 1) + c1) * (N + 1) + c2;
+    let id = ids.get(key);
+    if (id !== undefined) return id;
+    id = count++;
+    ids.set(key, id);
+    q[0] = (c0 / N - 0.5) * s.size;
+    q[1] = (c1 / N - 0.5) * s.size;
+    q[2] = (c2 / N - 0.5) * s.size;
+    const core = q.map((v) => Math.min(inner, Math.max(-inner, v)));
+    let nx = q[0] - core[0], ny = q[1] - core[1], nz = q[2] - core[2];
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    const px = core[0] + rc * nx, py = core[1] + rc * ny, pz = core[2] + rc * nz;
+    // Distance to the nearest edge: the second smallest gap to a face plane.
+    const gaps = [a - Math.abs(q[0]), a - Math.abs(q[1]), a - Math.abs(q[2])].sort((x, y) => x - y);
+    const fall = edgeRamp(0, s.margin, gaps[1]);
+    const f = field(px, py, pz);
+    const d = depth * (1 - (s.edgeLevel + (f - s.edgeLevel) * fall));
+    push[id] = d;
+    positions[id * 3] = px - nx * d;
+    positions[id * 3 + 1] = py - ny * d;
+    positions[id * 3 + 2] = pz - nz * d;
+    return id;
+  };
+  const indices = new Uint32Array(12 * N * N * 3);
+  let o = 0;
+  const c = [0, 0, 0];
+  const grid = new Uint32Array((N + 1) * (N + 1));
+  for (let ax = 0; ax < 3; ax++) {
+    const u = (ax + 1) % 3, v = (ax + 2) % 3; // u × v points along +ax
+    for (const side of [0, N]) {
+      c[ax] = side;
+      for (let j = 0; j <= N; j++) {
+        for (let i = 0; i <= N; i++) {
+          c[u] = i; c[v] = j;
+          grid[j * (N + 1) + i] = vertex(c[0], c[1], c[2]);
+        }
+      }
+      for (let j = 0; j < N; j++) {
+        for (let i = 0; i < N; i++) {
+          const p00 = grid[j * (N + 1) + i], p10 = grid[j * (N + 1) + i + 1];
+          const p11 = grid[(j + 1) * (N + 1) + i + 1], p01 = grid[(j + 1) * (N + 1) + i];
+          o = side ? pushQuad(indices, o, push, p00, p10, p11, p01) : pushQuad(indices, o, push, p00, p01, p11, p10);
+        }
+      }
+    }
+  }
+  return { positions: positions.subarray(0, count * 3), indices };
+}
+
+// A (possibly tapered) tube standing on z = 0: textured outside, smooth
+// inside, `base` thick under the relief. With `bottom` > 0 it gets a floor
+// and becomes a cup or a vase. The diameters are measured at the relief top.
+function buildTube(s, field, res) {
+  const { nz, nzIn, segs } = gridCounts(s, res);
+  const { Rb, Rt, H, floor } = shapeDims(s);
+  const closed = floor > 0;
+  const radiusAt = (z) => Rb + ((Rt - Rb) * z) / H;
+  const innerAt = (z) => { const Rz = radiusAt(z); return Math.max(Rz - s.depth - s.base, Rz * 0.1); };
+  const n = (nz + nzIn) * segs + (closed ? 2 : 0);
+  const positions = new Float32Array(n * 3);
+  const radius = new Float64Array(n);
+  const cos = Float64Array.from({ length: segs }, (_, m) => Math.cos((2 * Math.PI * m) / segs));
+  const sin = Float64Array.from({ length: segs }, (_, m) => Math.sin((2 * Math.PI * m) / segs));
+  const put = (idx, r, m, z) => {
+    radius[idx] = r;
+    positions[idx * 3] = r * cos[m];
+    positions[idx * 3 + 1] = r * sin[m];
+    positions[idx * 3 + 2] = z;
+  };
+  for (let k = 0; k < nz; k++) {
+    const z = (H * k) / (nz - 1);
+    const Rz = radiusAt(z), Ri = innerAt(z);
+    const fall = edgeRamp(0, s.margin, Math.min(z, H - z));
+    for (let m = 0; m < segs; m++) {
+      const r = Rz - s.depth - s.base + fadedHeight(s, field(Rz * cos[m], Rz * sin[m], z), fall);
+      put(k * segs + m, Math.max(r, Ri + 0.01), m, z);
+    }
+  }
+  const z0 = closed ? floor : 0;
+  for (let k = 0; k < nzIn; k++) {
+    const z = z0 + ((H - z0) * k) / (nzIn - 1);
+    for (let m = 0; m < segs; m++) put((nz + k) * segs + m, innerAt(z), m, z);
+  }
+  const O = (k, m) => k * segs + (m % segs);
+  const I = (k, m) => (nz + k) * segs + (m % segs);
+  const indices = new Uint32Array(2 * segs * (nz + nzIn) * 3);
+  let o = 0;
+  for (let m = 0; m < segs; m++) {
+    for (let k = 0; k < nz - 1; k++) o = pushQuad(indices, o, radius, O(k, m), O(k, m + 1), O(k + 1, m + 1), O(k + 1, m));
+    for (let k = 0; k < nzIn - 1; k++) o = pushQuad(indices, o, radius, I(k, m), I(k + 1, m), I(k + 1, m + 1), I(k, m + 1));
+    o = pushQuad(indices, o, radius, O(nz - 1, m), O(nz - 1, m + 1), I(nzIn - 1, m + 1), I(nzIn - 1, m));
+  }
+  if (closed) {
+    const cOut = n - 2, cIn = n - 1;
+    positions[cIn * 3 + 2] = floor;
+    for (let m = 0; m < segs; m++) {
+      indices[o++] = cOut; indices[o++] = O(0, m + 1); indices[o++] = O(0, m);
+      indices[o++] = cIn; indices[o++] = I(0, m); indices[o++] = I(0, m + 1);
+    }
+  } else {
+    for (let m = 0; m < segs; m++) o = pushQuad(indices, o, radius, O(0, m), I(0, m), I(0, m + 1), O(0, m + 1));
+  }
+  return { positions, indices };
+}
+
+// Torus around the z axis; like the sphere, the relief is carved inwards so
+// the outer diameter and the section stay as specified.
+function buildTorus(s, field, res) {
+  const { nu, nv } = gridCounts(s, res);
+  const { r, Rm } = shapeDims(s);
+  const depth = Math.min(s.depth, r * 0.9);
+  const positions = new Float32Array(nu * nv * 3);
+  const radius = new Float64Array(nu * nv);
+  for (let i = 0; i < nu; i++) {
+    const u = (2 * Math.PI * i) / nu;
+    const cu = Math.cos(u), su = Math.sin(u);
+    for (let j = 0; j < nv; j++) {
+      const v = (2 * Math.PI * j) / nv;
+      const cv = Math.cos(v), sv = Math.sin(v);
+      const f = field((Rm + r * cv) * cu, (Rm + r * cv) * su, r * sv);
+      const rr = r - depth * (1 - f);
+      const idx = i * nv + j;
+      radius[idx] = rr;
+      positions[idx * 3] = (Rm + rr * cv) * cu;
+      positions[idx * 3 + 1] = (Rm + rr * cv) * su;
+      positions[idx * 3 + 2] = rr * sv;
+    }
+  }
+  const at = (i, j) => (i % nu) * nv + (j % nv);
+  const indices = new Uint32Array(2 * nu * nv * 3);
+  let o = 0;
+  for (let i = 0; i < nu; i++) {
+    for (let j = 0; j < nv; j++) o = pushQuad(indices, o, radius, at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1));
+  }
+  return { positions, indices };
 }
 
 function buildSphere(s, field, res) {
@@ -806,7 +1081,12 @@ function buildMesh(shape, field, resolution = shape.resolution) {
   switch (s.shape) {
     case 'rect': return buildRect(s, field, resolution);
     case 'disk': return buildDisk(s, field, resolution);
+    case 'polygon': return buildPolygon(s, field, resolution);
+    case 'cylinder': return buildCylinder(s, field, resolution);
+    case 'cube': return buildCube(s, field, resolution);
+    case 'tube': return buildTube(s, field, resolution);
     case 'sphere': return buildSphere(s, field, resolution);
+    case 'torus': return buildTorus(s, field, resolution);
     default: throw new Error(`Unknown shape: ${s.shape}`);
   }
 }
@@ -879,6 +1159,26 @@ const PRESETS = [
     name: 'Rings',
     params: { shape: 'disk', diameter: 120, base: 2, depth: 2.5, pattern: 'rings', scale: 35, period: 3, profile: 1.5, warp: 0.3, seed: 3 },
   },
+  {
+    name: 'Hexagonal cell tile',
+    params: { shape: 'polygon', sides: 6, diameter: 100, base: 3, depth: 3, margin: 4, edgeLevel: 1, pattern: 'cells', scale: 10, lineWidth: 1.2, warp: 0.25, octaves: 1, seed: 5 },
+  },
+  {
+    name: 'Fibre vase',
+    params: { shape: 'tube', diameter: 80, taper: 70, height: 140, base: 2, bottom: 3, depth: 2.5, margin: 6, edgeLevel: 1, pattern: 'fibers', scale: 35, period: 4, stretch: 3, warp: 0.3, octaves: 2, profile: 1.2, angle: 90, seed: 12 },
+  },
+  {
+    name: 'Contour cube',
+    params: { shape: 'cube', size: 60, depth: 2, margin: 5, edgeLevel: 1, pattern: 'contours', scale: 40, levels: 8, lineWidth: 1, edge: 0.5, warp: 0.6, octaves: 2, seed: 21, resolution: 0.3 },
+  },
+  {
+    name: 'Dune column',
+    params: { shape: 'cylinder', diameter: 60, height: 120, depth: 3, margin: 4, edgeLevel: 1, pattern: 'dunes', scale: 25, stretch: 2.5, warp: 0.4, octaves: 3, profile: 1.5, angle: 0, seed: 9 },
+  },
+  {
+    name: 'Terraced torus',
+    params: { shape: 'torus', diameter: 120, section: 44, depth: 4, pattern: 'topo', scale: 40, levels: 10, edge: 0.4, warp: 0.3, octaves: 1, seed: 4 },
+  },
 ];
 
 // ===== main =====
@@ -909,14 +1209,14 @@ function makeControl(p) {
     for (const [value, text] of Object.entries(p.options)) sel.add(new Option(text, value));
     sel.addEventListener('change', () => update(p.key, sel.value));
     wrap.append(sel);
-    controlsByKey.set(p.key, { wrap, set: (v) => (sel.value = v) });
+    controlsByKey.set(p.key, { wrap, title, set: (v) => (sel.value = v) });
   } else if (p.type === 'bool') {
     wrap.classList.add('bool');
     const box = document.createElement('input');
     box.type = 'checkbox';
     box.addEventListener('change', () => update(p.key, box.checked));
     wrap.append(box);
-    controlsByKey.set(p.key, { wrap, set: (v) => (box.checked = v) });
+    controlsByKey.set(p.key, { wrap, title, set: (v) => (box.checked = v) });
   } else {
     const num = document.createElement('input');
     num.type = 'number';
@@ -942,7 +1242,7 @@ function makeControl(p) {
       update(p.key, x);
     });
     wrap.append(num, range);
-    controlsByKey.set(p.key, { wrap, set: (v) => { num.value = v; range.value = v; } });
+    controlsByKey.set(p.key, { wrap, title, set: (v) => { num.value = v; range.value = v; } });
   }
   return wrap;
 }
@@ -965,6 +1265,7 @@ function syncForm() {
   for (const p of ALL_PARAMS) {
     const c = controlsByKey.get(p.key);
     c.set(state[p.key]);
+    c.title.textContent = p.labels?.[state.shape] ?? p.label;
     const visible = (!p.shapes || p.shapes.includes(state.shape)) && (!p.patterns || p.patterns.includes(state.pattern)) && (!p.when || p.when(state));
     c.wrap.hidden = !visible;
   }
@@ -1016,11 +1317,26 @@ function resize() {
 new ResizeObserver(resize).observe(viewport);
 
 function frameObject() {
-  const size = state.shape === 'rect' ? Math.max(state.width, state.height) : state.diameter;
+  const s = state;
+  let size = s.diameter, cz = PANELS.includes(s.shape) ? s.base : 0, tilt = 0.9, az = 0;
+  if (s.shape === 'rect') size = Math.max(s.width, s.height);
+  if (s.shape === 'sphere') tilt = 0.25;
+  if (s.shape === 'torus') tilt = 0.7;
+  if (s.shape === 'cube') { size = s.size * 1.6; tilt = 0.55; az = 0.6; }
+  if (s.shape === 'cylinder') {
+    size = Math.max(s.diameter, s.height) * 1.3;
+    cz = s.height / 2;
+    tilt = 0.35;
+  }
+  if (s.shape === 'tube') {
+    size = Math.max(s.diameter, (s.diameter * s.taper) / 100, s.height) * 1.3;
+    cz = s.height / 2;
+    tilt = 0.35;
+  }
   const d = size * 1.9;
-  const tilt = state.shape === 'sphere' ? 0.25 : 0.9;
-  camera.position.set(0, -d * Math.cos(tilt) * 0.9, d * Math.sin(tilt) + (state.shape === 'sphere' ? 0 : state.base));
-  orbit.target.set(0, 0, state.shape === 'sphere' ? 0 : state.base);
+  const flat = d * Math.cos(tilt) * 0.9;
+  camera.position.set(flat * Math.sin(az), -flat * Math.cos(az), d * Math.sin(tilt) + cz);
+  orbit.target.set(0, 0, cz);
   camera.near = size / 200;
   camera.far = size * 20;
   camera.updateProjectionMatrix();
@@ -1071,7 +1387,7 @@ function regenerate() {
   object = new THREE.Mesh(geo, material);
   scene.add(object);
 
-  const shapeKey = [shape.shape, shape.width, shape.height, shape.diameter].join();
+  const shapeKey = [shape.shape, shape.width, shape.height, shape.diameter, shape.taper, shape.section, shape.size].join();
   if (shapeKey !== lastShapeKey) { frameObject(); lastShapeKey = shapeKey; }
 
   renderStats(shape, res);
@@ -1079,16 +1395,30 @@ function regenerate() {
   $('busy').hidden = true;
 }
 
+function describeSize(s) {
+  const d = shapeDims(s);
+  const mm = (v) => +v.toFixed(1);
+  const thick = mm(s.base + s.depth);
+  switch (s.shape) {
+    case 'rect': return `${s.width} × ${s.height} × ${thick}`;
+    case 'disk': return `⌀${s.diameter} × ${thick}`;
+    case 'polygon': {
+      const across = s.sides % 2 ? `${mm(d.R + d.apothem)} corner to side` : `${mm(2 * d.apothem)} across flats`;
+      return `⌀${s.diameter} across corners, ${across} × ${thick}`;
+    }
+    case 'cylinder': return `⌀${s.diameter} × ${s.height}`;
+    case 'cube': return `${s.size} × ${s.size} × ${s.size}${d.rc >= 0.05 ? `, edges r ${mm(d.rc)}` : ''}`;
+    case 'tube': return `⌀${s.diameter}${s.taper !== 100 ? ` → ⌀${mm(2 * d.Rt)}` : ''} × ${s.height}`;
+    case 'torus': return `⌀${s.diameter}, section ⌀${mm(2 * d.r)}`;
+    default: return `⌀${s.diameter}`;
+  }
+}
+
 function renderStats(shape, previewRes) {
   const tris = estimateTriangles(shape);
   const mb = (84 + tris * 50) / 1048576;
-  const dims = shape.shape === 'rect'
-    ? `${shape.width} × ${shape.height} × ${+(shape.base + shape.depth).toFixed(2)}`
-    : shape.shape === 'disk'
-      ? `⌀${shape.diameter} × ${+(shape.base + shape.depth).toFixed(2)}`
-      : `⌀${shape.diameter}`;
   const rows = [
-    ['Dimensions, mm', dims],
+    ['Dimensions, mm', describeSize(shape)],
     ['Triangles in STL', tris.toLocaleString('en-US')],
     ['File size', `${mb.toFixed(1)} MB`],
   ];
