@@ -87,6 +87,37 @@ h2 {
 .field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
 .field.bool { grid-template-columns: 1fr auto; }
 .field select { grid-column: 2; }
+
+.icon-choice {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.icon-choice button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.icon-choice svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.icon-choice button[aria-checked="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+}
+.icon-choice button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 #panel > .field { grid-template-columns: 1fr 160px; margin-top: 16px; }
 
 input[type="number"], select {
@@ -712,10 +743,23 @@ function cubeFaceFades(s) {
     : { relief: true, margin: s.margin, level: s.edgeLevel });
 }
 
+// Line icons (24 × 24, stroked with the text colour) and short captions for
+// the shape picker.
+const SHAPE_ICONS = {
+  rect: { caption: 'Panel', svg: '<path d="M3 11 8 7h13l-5 4Z"/><path d="M3 11v3h13v-3M16 14l5-4V7"/>' },
+  disk: { caption: 'Disc', svg: '<ellipse cx="12" cy="10" rx="9" ry="4"/><path d="M3 10v3a9 4 0 0 0 18 0v-3"/>' },
+  polygon: { caption: 'Polygon', svg: '<path d="M21 10 16.5 13.9h-9L3 10l4.5-3.9h9Z"/><path d="M3 10v3l4.5 3.9h9L21 13v-3M7.5 13.9v3M16.5 13.9v3"/>' },
+  cylinder: { caption: 'Cylinder', svg: '<ellipse cx="12" cy="5.5" rx="6" ry="2.5"/><path d="M6 5.5v13a6 2.5 0 0 0 12 0v-13"/>' },
+  tube: { caption: 'Vase', svg: '<ellipse cx="12" cy="4.5" rx="4.5" ry="1.6"/><path d="M7.5 4.5c0 4-2.5 6-2.5 10 0 3.5 3 5.5 7 5.5s7-2 7-5.5c0-4-2.5-6-2.5-10"/>' },
+  cube: { caption: 'Box', svg: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>' },
+  sphere: { caption: 'Sphere', svg: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12a8.5 3 0 0 0 17 0"/>' },
+  torus: { caption: 'Torus', svg: '<ellipse cx="12" cy="12" rx="9.5" ry="5.5"/><path d="M7.5 11.5a4.5 1.8 0 0 0 9 0M9 12.6a3.4 1.3 0 0 1 6 0"/>' },
+};
+
 // `labels` overrides the label for particular shapes; `when(state)` hides a
-// parameter that does not apply.
+// parameter that does not apply; `icons` turns a select into an icon picker.
 const SHAPE_PARAMS = [
-  { key: 'shape', label: 'Shape', type: 'select', options: SHAPES, value: 'rect' },
+  { key: 'shape', label: 'Shape', type: 'select', options: SHAPES, icons: SHAPE_ICONS, value: 'rect' },
   { key: 'width', label: 'Width, mm', type: 'number', min: 5, max: 2000, step: 1, value: 150, shapes: ['rect'] },
   { key: 'height', label: 'Height, mm', type: 'number', min: 5, max: 2000, step: 1, value: 100, shapes: ['rect', 'cylinder', 'tube'] },
   {
@@ -1373,7 +1417,51 @@ const controlsByKey = new Map();
 
 // ---------- form ----------
 
+// A row of icon buttons acting as one radio group (arrow keys move it).
+function makeIconChoice(p) {
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  const group = document.createElement('div');
+  group.className = 'icon-choice';
+  group.setAttribute('role', 'radiogroup');
+  group.setAttribute('aria-label', p.label);
+  const buttons = Object.entries(p.options).map(([value, name]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.value = value;
+    btn.title = name;
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-label', name);
+    btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${p.icons[value].svg}</svg>${p.icons[value].caption}`;
+    btn.addEventListener('click', () => { set(value); update(p.key, value); });
+    return btn;
+  });
+  group.addEventListener('keydown', (e) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const i = buttons.findIndex((b) => b.dataset.value === state[p.key]);
+    const next = buttons[(i + step + buttons.length) % buttons.length];
+    next.focus();
+    next.click();
+  });
+  function set(v) {
+    for (const b of buttons) {
+      const on = b.dataset.value === v;
+      b.setAttribute('aria-checked', on);
+      b.tabIndex = on ? 0 : -1;
+    }
+  }
+  group.append(...buttons);
+  wrap.append(title, group);
+  controlsByKey.set(p.key, { wrap, title, set });
+  return wrap;
+}
+
 function makeControl(p) {
+  if (p.icons) return makeIconChoice(p);
   const wrap = document.createElement('label');
   wrap.className = 'field';
   const title = document.createElement('span');
