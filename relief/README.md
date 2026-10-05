@@ -62,6 +62,7 @@ jagged on the grid), so for crisp thin walls reduce the mesh step.
 | Mountains | ridged multifractal: sharp crests with fine detail, smoother valleys |
 | Spikes | cones on a jittered grid, standing along the surface normal |
 | Gyroid / TPMS | triply periodic minimal surfaces (gyroid, Schwarz P, diamond, Neovius): walls, channels or smooth waves |
+| Labyrinth | meandering stripes of an even width, like Turing patterns or brain coral |
 
 Common parameters: seed, feature size (mm), octaves, distortion (domain warp),
 stretch and angle. For mountains, "Roughness" sets how much each finer octave
@@ -88,6 +89,15 @@ level function straight to height. "Level" moves the surface towards one side
 panel a lot. Wall thickness is measured along the shape's surface, so it is the
 same on panels and on curved shapes; where the level set runs almost parallel to
 the surface the walls widen a little.
+
+For the labyrinth, the feature size is the stripe period (one ridge plus one
+groove). It is an imitation of reaction–diffusion patterns: the zero set of many
+random plane waves of one wavelength. "Stripes" gives flat ridges and grooves,
+"Rounded ridges" a smooth coral-like profile (its sharpness set by "Profile
+sharpness"), "Thin walls" a maze of walls of the given thickness. "Balance"
+widens the ridges or the grooves. Each wave counts by how flat it lies in the
+surface, so the stripes keep an even spacing on panels and stay continuous on
+curved shapes.
 
 Deep relief on a tight curve gets squeezed: the relief is carved inwards, so its
 bottom lies on a surface with a smaller radius. On the box's rounded edges tall
