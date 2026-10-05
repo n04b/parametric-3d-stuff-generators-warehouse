@@ -394,6 +394,7 @@ const PATTERNS = {
   spikes: 'Spikes',
   tpms: 'Gyroid / TPMS',
   maze: 'Labyrinth (brain coral)',
+  scales: 'Scales',
 };
 
 // Triply periodic minimal surfaces as level functions of x, y, z (radians,
@@ -426,22 +427,30 @@ const TPMS = {
 const FIELD_PARAMS = [
   { key: 'pattern', label: 'Pattern', type: 'select', options: PATTERNS, value: 'topo' },
   { key: 'seed', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 7 },
-  { key: 'scale', label: 'Feature size, mm', type: 'number', min: 2, max: 500, step: 1, value: 40, labels: { spikes: 'Spike spacing, mm', tpms: 'Cell size, mm', maze: 'Stripe period, mm' } },
-  { key: 'octaves', label: 'Detail (octaves)', type: 'int', min: 1, max: 8, step: 1, value: 3, patterns: Object.keys(PATTERNS).filter((k) => !['spikes', 'tpms', 'maze'].includes(k)) },
+  { key: 'scale', label: 'Feature size, mm', type: 'number', min: 2, max: 500, step: 1, value: 40, labels: { spikes: 'Spike spacing, mm', tpms: 'Cell size, mm', maze: 'Stripe period, mm', scales: 'Scale spacing, mm' } },
+  { key: 'octaves', label: 'Detail (octaves)', type: 'int', min: 1, max: 8, step: 1, value: 3, patterns: Object.keys(PATTERNS).filter((k) => !['spikes', 'tpms', 'maze', 'scales'].includes(k)) },
   { key: 'warp', label: 'Distortion', type: 'number', min: 0, max: 3, step: 0.05, value: 0.4 },
   { key: 'stretch', label: 'Stretch', type: 'number', min: 1, max: 8, step: 0.1, value: 1 },
   { key: 'angle', label: 'Angle, °', type: 'number', min: 0, max: 180, step: 1, value: 0 },
   { key: 'levels', label: 'Number of levels', type: 'int', min: 2, max: 60, step: 1, value: 12, patterns: ['topo', 'contours'] },
-  { key: 'edge', label: 'Step rounding, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6, patterns: ['topo', 'contours', 'cells', 'ridges', 'spikes', 'tpms', 'maze'], labels: { ridges: 'Crest rounding, mm', spikes: 'Tip rounding, mm', tpms: 'Wall rounding, mm', maze: 'Edge rounding, mm' }, when: (s) => (s.pattern !== 'tpms' || s.tpmsMode !== 'smooth') && (s.pattern !== 'maze' || s.mazeMode !== 'coral') },
+  { key: 'edge', label: 'Step rounding, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6, patterns: ['topo', 'contours', 'cells', 'ridges', 'spikes', 'tpms', 'maze', 'scales'], labels: { ridges: 'Crest rounding, mm', spikes: 'Tip rounding, mm', tpms: 'Wall rounding, mm', maze: 'Edge rounding, mm', scales: 'Edge rounding, mm' }, when: (s) => (s.pattern !== 'tpms' || s.tpmsMode !== 'smooth') && (s.pattern !== 'maze' || s.mazeMode !== 'coral') },
   { key: 'lineWidth', label: 'Line thickness, mm', type: 'number', min: 0.2, max: 10, step: 0.1, value: 1.2, patterns: ['contours', 'cells', 'tpms', 'maze'], labels: { tpms: 'Wall thickness, mm', maze: 'Wall thickness, mm' }, when: (s) => (s.pattern !== 'tpms' || s.tpmsMode === 'walls') && (s.pattern !== 'maze' || s.mazeMode === 'walls') },
   { key: 'baseSlope', label: 'Relief under lines', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['contours'] },
   { key: 'period', label: 'Period, mm', type: 'number', min: 1, max: 100, step: 0.5, value: 6, patterns: ['fibers', 'rings'] },
-  { key: 'profile', label: 'Profile sharpness', type: 'number', min: 0.2, max: 4, step: 0.05, value: 1, patterns: ['fibers', 'dunes', 'rings', 'ridges', 'spikes', 'tpms', 'maze'], labels: { spikes: 'Spike shape (1 = cone)' }, when: (s) => (s.pattern !== 'tpms' || s.tpmsMode === 'smooth') && (s.pattern !== 'maze' || s.mazeMode === 'coral') },
+  { key: 'profile', label: 'Profile sharpness', type: 'number', min: 0.2, max: 4, step: 0.05, value: 1, patterns: ['fibers', 'dunes', 'rings', 'ridges', 'spikes', 'tpms', 'maze', 'scales'], labels: { spikes: 'Spike shape (1 = cone)', scales: 'Scale curve (1 = straight)' }, when: (s) => (s.pattern !== 'tpms' || s.tpmsMode === 'smooth') && (s.pattern !== 'maze' || s.mazeMode === 'coral') },
   { key: 'roughness', label: 'Roughness', type: 'number', min: 0.2, max: 0.9, step: 0.01, value: 0.5, patterns: ['ridges'] },
   { key: 'valley', label: 'Valley flatness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['ridges'] },
   { key: 'spikeWidth', label: 'Base diameter, % of spacing', type: 'number', min: 20, max: 150, step: 1, value: 80, patterns: ['spikes'] },
-  { key: 'jitter', label: 'Randomness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.8, patterns: ['spikes'] },
-  { key: 'variation', label: 'Height variation', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['spikes'] },
+  { key: 'flow', label: 'Direction', type: 'select', options: { across: 'Along the panel (angle)', down: 'Down (−Z)' }, value: 'across', patterns: ['scales'] },
+  { key: 'overlap', label: 'Overlap', type: 'number', min: 0.8, max: 2, step: 0.01, value: 1.5, patterns: ['scales'] },
+  { key: 'scaleWidth', label: 'Scale width / length', type: 'number', min: 0.5, max: 2, step: 0.01, value: 1, patterns: ['scales'] },
+  { key: 'pointed', label: 'Pointed tip', type: 'number', min: 0, max: 1, step: 0.01, value: 0, patterns: ['scales'] },
+  { key: 'squareness', label: 'Squareness', type: 'number', min: 0, max: 1, step: 0.01, value: 0, patterns: ['scales'] },
+  { key: 'scaleTexture', label: 'Scale texture', type: 'select', options: { none: 'Smooth', ribs: 'Ribs (fan)', keel: 'Keel', rings: 'Growth rings', grain: 'Grain' }, value: 'none', patterns: ['scales'] },
+  { key: 'texDepth', label: 'Texture depth', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['scales'], when: (s) => s.scaleTexture !== 'none' },
+  { key: 'texCount', label: 'Ribs / rings / grain', type: 'int', min: 2, max: 40, step: 1, value: 10, patterns: ['scales'], when: (s) => s.scaleTexture !== 'none' && s.scaleTexture !== 'keel' },
+  { key: 'jitter', label: 'Randomness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.8, patterns: ['spikes', 'scales'] },
+  { key: 'variation', label: 'Height variation', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['spikes', 'scales'], labels: { scales: 'Size variation' } },
   { key: 'tpmsType', label: 'Surface', type: 'select', options: Object.fromEntries(Object.entries(TPMS).map(([k, v]) => [k, v.name])), value: 'gyroid', patterns: ['tpms'] },
   { key: 'tpmsMode', label: 'Relief', type: 'select', options: { walls: 'Walls (sheet)', solid: 'Channels (solid)', smooth: 'Smooth waves' }, value: 'walls', patterns: ['tpms'] },
   { key: 'mazeMode', label: 'Relief', type: 'select', options: { stripes: 'Stripes (Turing)', coral: 'Rounded ridges (coral)', walls: 'Thin walls (maze)' }, value: 'stripes', patterns: ['maze'] },
@@ -819,6 +828,116 @@ function createField(params, res = 0) {
           return Math.pow(s, exp);
         }
         return smoothstep(-edge / 2, edge / 2, dist);
+      };
+      break;
+    }
+    case 'scales': {
+      // Overlapping scales on jittered lattice points near the surface (as
+      // for spikes, measured in the tangent plane). Each scale rises towards
+      // its free edge, which points along the flow direction projected into
+      // the surface, and drops there in a step. The scales are stacked like
+      // real ones: a scale whose centre lies further upstream lies on top.
+      // Composited bottom-up, each scale starts on whatever lies beneath its
+      // root and lifts to its own height at the free edge; the rounded rim is
+      // its coverage, so a rim steps down onto the scale below. Where the
+      // flow has no direction in the surface (the top of a box, the poles for
+      // "down") the scales round off into domes.
+      // Disc radius in spacings; random layouts and smaller scales leave
+      // holes, so it grows with them. Width / length keeps the area.
+      const R = (p.overlap / 2) * (1 + 0.3 * p.jitter + 0.2 * p.variation);
+      const sw = Math.sqrt(p.scaleWidth);
+      const Rmax = R * Math.max(sw, 1 / sw);
+      // Lattice cells to search so that no scale gets clipped.
+      const reach = Math.max(1, Math.ceil(Rmax + 0.5 + 0.5 * p.jitter) - 1);
+      const exp = p.profile;
+      const round = Math.max(p.edge, 3 * res, 0.05) / scale; // steps of at least 3 mesh steps
+      const jitter = p.jitter, vary = p.variation;
+      const pe = 2 + 6 * p.squareness; // superellipse exponent of the outline
+      const point = p.pointed;
+      const tex = p.scaleTexture, texDepth = p.texDepth, count = p.texCount;
+      const grain = createSmoothNoise3D(seed + 99);
+      // Flow direction in noise space (a tangent vector: rotate + scale).
+      const gq = p.flow === 'down' ? [0, 0, -1] : [0, -1, 0];
+      const maxCand = (2 * reach + 1) ** 3;
+      const cAlong = new Float64Array(maxCand), cShape = new Float64Array(maxCand), cDome = new Float64Array(maxCand), cAlpha = new Float64Array(maxCand);
+      const order = new Int32Array(maxCand);
+      field = (x, y, z, nx = 0, ny = 0, nz = 1) => {
+        // The normal in noise space (inverse transpose of rotate + scale).
+        const nu = (nx * ca + ny * sa) * stretch, nv = -nx * sa + ny * ca;
+        const nl = Math.hypot(nu, nv, nz) || 1;
+        const mx = nu / nl, my = nv / nl, mz = nz / nl;
+        toNoiseSpace(x, y, z);
+        const gn = gq[0] * mx + gq[1] * my + gq[2] * mz;
+        let dx = gq[0] - gn * mx, dy = gq[1] - gn * my, dz = gq[2] - gn * mz;
+        const dl = Math.hypot(dx, dy, dz);
+        const aniso = smoothstep(0.02, 0.15, dl);
+        if (dl > 1e-9) { dx /= dl; dy /= dl; dz /= dl; }
+        const sx = my * dz - mz * dy, sy = mz * dx - mx * dz, sz = mx * dy - my * dx;
+        const grainV = tex === 'grain' ? clamp01(0.5 + 0.5 * fbm(grain, q[0] * count * 0.5, q[1] * count * 0.5, q[2] * count * 0.5, 2)) : 0;
+        const xi = Math.round(q[0]), yi = Math.round(q[1]), zi = Math.round(q[2]);
+        let n = 0;
+        for (let oz = -reach; oz <= reach; oz++) {
+          for (let oy = -reach; oy <= reach; oy++) {
+            for (let ox = -reach; ox <= reach; ox++) {
+              const cx = xi + ox, cy = yi + oy, cz = zi + oz;
+              const h = hash3(seed, cx, cy, cz);
+              // Offset from the scale's centre to the point.
+              const ex = q[0] - cx - jitter * ((h & 1023) / 1023 - 0.5);
+              const ey = q[1] - cy - jitter * (((h >>> 10) & 1023) / 1023 - 0.5);
+              const ez = q[2] - cz - jitter * (((h >>> 20) & 1023) / 1023 - 0.5);
+              const dn = Math.abs(ex * mx + ey * my + ez * mz);
+              if (dn >= 0.5) continue;
+              const r2 = hash3(seed + 7919, cx, cy, cz);
+              // Scales of points near the edge of the slab shrink away (on a
+              // panel no point gets there unless the randomness is near 1).
+              const Ri = R * (1 - smoothstep(0.42, 0.5, dn)) * (1 - 0.5 * vary * ((r2 & 1023) / 1023));
+              if (Ri <= 0) continue;
+              const along = ex * dx + ey * dy + ez * dz;
+              const side = ex * sx + ey * sy + ez * sz;
+              // Local coordinates: u from -1 (root) to 1 (free edge), v across.
+              const u = along / (Ri / sw), v = side / (Ri * sw);
+              const w = u > 0 ? Math.max(1 - point * u, 1e-3) : 1; // narrows to a tip
+              const av = Math.abs(v) / w;
+              const rho = pe === 2 ? Math.hypot(u, av) : (Math.abs(u) ** pe + av ** pe) ** (1 / pe);
+              if (rho >= 1) continue;
+              const alpha = smoothstep(0, round, (1 - rho) * Ri * Math.min(sw, 1 / sw));
+              const hv = 1 - 0.3 * vary * (((r2 >>> 10) & 1023) / 1023);
+              const rise = 0.5 + 0.5 * u; // 0 at the root, 1 at the free edge
+              let tx = 1;
+              if (tex === 'ribs') {
+                const fan = Math.atan2(v, u + 1) / Math.PI + 0.5; // 0..1 across, from the root
+                tx = 1 - texDepth * smoothstep(0, 0.4, rise) * (0.5 - 0.5 * Math.cos(TAU * count * fan));
+              } else if (tex === 'keel') {
+                tx = 1 - texDepth * Math.min(1, Math.abs(v) / 0.6) ** 1.5;
+              } else if (tex === 'rings') {
+                tx = 1 - texDepth * (0.5 - 0.5 * Math.cos(TAU * count * rho));
+              } else if (tex === 'grain') {
+                tx = 1 - texDepth * grainV;
+              }
+              cAlong[n] = along;
+              cShape[n] = (1 - 0.25 * v * v) * hv * tx; // height at the free edge
+              cDome[n] = Math.sqrt(1 - rho * rho) * hv * tx * alpha;
+              cAlpha[n] = alpha * Math.pow(rise, exp);
+              n++;
+            }
+          }
+        }
+        // Bottom-up: the scale centred furthest downstream (smallest along)
+        // is at the bottom of the stack.
+        for (let i = 0; i < n; i++) {
+          let j = i;
+          while (j > 0 && cAlong[order[j - 1]] > cAlong[i]) { order[j] = order[j - 1]; j--; }
+          order[j] = i;
+        }
+        // Under all scales lies a layer at a quarter of the height, so a gap
+        // in a random layout is a shallow dip rather than a pit to the base.
+        let stacked = 0.25, domes = 0.25;
+        for (let i = 0; i < n; i++) {
+          const k = order[i];
+          stacked += (cShape[k] - stacked) * cAlpha[k];
+          domes = Math.max(domes, cDome[k]);
+        }
+        return aniso * stacked + (1 - aniso) * domes;
       };
       break;
     }
@@ -1524,6 +1643,18 @@ const PRESETS = [
   {
     name: 'Brain coral',
     params: { shape: 'sphere', diameter: 80, depth: 3, pattern: 'maze', mazeMode: 'coral', scale: 7, profile: 0.8, level: 0.15, warp: 0.15, seed: 7, resolution: 0.25 },
+  },
+  {
+    name: 'Fish scale panel',
+    params: { shape: 'rect', width: 120, height: 90, base: 2, depth: 2, pattern: 'scales', flow: 'across', scale: 8, overlap: 1.4, jitter: 0.25, variation: 0.2, profile: 1.2, edge: 0.4, scaleTexture: 'rings', texDepth: 0.15, texCount: 6, warp: 0, seed: 5, resolution: 0.25 },
+  },
+  {
+    name: 'Dragon scale vase',
+    params: { shape: 'tube', diameter: 80, taper: 70, height: 140, base: 2, bottom: 3, depth: 2.5, margin: 5, edgeLevel: 1, pattern: 'scales', flow: 'down', scale: 9, overlap: 1.5, jitter: 0.6, variation: 0.35, profile: 1.5, edge: 0.4, pointed: 0.6, scaleWidth: 0.85, scaleTexture: 'keel', texDepth: 0.35, warp: 0.2, seed: 8, resolution: 0.3 },
+  },
+  {
+    name: 'Pine cone',
+    params: { shape: 'sphere', diameter: 70, depth: 4, pattern: 'scales', flow: 'down', scale: 9, overlap: 1.5, jitter: 0.3, variation: 0.2, profile: 1.3, edge: 0.4, squareness: 0.5, scaleWidth: 1.3, scaleTexture: 'ribs', texDepth: 0.25, texCount: 7, warp: 0, seed: 2, resolution: 0.3 },
   },
   {
     name: 'Hexagonal cell tile',

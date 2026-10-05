@@ -63,6 +63,7 @@ jagged on the grid), so for crisp thin walls reduce the mesh step.
 | Spikes | cones on a jittered grid, standing along the surface normal |
 | Gyroid / TPMS | triply periodic minimal surfaces (gyroid, Schwarz P, diamond, Neovius): walls, channels or smooth waves |
 | Labyrinth | meandering stripes of an even width, like Turing patterns or brain coral |
+| Scales | overlapping fish / dragon / pine-cone scales without regular rows |
 
 Common parameters: seed, feature size (mm), octaves, distortion (domain warp),
 stretch and angle. For mountains, "Roughness" sets how much each finer octave
@@ -98,6 +99,28 @@ sharpness"), "Thin walls" a maze of walls of the given thickness. "Balance"
 widens the ridges or the grooves. Each wave counts by how flat it lies in the
 surface, so the stripes keep an even spacing on panels and stay continuous on
 curved shapes.
+
+For scales, the feature size is the spacing between them. Each scale rises
+towards its free edge and drops there in a step. They are stacked like real
+scales: the one centred further upstream lies on top, starts on whatever lies
+beneath its root and lifts to its own height at the free edge, so a rim always
+steps down onto the scale below. "Direction" sets where the free edges point:
+"Along the panel" uses the angle in the xy plane (panels and discs), "Down (−Z)"
+follows the shape downwards (vases, cylinders, spheres, box sides); where that
+direction vanishes, at the poles or on the top of a box, the scales round off
+into domes.
+
+- Layout: "Overlap" (scale size relative to the spacing), "Randomness" (at 0
+  they form rows), "Size variation".
+- Shape: "Scale width / length", "Pointed tip" (narrows the free edge to a point,
+  like dragon scales), "Squareness" (from round to roof-tile rectangles), "Scale
+  curve" (how the rise bends) and "Edge rounding" (mm, at least three mesh steps).
+- Texture: ribs fanning out from the root (pine cone, scallop), a keel along the
+  middle, growth rings parallel to the edge (fish scales) or grain, with its depth
+  and the number of ribs / rings.
+
+Under the scales lies a layer at a quarter of the height, so a rare gap in a
+random layout shows as a shallow dip; more overlap closes it.
 
 Deep relief on a tight curve gets squeezed: the relief is carved inwards, so its
 bottom lies on a surface with a smaller radius. On the box's rounded edges tall
