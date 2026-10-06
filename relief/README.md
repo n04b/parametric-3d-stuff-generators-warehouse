@@ -64,6 +64,7 @@ jagged on the grid), so for crisp thin walls reduce the mesh step.
 | Gyroid / TPMS | triply periodic minimal surfaces (gyroid, Schwarz P, diamond, Neovius): walls, channels or smooth waves |
 | Labyrinth | meandering stripes of an even width, like Turing patterns or brain coral |
 | Scales | overlapping fish / dragon / pine-cone scales without regular rows |
+| Foam / bubbles | packed domes of different sizes, like foam or caviar |
 
 Common parameters: seed, feature size (mm), octaves, distortion (domain warp),
 stretch and angle. For mountains, "Roughness" sets how much each finer octave
@@ -121,6 +122,19 @@ into domes.
 
 Under the scales lies a layer at a quarter of the height, so a rare gap in a
 random layout shows as a shallow dip; more overlap closes it.
+
+For foam, the feature size is the spacing between bubbles. Every bubble is a
+spherical cap and the relief is the highest cap at each point, so bubbles of
+different sizes pack with curved creases where they meet (the borders of a power
+diagram). "Bubble size" is the cap radius relative to the spacing (larger means
+shallower creases, smaller leaves gaps between bubbles), "Size variation" mixes
+sizes, "Height: by size ↔ equal" makes big bubbles taller or all bubbles the same
+height, "Bubble shape" goes from spheres (1) to softer, flatter-footed domes, and
+"Crease rounding" (mm) fillets the creases. The outer quarter of every bubble's
+foot is filleted too (a sphere would meet the base in a vertical wall that the
+mesh shows as a sawtooth), and bubbles near the edge of the point slab on curved
+shapes shrink as a whole, height included. With "Invert" the bubbles become
+dimples, like hammered metal or a golf ball.
 
 Deep relief on a tight curve gets squeezed: the relief is carved inwards, so its
 bottom lies on a surface with a smaller radius. On the box's rounded edges tall
