@@ -1,0 +1,1706 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Motion Sculptures</title>
+  <style>
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --accent-text: #ffffff;
+  --rec: #e0443a;
+  --view: #d9d9d6;
+  --glass: rgba(255, 255, 255, 0.82);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --panel: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9b9a94;
+    --line: #34332f;
+    --accent: #5b92ec;
+    --view: #2a2a28;
+    --glass: rgba(31, 31, 29, 0.82);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --panel: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #9b9a94;
+  --line: #34332f;
+  --accent: #5b92ec;
+  --view: #2a2a28;
+  --glass: rgba(31, 31, 29, 0.82);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Mobile first: the view sticks to the top, the controls scroll under it. */
+body { display: flex; flex-direction: column; min-height: 100svh; }
+
+#viewport {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 58svh;
+  min-height: 300px;
+  background: var(--view);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#viewport canvas.gl { display: block; width: 100%; height: 100%; }
+
+#panel {
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+
+h1 { font-size: 18px; margin: 0 0 4px; }
+.hint { color: var(--muted); margin: 0; font-size: 13px; }
+
+details { border-top: 1px solid var(--line); padding: 2px 0 8px; }
+summary {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 12px 0 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 84px;
+  align-items: center;
+  gap: 2px 8px;
+  margin-bottom: 10px;
+}
+.field > span { font-size: 14px; }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; height: 28px; accent-color: var(--accent); }
+.field.bool { grid-template-columns: 1fr auto; }
+.field.bool input { width: 22px; height: 22px; accent-color: var(--accent); }
+#panel > .field { grid-template-columns: 1fr 190px; margin: 14px 0; }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* no zoom on focus in iOS */
+}
+
+button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: progress; }
+
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 14px 0 4px; }
+.seg button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; font-size: 13px; }
+.seg button svg { width: 34px; height: 34px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg)); color: var(--accent); font-weight: 600; }
+
+#stats {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+#stats dt { color: var(--muted); }
+#stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+#stats .ok { color: #2f9a55; }
+#stats .warn { color: #c9582b; }
+
+.actions { display: flex; gap: 8px; margin: 14px 0 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; }
+
+/* ---------- overlay on the view ---------- */
+
+.chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+#trace {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  left: 10px;
+  width: 150px;
+  height: 52px;
+  border-radius: 10px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  pointer-events: none;
+}
+
+#status {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  right: 10px;
+  max-width: calc(100% - 180px);
+  pointer-events: none;
+}
+
+.view-tools {
+  position: absolute;
+  top: calc(52px + env(safe-area-inset-top));
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.view-tools button {
+  min-height: 34px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.view-tools button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+.rec-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.rec-bar .side {
+  width: 64px;
+  min-height: 48px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--glass);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#live[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+
+#rec {
+  --p: 0;
+  position: relative;
+  width: 78px;
+  height: 78px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: conic-gradient(var(--rec) calc(var(--p) * 1turn), var(--glass) 0);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+#rec::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--panel);
+}
+#rec .dot {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--rec);
+  transition: all 0.2s;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  display: grid;
+  place-items: center;
+}
+#rec.on .dot { width: 30px; height: 30px; border-radius: 7px; font-size: 0; }
+
+#countdown {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 96px;
+  font-weight: 800;
+  color: var(--rec);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+#busy {
+  position: absolute;
+  bottom: 104px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+@media (min-width: 900px) {
+  body { display: grid; grid-template-columns: 360px 1fr; height: 100vh; min-height: 0; }
+  #viewport { grid-column: 2; grid-row: 1; position: relative; height: auto; min-height: 0; }
+  #panel { grid-column: 1; grid-row: 1; overflow-y: auto; border-top: 0; border-right: 1px solid var(--line); }
+  #trace { width: 220px; height: 64px; }
+}
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main id="viewport">
+    <canvas id="trace"></canvas>
+    <div id="status" class="chip">Tap ● and wave the phone</div>
+    <div class="view-tools">
+      <button id="heat" type="button" aria-pressed="true">Motion colours</button>
+      <button id="wire" type="button" aria-pressed="false">Wireframe</button>
+      <button id="reset-view" type="button">Reset view</button>
+    </div>
+    <div id="countdown" hidden></div>
+    <div id="busy" class="chip" hidden>Generating…</div>
+    <div class="rec-bar">
+      <button id="live" class="side" type="button" aria-pressed="false" title="Shape follows the last seconds of motion">Live</button>
+      <button id="rec" type="button" title="Record a gesture"><span class="dot">REC</span></button>
+      <button id="demo" class="side" type="button" title="Random synthetic gesture">Demo</button>
+    </div>
+  </main>
+
+  <aside id="panel">
+    <header>
+      <h1>Motion Sculptures</h1>
+      <p class="hint">Record a gesture: shake, tilt and spin the phone, touch the screen, make some noise. The motion is frozen into a closed solid, ready for printing. Dimensions in millimetres, export to STL.</p>
+    </header>
+
+    <div class="seg" id="forms"></div>
+
+    <label class="field">
+      <span>Preset</span>
+      <select id="preset"></select>
+    </label>
+
+    <div id="groups"></div>
+
+    <section id="stats"></section>
+
+    <div class="actions">
+      <button id="export" type="button" class="primary">Download STL</button>
+      <button id="share" type="button">Copy link</button>
+    </div>
+    <p id="message" class="hint" role="status"></p>
+  </aside>
+
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===== util =====
+
+const TAU = Math.PI * 2;
+const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (a, b, x) => {
+  const t = clamp((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ===== gesture =====
+
+// A gesture is a fixed number of frames, each with these channels, all
+// normalised to [-1, 1] (mic and touch to [0, 1]):
+//   ax ay az   linear acceleration in the phone frame (/ ACC_SCALE m/s²)
+//   ra rb rg   rotation rate around the phone z, x, y axes (/ ROT_SCALE °/s)
+//   tx ty      tilt: gravity in the phone x, y relative to the start pose (/ g)
+//   mic        loudness
+//   touch      a finger on the screen
+const CH_NAMES = ['ax', 'ay', 'az', 'ra', 'rb', 'rg', 'tx', 'ty', 'mic', 'touch'];
+const CH = CH_NAMES.length;
+const C = Object.fromEntries(CH_NAMES.map((n, i) => [n, i]));
+const ACC_SCALE = 20;
+const ROT_SCALE = 720;
+const GRAVITY = 9.81;
+const GESTURE_FRAMES = 192;
+
+// Linear resampling of `count` frames to `n` frames.
+function resampleFrames(src, count, n) {
+  const out = new Float32Array(n * CH);
+  if (count === 0) return out;
+  for (let i = 0; i < n; i++) {
+    const x = count === 1 ? 0 : (i / (n - 1)) * (count - 1);
+    const i0 = Math.floor(x), i1 = Math.min(count - 1, i0 + 1), f = x - i0;
+    for (let c = 0; c < CH; c++) out[i * CH + c] = lerp(src[i0 * CH + c], src[i1 * CH + c], f);
+  }
+  return out;
+}
+
+// Compact form for the page URL: version, duration in 0.1 s, frame count,
+// then every value as a signed byte. About 2.6 kB of base64.
+function encodeGesture(g) {
+  const bytes = new Uint8Array(3 + g.n * CH);
+  bytes[0] = 1;
+  bytes[1] = clamp(Math.round(g.dur * 10), 1, 255);
+  bytes[2] = g.n;
+  for (let k = 0; k < g.n * CH; k++) bytes[3 + k] = Math.round(clamp(g.data[k], -1, 1) * 127) & 0xff;
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeGesture(str) {
+  const s = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(s, (ch) => ch.charCodeAt(0));
+  if (bytes[0] !== 1) throw new Error('unknown gesture version');
+  const n = bytes[2];
+  if (n < 2 || bytes.length !== 3 + n * CH) throw new Error('broken gesture');
+  const data = new Float32Array(n * CH);
+  for (let k = 0; k < n * CH; k++) data[k] = ((bytes[3 + k] << 24) >> 24) / 127;
+  return { n, dur: bytes[1] / 10, data, source: 'link' };
+}
+
+// A synthetic gesture for desktops and first visits: slow sways, a few
+// sharp shakes, a spin, some noise and one touch.
+function demoGesture(seed) {
+  const rand = mulberry32(seed * 7919 + 13);
+  const n = GESTURE_FRAMES, dur = 6;
+  const data = new Float32Array(n * CH);
+  const waves = Array.from({ length: CH }, () => [0, 1, 2].map(() => ({
+    f: 0.5 + rand() * 4, ph: rand() * TAU, a: rand(),
+  })));
+  const shakes = Array.from({ length: 2 + Math.floor(rand() * 4) }, () => ({
+    t: 0.1 + rand() * 0.8, w: 0.03 + rand() * 0.06, a: 0.5 + rand() * 0.7,
+    d: [rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1],
+  }));
+  const spinAt = rand(), spinW = 0.1 + rand() * 0.2, spinA = (rand() < 0.5 ? -1 : 1) * (0.2 + rand() * 0.3);
+  const touchAt = rand() < 0.7 ? 0.2 + rand() * 0.6 : -1, touchW = 0.05 + rand() * 0.1;
+  const noiseAt = rand(), noiseW = 0.1 + rand() * 0.25;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const wave = (c, amp) => waves[c].reduce((s, w) => s + w.a * Math.sin(TAU * w.f * t + w.ph), 0) * amp / 1.5;
+    let ax = wave(0, 0.15), ay = wave(1, 0.15), az = wave(2, 0.1);
+    for (const s of shakes) {
+      const e = Math.exp(-(((t - s.t) / s.w) ** 2)) * s.a * Math.sin(TAU * 9 * t);
+      ax += e * s.d[0]; ay += e * s.d[1]; az += e * s.d[2];
+    }
+    const f = i * CH;
+    data[f + C.ax] = ax; data[f + C.ay] = ay; data[f + C.az] = az;
+    data[f + C.ra] = wave(3, 0.12) + spinA * Math.exp(-(((t - spinAt) / spinW) ** 2));
+    data[f + C.rb] = wave(4, 0.15);
+    data[f + C.rg] = wave(5, 0.15);
+    data[f + C.tx] = wave(6, 0.35);
+    data[f + C.ty] = wave(7, 0.3);
+    data[f + C.mic] = Math.max(0, Math.exp(-(((t - noiseAt) / noiseW) ** 2)) * (0.75 + 0.25 * Math.sin(TAU * 3 * t)));
+    data[f + C.touch] = touchAt >= 0 && Math.abs(t - touchAt) < touchW ? 1 : 0;
+  }
+  return { n, dur, data, source: 'demo', seed };
+}
+
+// ===== signals =====
+
+function blur1d(a, sigma, periodic) {
+  const n = a.length;
+  const r = Math.min(n - 1, Math.max(1, Math.ceil(sigma * 3)));
+  const k = new Float32Array(2 * r + 1);
+  let sum = 0;
+  for (let i = -r; i <= r; i++) sum += k[i + r] = Math.exp(-(i * i) / (2 * sigma * sigma));
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let acc = 0;
+    for (let t = -r; t <= r; t++) {
+      let j = i + t;
+      j = periodic ? ((j % n) + n) % n : clamp(j, 0, n - 1);
+      acc += k[t + r] * a[j];
+    }
+    out[i] = acc / sum;
+  }
+  return out;
+}
+
+// Smoothed channels plus derived signals, sampled at a time t in [0, 1]:
+//   mag    shake strength (length of the acceleration)
+//   rot    rotation strength
+//   phase  angle the lobes are turned by: the phone's own spin around its
+//          screen axis times "Follow spin", plus a fixed spiral.
+// For a ring the time loops: the signals are blended into a cycle and the
+// total phase is rounded so that the lobes meet themselves at the seam.
+function prepareSignals(g, p, periodic) {
+  const n = g.n;
+  const sigma = Math.max(0.6, p.smooth * n);
+  const ch = {};
+  for (let c = 0; c < CH; c++) {
+    const a = new Float32Array(n);
+    for (let i = 0; i < n; i++) a[i] = g.data[i * CH + c];
+    if (periodic) {
+      const d = a[0] - a[n - 1];
+      for (let i = 0; i < n; i++) a[i] += d * smoothstep(0.7, 1, i / (n - 1));
+    }
+    ch[CH_NAMES[c]] = blur1d(a, sigma, periodic);
+  }
+  // Strength is an envelope of the raw signal: shaking back and forth
+  // averages out in the smoothed channels, but not in their length.
+  const mag = new Float32Array(n), rot = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const f = i * CH;
+    mag[i] = Math.hypot(g.data[f + C.ax], g.data[f + C.ay], g.data[f + C.az]);
+    rot[i] = Math.hypot(g.data[f + C.ra], g.data[f + C.rb], g.data[f + C.rg]);
+  }
+  // Directions of single shakes for the blob spikes, barely smoothed.
+  for (const name of ['ax', 'ay', 'az']) {
+    const a = new Float32Array(n);
+    for (let i = 0; i < n; i++) a[i] = g.data[i * CH + C[name]];
+    ch[name + 'Raw'] = blur1d(a, 0.7, periodic);
+  }
+  const envSigma = Math.max(1.5, sigma * 1.5);
+  ch.mag = blur1d(mag, envSigma, periodic);
+  ch.rot = blur1d(rot, envSigma, periodic);
+  if (periodic) {
+    for (const a of [ch.mag, ch.rot]) {
+      const d = a[0] - a[n - 1];
+      for (let i = 0; i < n; i++) a[i] += d * smoothstep(0.85, 1, i / (n - 1));
+    }
+  }
+
+  const dt = g.dur / n;
+  const phase = new Float32Array(n + 1);
+  let spin = 0;
+  for (let i = 0; i <= n; i++) {
+    phase[i] = p.twist * spin + p.spiral * TAU * (i / n);
+    if (i < n) spin += ch.ra[i] * ROT_SCALE * dt * (Math.PI / 180);
+  }
+  if (periodic) {
+    const step = TAU / Math.max(1, p.lobeCount);
+    const total = phase[n] - phase[0];
+    const fix = total - Math.round(total / step) * step;
+    for (let i = 0; i <= n; i++) phase[i] -= (fix * i) / n;
+  }
+
+  function get(name, t) {
+    const a = ch[name];
+    if (periodic) {
+      const x = (((t % 1) + 1) % 1) * n;
+      const i0 = Math.floor(x) % n, i1 = (i0 + 1) % n;
+      return lerp(a[i0], a[i1], x - Math.floor(x));
+    }
+    const x = clamp(t, 0, 1) * (n - 1);
+    const i0 = Math.floor(x), i1 = Math.min(n - 1, i0 + 1);
+    return lerp(a[i0], a[i1], x - i0);
+  }
+  function phaseAt(t) {
+    const x = clamp(t, 0, 1) * n;
+    const i0 = Math.min(n - 1, Math.floor(x));
+    return lerp(phase[i0], phase[i0 + 1], x - i0);
+  }
+  // Everything the shapes read at one moment.
+  function at(t) {
+    return {
+      m: get('mag', t), w: get('rot', t),
+      ax: get('ax', t), ay: get('ay', t), az: get('az', t),
+      tx: get('tx', t), ty: get('ty', t),
+      mic: get('mic', t), touch: get('touch', t),
+      ph: phaseAt(t),
+    };
+  }
+  return { n, get, at, ch };
+}
+
+// ===== params =====
+
+const GROUPS = {
+  shape: 'Shape',
+  motion: 'What the motion does',
+  print: 'Printing',
+  record: 'Recording',
+};
+
+const isVase = (s) => s.form === 'vase';
+const isBlob = (s) => s.form === 'blob';
+const isRing = (s) => s.form === 'ring';
+
+const PARAMS = [
+  { key: 'form', group: 'shape', type: 'choice', options: ['vase', 'blob', 'ring'], value: 'vase' },
+  { key: 'size', group: 'shape', label: 'Size (largest side), mm', type: 'number', min: 15, max: 300, step: 1, value: 90 },
+  { key: 'aspect', group: 'shape', label: 'Height / width', type: 'number', min: 0.3, max: 4, step: 0.05, value: 1.5, when: isVase },
+  { key: 'taper', group: 'shape', label: 'Top / bottom width', type: 'number', min: 0.2, max: 2, step: 0.01, value: 0.75, when: isVase },
+  { key: 'belly', group: 'shape', label: 'Belly', type: 'number', min: -0.4, max: 1, step: 0.01, value: 0.25, when: isVase },
+  { key: 'thickness', group: 'shape', label: 'Tube thickness', type: 'number', min: 0.08, max: 0.6, step: 0.01, value: 0.3, when: isRing },
+  { key: 'detail', group: 'shape', label: 'Mesh detail', type: 'number', min: 0.5, max: 4, step: 0.1, value: 1.5 },
+
+  { key: 'sensitivity', group: 'motion', label: 'Sensitivity', type: 'number', min: 0, max: 3, step: 0.01, value: 1 },
+  { key: 'smooth', group: 'motion', label: 'Smoothing', type: 'number', min: 0, max: 0.1, step: 0.001, value: 0.025 },
+  { key: 'bulge', group: 'motion', label: 'Shake → bulge', type: 'number', min: 0, max: 2, step: 0.01, value: 0.8 },
+  { key: 'lean', group: 'motion', label: 'Tilt → lean', type: 'number', min: 0, max: 2, step: 0.01, value: 0.5 },
+  { key: 'lobes', group: 'motion', label: 'Rotation → lobes', type: 'number', min: 0, max: 2, step: 0.01, value: 0.7 },
+  { key: 'lobeCount', group: 'motion', label: 'Number of lobes', type: 'int', min: 1, max: 16, step: 1, value: 5 },
+  { key: 'twist', group: 'motion', label: 'Follow spin', type: 'number', min: 0, max: 3, step: 0.01, value: 1 },
+  { key: 'spiral', group: 'motion', label: 'Extra spiral, turns', type: 'number', min: -3, max: 3, step: 0.05, value: 0.25 },
+  { key: 'spikes', group: 'motion', label: 'Shake direction → spikes', type: 'number', min: 0, max: 2, step: 0.01, value: 0.8, when: isBlob },
+  { key: 'spikeWidth', group: 'motion', label: 'Spike width', type: 'number', min: 0.1, max: 1, step: 0.01, value: 0.3, when: (s) => isBlob(s) && s.spikes > 0 },
+  { key: 'ripple', group: 'motion', label: 'Sound → ripples', type: 'number', min: 0, max: 0.5, step: 0.005, value: 0.12 },
+  { key: 'rippleCount', group: 'motion', label: 'Ripple count', type: 'int', min: 3, max: 80, step: 1, value: 24, when: (s) => s.ripple > 0 },
+  { key: 'pinch', group: 'motion', label: 'Touch → pinch', type: 'number', min: 0, max: 1, step: 0.01, value: 0.45 },
+
+  { key: 'hollow', group: 'print', label: 'Hollow (vase mode)', type: 'bool', value: false, when: isVase },
+  { key: 'wall', group: 'print', label: 'Wall, mm', type: 'number', min: 0.8, max: 10, step: 0.1, value: 2, when: (s) => isVase(s) && s.hollow },
+  { key: 'floor', group: 'print', label: 'Bottom, mm', type: 'number', min: 0.8, max: 20, step: 0.1, value: 2.4, when: (s) => isVase(s) && s.hollow },
+  { key: 'overhang', group: 'print', label: 'Limit overhangs to 45°', type: 'bool', value: true, when: isVase },
+  { key: 'flat', group: 'print', label: 'Flat bottom', type: 'number', min: 0, max: 0.9, step: 0.01, value: 0.3, when: (s) => !isVase(s) },
+  { key: 'minR', group: 'print', label: 'Thinnest radius, mm', type: 'number', min: 0.5, max: 30, step: 0.1, value: 3 },
+
+  { key: 'duration', group: 'record', label: 'Duration, s', type: 'number', min: 2, max: 20, step: 0.5, value: 6, ui: true },
+  { key: 'countdown', group: 'record', label: 'Countdown 3‑2‑1', type: 'bool', value: true, ui: true },
+  { key: 'mic', group: 'record', label: 'Microphone (sound → ripples)', type: 'bool', value: false, ui: true },
+  { key: 'haptics', group: 'record', label: 'Vibration feedback', type: 'bool', value: true, ui: true },
+];
+
+const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
+
+const FORM_LABELS = { vase: 'Vase', blob: 'Blob', ring: 'Ring' };
+const FORM_ICONS = {
+  vase: '<svg viewBox="0 0 32 32"><path d="M11 4h10M12 4c0 5-6 8-6 15 0 5 4 9 10 9s10-4 10-9c0-7-6-10-6-15"/><path d="M8 13c3 1 5-1 8 0s5 1 8 0"/></svg>',
+  blob: '<svg viewBox="0 0 32 32"><path d="M16 3l3 6 7-2-2 7 6 3-6 3 2 7-7-2-3 6-3-6-7 2 2-7-6-3 6-3-2-7 7 2z"/></svg>',
+  ring: '<svg viewBox="0 0 32 32"><ellipse cx="16" cy="17" rx="13" ry="8"/><ellipse cx="16" cy="16" rx="6" ry="3"/></svg>',
+};
+
+const PRESETS = [
+  { name: 'Shaken vase', params: {} },
+  {
+    name: 'Calm totem',
+    params: { aspect: 3, taper: 0.9, belly: 0.1, bulge: 1.2, lean: 0.3, lobes: 0.4, lobeCount: 3, twist: 0.6, spiral: 0, smooth: 0.035, ripple: 0.05 },
+  },
+  {
+    name: 'Twisted lamp shade',
+    params: { aspect: 1.2, taper: 0.55, belly: 0.4, hollow: true, wall: 1.6, lobes: 1.1, lobeCount: 8, twist: 1.6, spiral: 0.75, bulge: 0.5, ripple: 0.08, rippleCount: 48 },
+  },
+  {
+    name: 'Shake urchin',
+    params: { form: 'blob', size: 70, spikes: 1.4, spikeWidth: 0.22, bulge: 0.5, lobes: 0.3, ripple: 0.06, flat: 0.35 },
+  },
+  {
+    name: 'Soft pebble',
+    params: { form: 'blob', size: 60, spikes: 0.5, spikeWidth: 0.75, bulge: 0.7, lobes: 0.5, lobeCount: 3, smooth: 0.05, ripple: 0, pinch: 0.3, flat: 0.45 },
+  },
+  {
+    name: 'Gesture ring',
+    params: { form: 'ring', size: 100, thickness: 0.3, lobes: 0.9, lobeCount: 4, twist: 1, spiral: 1, bulge: 0.9, flat: 0.25 },
+  },
+  {
+    name: 'Bangle',
+    params: { form: 'ring', size: 72, thickness: 0.16, lobes: 0.5, lobeCount: 3, spiral: 2, bulge: 0.6, lean: 0.2, ripple: 0.05, flat: 0.2, minR: 2 },
+  },
+];
+
+// ===== mesh =====
+
+// Every shape is a grid of rings closed by fans, so the solid is closed and
+// two-manifold by construction. Radii are always measured along rays from
+// an axis or a centre and kept positive, so the surface cannot cross
+// itself; a flat bottom clips the rays against a plane, which keeps that.
+
+function strip(idx, a, b, n) {
+  for (let i = 0; i < n; i++) {
+    const i1 = (i + 1) % n;
+    idx.push(a + i, a + i1, b + i1, a + i, b + i1, b + i);
+  }
+}
+
+function fan(idx, c, a, n, up) {
+  for (let i = 0; i < n; i++) {
+    const i1 = (i + 1) % n;
+    if (up) idx.push(c, a + i, a + i1);
+    else idx.push(c, a + i1, a + i);
+  }
+}
+
+function finish(pos, idx, tv) {
+  const positions = Float32Array.from(pos);
+  let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (let k = 0; k < positions.length; k += 3) {
+    minX = Math.min(minX, positions[k]); maxX = Math.max(maxX, positions[k]);
+    minY = Math.min(minY, positions[k + 1]); maxY = Math.max(maxY, positions[k + 1]);
+    minZ = Math.min(minZ, positions[k + 2]); maxZ = Math.max(maxZ, positions[k + 2]);
+  }
+  // Centre in plan, bottom on z = 0.
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  for (let k = 0; k < positions.length; k += 3) {
+    positions[k] -= cx; positions[k + 1] -= cy; positions[k + 2] -= minZ;
+  }
+  return {
+    positions,
+    indices: Uint32Array.from(idx),
+    tvals: Float32Array.from(tv),
+    dims: [maxX - minX, maxY - minY, maxZ - minZ],
+  };
+}
+
+// Bounding size of points given as radii along unit directions.
+function spanOf(R, dirs) {
+  let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (let k = 0; k < R.length; k++) {
+    const x = dirs[k * 3] * R[k], y = dirs[k * 3 + 1] * R[k], z = dirs[k * 3 + 2] * R[k];
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+  }
+  return Math.max(maxX - minX, maxY - minY, maxZ - minZ);
+}
+
+// ---------- vase ----------
+
+// Time runs from the bottom up: every layer is a moment of the gesture.
+// The section is a polar curve around the vertical axis.
+function buildVase(S, p, det) {
+  const A = Math.max(24, Math.round((144 * det) / 4) * 4);
+  const L = Math.max(16, Math.round(100 * det * Math.sqrt(p.aspect / 1.5)));
+  const H = 2 * p.aspect;
+  const g = p.sensitivity, nl = p.lobeCount, rc = p.rippleCount;
+  const cosT = new Float32Array(A), sinT = new Float32Array(A);
+  for (let i = 0; i < A; i++) { cosT[i] = Math.cos((TAU * i) / A); sinT[i] = Math.sin((TAU * i) / A); }
+
+  const R = new Float32Array((L + 1) * A);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let k = 0; k <= L; k++) {
+    const t = k / L;
+    const s = S.at(t);
+    const prof = Math.max(0.05, lerp(1, p.taper, t) + p.belly * Math.sin(Math.PI * t));
+    const base = prof * (1 + g * p.bulge * s.m);
+    for (let i = 0; i < A; i++) {
+      const th = (TAU * i) / A;
+      let r = base
+        + g * p.lean * (s.tx * cosT[i] + s.ty * sinT[i])
+        + prof * g * p.lobes * s.w * Math.cos(nl * (th - s.ph))
+        + prof * g * p.ripple * s.mic * Math.cos(rc * th);
+      r -= prof * p.pinch * s.touch * 0.6 * (0.5 + 0.5 * Math.cos(2 * (th - s.ph)));
+      r = Math.max(r, 0.02);
+      R[k * A + i] = r;
+      const x = r * cosT[i], y = r * sinT[i];
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+  }
+
+  const sc = p.size / Math.max(H, maxX - minX, maxY - minY);
+  const Hmm = H * sc, dz = Hmm / L;
+  const rMin = p.hollow ? p.wall + p.minR : p.minR;
+  for (let k = 0; k < R.length; k++) R[k] = Math.max(R[k] * sc, rMin);
+  if (p.overhang) {
+    // Growing outwards faster than one layer height per layer overhangs the
+    // outside; for a hollow vase narrowing that fast overhangs the inside.
+    for (let i = 0; i < A; i++) {
+      for (let k = 1; k <= L; k++) {
+        const below = R[(k - 1) * A + i];
+        let r = Math.min(R[k * A + i], below + dz);
+        if (p.hollow) r = Math.max(r, below - dz);
+        R[k * A + i] = r;
+      }
+    }
+  }
+
+  const pos = [], idx = [], tv = [];
+  const ring = (radius, z, t) => {
+    const start = pos.length / 3;
+    for (let i = 0; i < A; i++) { pos.push(radius(i) * cosT[i], radius(i) * sinT[i], z); tv.push(t); }
+    return start;
+  };
+  const outer = [];
+  for (let k = 0; k <= L; k++) outer.push(ring((i) => R[k * A + i], k * dz, k / L));
+  for (let k = 0; k < L; k++) strip(idx, outer[k], outer[k + 1], A);
+  const bottom = pos.length / 3;
+  pos.push(0, 0, 0); tv.push(0);
+  fan(idx, bottom, outer[0], A, false);
+
+  if (!p.hollow) {
+    const top = pos.length / 3;
+    pos.push(0, 0, Hmm); tv.push(1);
+    fan(idx, top, outer[L], A, true);
+  } else {
+    const floor = Math.min(p.floor, Hmm * 0.5);
+    const outerAt = (z, i) => {
+      const x = clamp(z / dz, 0, L);
+      const k0 = Math.min(L - 1, Math.floor(x));
+      return lerp(R[k0 * A + i], R[(k0 + 1) * A + i], x - k0);
+    };
+    const inner = [];
+    for (let k = 0; k <= L; k++) {
+      const z = floor + ((Hmm - floor) * k) / L;
+      inner.push(ring((i) => (k === L ? R[L * A + i] : outerAt(z, i)) - p.wall, z, z / Hmm));
+    }
+    for (let k = 0; k < L; k++) strip(idx, inner[k + 1], inner[k], A);
+    strip(idx, outer[L], inner[L], A);
+    const fl = pos.length / 3;
+    pos.push(0, 0, floor); tv.push(floor / Hmm);
+    fan(idx, fl, inner[0], A, true);
+  }
+  return finish(pos, idx, tv);
+}
+
+// ---------- blob ----------
+
+// A star-shaped solid around a centre. Latitude is time (bottom = start),
+// the direction of every shake pushes a spike out that way, turned with
+// the phone's spin so the spikes wind around.
+function buildBlob(S, p, det) {
+  const A = Math.max(24, Math.round(150 * det));
+  const L = Math.max(12, Math.round(90 * det));
+  const g = p.sensitivity, nl = p.lobeCount, rc = p.rippleCount;
+
+  const K = 96;
+  const spikes = [];
+  for (let q = 0; q < K; q++) {
+    const t = (q + 0.5) / K;
+    const ax = S.get('axRaw', t), ay = S.get('ayRaw', t), az = S.get('azRaw', t);
+    const m = Math.hypot(ax, ay, az);
+    if (m < 1e-4) continue;
+    const ph = S.at(t).ph, c = Math.cos(ph), sn = Math.sin(ph);
+    const ux = ax / m, uy = ay / m, uz = az / m;
+    spikes.push({ x: ux * c - uy * sn, y: ux * sn + uy * c, z: uz, w: (m * m * 96) / K });
+  }
+  const sw2 = p.spikeWidth * p.spikeWidth;
+  // Spikes add up and saturate: a sharp shake of about 1 g lasting a few
+  // tenths of a second makes a full spike, slow wandering hardly any.
+  const spikeAmp = g * p.spikes * 0.9;
+  const cut = 1 - 4 * sw2;
+
+  // Vertex directions: bottom pole, rings, top pole.
+  const count = 2 + (L - 1) * A;
+  const dirs = new Float32Array(count * 3), lat = new Float32Array(count), lon = new Float32Array(count);
+  let v = 0;
+  const addDir = (phi, th) => {
+    dirs[v * 3] = Math.cos(phi) * Math.cos(th);
+    dirs[v * 3 + 1] = Math.cos(phi) * Math.sin(th);
+    dirs[v * 3 + 2] = Math.sin(phi);
+    lat[v] = phi; lon[v] = th; v++;
+  };
+  addDir(-Math.PI / 2, 0);
+  for (let k = 1; k < L; k++) for (let i = 0; i < A; i++) addDir(-Math.PI / 2 + (Math.PI * k) / L, (TAU * i) / A);
+  addDir(Math.PI / 2, 0);
+
+  const R = new Float32Array(count);
+  let lastT = -1, s = null;
+  for (let k = 0; k < count; k++) {
+    const phi = lat[k], th = lon[k], cphi = Math.cos(phi);
+    const t = (phi + Math.PI / 2) / Math.PI;
+    if (t !== lastT) { s = S.at(t); lastT = t; }
+    const dx = dirs[k * 3], dy = dirs[k * 3 + 1], dz = dirs[k * 3 + 2];
+    let sp = 0;
+    if (spikeAmp > 0) {
+      for (const u of spikes) {
+        const d = dx * u.x + dy * u.y + dz * u.z;
+        if (d > cut) sp += u.w * Math.exp((d - 1) / sw2);
+      }
+    }
+    let r = 1 + g * p.bulge * 0.6 * s.m
+      + spikeAmp * (1 - Math.exp(-sp))
+      + g * p.lean * 0.5 * (s.tx * dx + s.ty * dy)
+      + g * p.lobes * s.w * Math.cos(nl * (th - s.ph)) * cphi
+      + g * p.ripple * s.mic * Math.cos(rc * phi);
+    r -= p.pinch * s.touch * 0.4 * (0.5 + 0.5 * Math.cos(2 * (th - s.ph))) * cphi;
+    R[k] = Math.max(r, 0.1);
+  }
+
+  const sc = p.size / spanOf(R, dirs);
+  for (let k = 0; k < count; k++) R[k] = Math.max(R[k] * sc, p.minR);
+  // Flat bottom: a plane below the centre, at a share of the lowest radius.
+  let low = Infinity;
+  for (let k = 0; k < count; k++) if (dirs[k * 3 + 2] < -0.8) low = Math.min(low, -R[k] * dirs[k * 3 + 2]);
+  const hb = (1 - p.flat) * low;
+  for (let k = 0; k < count; k++) {
+    const dz = dirs[k * 3 + 2];
+    if (dz < 0 && R[k] * -dz > hb) R[k] = hb / -dz;
+  }
+
+  const pos = new Array(count * 3), tv = new Array(count);
+  for (let k = 0; k < count; k++) {
+    pos[k * 3] = dirs[k * 3] * R[k]; pos[k * 3 + 1] = dirs[k * 3 + 1] * R[k]; pos[k * 3 + 2] = dirs[k * 3 + 2] * R[k];
+    tv[k] = (lat[k] + Math.PI / 2) / Math.PI;
+  }
+  const idx = [];
+  const ringAt = (k) => 1 + (k - 1) * A;
+  fan(idx, 0, ringAt(1), A, false);
+  for (let k = 1; k < L - 1; k++) strip(idx, ringAt(k), ringAt(k + 1), A);
+  fan(idx, count - 1, ringAt(L - 1), A, true);
+  return finish(pos, idx, tv);
+}
+
+// ---------- ring ----------
+
+// The gesture loops around a torus: every cross-section is a moment, its
+// shape a polar curve around the tube centre.
+function buildRing(S, p, det) {
+  const U = Math.max(48, Math.round(200 * det));
+  const V = Math.max(16, Math.round(56 * det));
+  const g = p.sensitivity, nl = p.lobeCount, rc = p.rippleCount, rT = p.thickness;
+  const cosV = new Float32Array(V), sinV = new Float32Array(V);
+  for (let i = 0; i < V; i++) { cosV[i] = Math.cos((TAU * i) / V); sinV[i] = Math.sin((TAU * i) / V); }
+
+  const Rm = new Float32Array(U), rt = new Float32Array(U * V);
+  let span = 0;
+  for (let j = 0; j < U; j++) {
+    const s = S.at(j / U);
+    Rm[j] = clamp(1 + g * p.lean * 0.3 * s.ty, 0.6, 1.4);
+    for (let i = 0; i < V; i++) {
+      const v = (TAU * i) / V;
+      let r = rT * (1 + g * p.bulge * s.m)
+        + rT * g * p.lean * 0.8 * s.tx * cosV[i]
+        + rT * g * p.lobes * s.w * Math.cos(nl * (v - s.ph))
+        + rT * g * p.ripple * s.mic * Math.cos(rc * v);
+      r *= 1 - p.pinch * s.touch * 0.6 * sinV[i] * sinV[i];
+      rt[j * V + i] = clamp(r, 0.01, 0.85 * Rm[j]);
+      span = Math.max(span, Rm[j] + rt[j * V + i]);
+    }
+  }
+  const sc = p.size / (2 * span);
+
+  const pos = [], idx = [], tv = [];
+  for (let j = 0; j < U; j++) {
+    const u = (TAU * j) / U, cu = Math.cos(u), su = Math.sin(u);
+    const big = Rm[j] * sc;
+    const row = rt.subarray(j * V, j * V + V);
+    for (let i = 0; i < V; i++) row[i] = Math.min(Math.max(row[i] * sc, p.minR), 0.85 * big);
+    // Flat bottom: this section's centre sits above the bed by a share of
+    // its lowest radius; rays below are clipped by the bed.
+    let low = Infinity;
+    for (let i = 0; i < V; i++) if (sinV[i] < -0.7) low = Math.min(low, -row[i] * sinV[i]);
+    const zc = (1 - p.flat) * low;
+    for (let i = 0; i < V; i++) {
+      let r = row[i];
+      if (sinV[i] < 0 && r * -sinV[i] > zc) r = zc / -sinV[i];
+      const rad = big + r * cosV[i];
+      pos.push(rad * cu, rad * su, zc + r * sinV[i]);
+      tv.push(j / U);
+    }
+  }
+  for (let j = 0; j < U; j++) strip(idx, ((j + 1) % U) * V, j * V, V);
+  return finish(pos, idx, tv);
+}
+
+function buildMesh(gesture, p, det) {
+  const S = prepareSignals(gesture, p, p.form === 'ring');
+  const build = p.form === 'blob' ? buildBlob : p.form === 'ring' ? buildRing : buildVase;
+  // Overhang limits, thinnest radius and the flat bottom change the size a
+  // little: build again at a corrected size so the largest side is exact.
+  let q = p, mesh = build(S, q, det);
+  for (let pass = 0; pass < 2; pass++) {
+    const got = Math.max(...mesh.dims);
+    if (Math.abs(got - p.size) < p.size * 0.005) break;
+    q = { ...q, size: (q.size * p.size) / got };
+    mesh = build(S, q, det);
+  }
+  mesh.signals = S;
+  return mesh;
+}
+
+// Every edge must be used exactly twice, once in each direction (closed,
+// two-manifold, consistently oriented); the volume must be positive
+// (normals point out).
+function checkMesh({ positions, indices }) {
+  const nv = positions.length / 3;
+  const edges = new Map();
+  let volume = 0, degenerate = 0;
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = indices[t], b = indices[t + 1], c = indices[t + 2];
+    for (const [x, y] of [[a, b], [b, c], [c, a]]) {
+      const key = x < y ? x * nv + y : y * nv + x;
+      edges.set(key, (edges.get(key) || 0) + (x < y ? 1 : 1024));
+    }
+    const ax = positions[a * 3], ay = positions[a * 3 + 1], az = positions[a * 3 + 2];
+    const bx = positions[b * 3] - ax, by = positions[b * 3 + 1] - ay, bz = positions[b * 3 + 2] - az;
+    const cx = positions[c * 3] - ax, cy = positions[c * 3 + 1] - ay, cz = positions[c * 3 + 2] - az;
+    const nx = by * cz - bz * cy, ny = bz * cx - bx * cz, nz = bx * cy - by * cx;
+    if (Math.hypot(nx, ny, nz) < 1e-10) degenerate++;
+    volume += (ax * nx + ay * ny + az * nz) / 6;
+  }
+  let bad = 0;
+  for (const v of edges.values()) if (v !== 1025) bad++;
+  return { edges: edges.size, badEdges: bad, degenerate, volume, closed: bad === 0 && volume > 0 };
+}
+
+// ===== stl =====
+
+function meshToSTL({ positions, indices }, header = '3d-textures motion sculpture') {
+  const triCount = indices.length / 3;
+  const buffer = new ArrayBuffer(84 + triCount * 50);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < Math.min(80, header.length); i++) bytes[i] = header.charCodeAt(i) & 0x7f;
+  view.setUint32(80, triCount, true);
+
+  let o = 84;
+  for (let t = 0; t < indices.length; t += 3) {
+    const a = indices[t] * 3, b = indices[t + 1] * 3, c = indices[t + 2] * 3;
+    const ax = positions[a], ay = positions[a + 1], az = positions[a + 2];
+    const bx = positions[b], by = positions[b + 1], bz = positions[b + 2];
+    const cx = positions[c], cy = positions[c + 1], cz = positions[c + 2];
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    view.setFloat32(o, nx, true); view.setFloat32(o + 4, ny, true); view.setFloat32(o + 8, nz, true);
+    view.setFloat32(o + 12, ax, true); view.setFloat32(o + 16, ay, true); view.setFloat32(o + 20, az, true);
+    view.setFloat32(o + 24, bx, true); view.setFloat32(o + 28, by, true); view.setFloat32(o + 32, bz, true);
+    view.setFloat32(o + 36, cx, true); view.setFloat32(o + 40, cy, true); view.setFloat32(o + 44, cz, true);
+    view.setUint16(o + 48, 0, true);
+    o += 50;
+  }
+  return buffer;
+}
+
+// ===== sensors =====
+
+// The latest raw readings; a fixed-rate sampler turns them into frames, so
+// the result does not depend on how often the browser fires events.
+const SAMPLE_RATE = 50;
+const BUFFER_SECONDS = 25;
+const sensors = {
+  requested: false,
+  motionAt: 0, // time of the last devicemotion event
+  acc: [0, 0, 0],
+  rot: [0, 0, 0],
+  grav: [0, 0, 0],
+  grav0: null, // gravity at the start of a take: tilt is measured from it
+  hasGravityOnly: false,
+  touch: 0,
+  pointer: null, // { x, y } in [-1, 1], when there is no motion sensor
+  mic: null, // { ctx, analyser, buf, stream }
+};
+
+function onMotion(e) {
+  sensors.motionAt = performance.now();
+  const gi = e.accelerationIncludingGravity;
+  if (gi && gi.x != null) {
+    const k = 0.12;
+    sensors.grav[0] += (gi.x - sensors.grav[0]) * k;
+    sensors.grav[1] += (gi.y - sensors.grav[1]) * k;
+    sensors.grav[2] += (gi.z - sensors.grav[2]) * k;
+  }
+  const a = e.acceleration;
+  if (a && a.x != null) {
+    sensors.acc = [a.x, a.y, a.z];
+  } else if (gi && gi.x != null) {
+    // No linear acceleration: take gravity out with the low-pass estimate.
+    sensors.hasGravityOnly = true;
+    sensors.acc = [gi.x - sensors.grav[0], gi.y - sensors.grav[1], gi.z - sensors.grav[2]];
+  }
+  const r = e.rotationRate;
+  if (r) sensors.rot = [r.alpha || 0, r.beta || 0, r.gamma || 0];
+}
+
+const hasMotion = () => performance.now() - sensors.motionAt < 600;
+
+async function requestSensors() {
+  if (sensors.requested) return;
+  sensors.requested = true;
+  if (!window.isSecureContext) setStatus('Motion sensors need an https:// page');
+  // iOS asks for permission, and only inside a tap: call both before any await.
+  const DME = window.DeviceMotionEvent, DOE = window.DeviceOrientationEvent;
+  const asks = [];
+  if (DME && typeof DME.requestPermission === 'function') asks.push(DME.requestPermission());
+  if (DOE && typeof DOE.requestPermission === 'function') asks.push(DOE.requestPermission());
+  try {
+    const answers = await Promise.all(asks);
+    if (answers.some((a) => a !== 'granted')) setStatus('Motion access denied: drag on the view instead');
+  } catch {
+    setStatus('No motion access: drag on the view instead');
+  }
+  // Listen anyway: if events do come, they win over the pointer.
+  window.addEventListener('devicemotion', onMotion);
+}
+
+async function enableMic(on) {
+  if (!on) {
+    if (sensors.mic) {
+      sensors.mic.stream.getTracks().forEach((t) => t.stop());
+      sensors.mic.ctx.close();
+      sensors.mic = null;
+    }
+    return true;
+  }
+  if (sensors.mic) return true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    sensors.mic = { ctx, analyser, stream, buf: new Float32Array(analyser.fftSize) };
+    return true;
+  } catch {
+    setStatus('No microphone access');
+    return false;
+  }
+}
+
+function micLevel() {
+  const m = sensors.mic;
+  if (!m) return 0;
+  if (m.ctx.state === 'suspended') m.ctx.resume();
+  m.analyser.getFloatTimeDomainData(m.buf);
+  let s = 0;
+  for (const x of m.buf) s += x * x;
+  const rms = Math.sqrt(s / m.buf.length);
+  // About -50 dB to -10 dB mapped onto 0..1.
+  return clamp((20 * Math.log10(rms + 1e-9) + 50) / 40, 0, 1);
+}
+
+const ring = {
+  data: new Float32Array(SAMPLE_RATE * BUFFER_SECONDS * CH),
+  cap: SAMPLE_RATE * BUFFER_SECONDS,
+  count: 0,
+};
+const lastPointer = { x: 0, y: 0, vx: 0, vy: 0, t: 0 };
+
+function sampleFrame() {
+  const f = new Float32Array(CH);
+  if (hasMotion()) {
+    f[C.ax] = sensors.acc[0] / ACC_SCALE;
+    f[C.ay] = sensors.acc[1] / ACC_SCALE;
+    f[C.az] = sensors.acc[2] / ACC_SCALE;
+    f[C.ra] = sensors.rot[0] / ROT_SCALE;
+    f[C.rb] = sensors.rot[1] / ROT_SCALE;
+    f[C.rg] = sensors.rot[2] / ROT_SCALE;
+    if (!sensors.grav0) sensors.grav0 = [...sensors.grav];
+    f[C.tx] = (sensors.grav[0] - sensors.grav0[0]) / GRAVITY;
+    f[C.ty] = (sensors.grav[1] - sensors.grav0[1]) / GRAVITY;
+  } else if (sensors.pointer) {
+    // No motion sensor (a desktop): the pointer stands in. Its position is
+    // the tilt, its speed the shake, circling around the centre the spin.
+    const now = performance.now() / 1000;
+    if (!lastPointer.t) Object.assign(lastPointer, { ...sensors.pointer, vx: 0, vy: 0, t: now - 1 / SAMPLE_RATE });
+    const dt = Math.max(1e-3, now - (lastPointer.t || now - 1 / SAMPLE_RATE));
+    const { x, y } = sensors.pointer;
+    const vx = (x - lastPointer.x) / dt, vy = (y - lastPointer.y) / dt;
+    lastPointer.vx += (vx - lastPointer.vx) * 0.4;
+    lastPointer.vy += (vy - lastPointer.vy) * 0.4;
+    Object.assign(lastPointer, { x, y, t: now });
+    const r2 = Math.max(0.05, x * x + y * y);
+    f[C.ax] = clamp(lastPointer.vx * 0.12, -1, 1);
+    f[C.ay] = clamp(lastPointer.vy * 0.12, -1, 1);
+    f[C.az] = clamp(Math.hypot(lastPointer.vx, lastPointer.vy) * 0.05, 0, 1);
+    f[C.ra] = clamp(((x * lastPointer.vy - y * lastPointer.vx) / r2) * (180 / Math.PI) / ROT_SCALE, -1, 1);
+    f[C.tx] = x * 0.6;
+    f[C.ty] = y * 0.6;
+  }
+  for (const c of [C.ax, C.ay, C.az, C.ra, C.rb, C.rg, C.tx, C.ty]) f[c] = clamp(f[c], -1, 1);
+  f[C.mic] = micLevel();
+  f[C.touch] = sensors.touch;
+  ring.data.set(f, (ring.count % ring.cap) * CH);
+  ring.count++;
+  return f;
+}
+
+function lastFrames(frames) {
+  const n = Math.min(frames, ring.count, ring.cap);
+  const out = new Float32Array(n * CH);
+  for (let i = 0; i < n; i++) {
+    const src = ((ring.count - n + i) % ring.cap) * CH;
+    out.set(ring.data.subarray(src, src + CH), i * CH);
+  }
+  return { frames: out, count: n };
+}
+
+// ===== main =====
+
+const $ = (id) => document.getElementById(id);
+const state = { ...DEFAULTS };
+let gesture = demoGesture(1);
+const fromHash = readHash();
+
+const mode = { live: false, recording: false, countdown: false };
+let recordStart = 0, recordStartCount = 0;
+let lastMesh = null;
+let lastShakeBuzz = 0;
+
+function setStatus(text) { $('status').textContent = text; }
+const buzz = (pattern) => { if (state.haptics && navigator.vibrate) navigator.vibrate(pattern); };
+
+// ---------- form ----------
+
+const controlsByKey = new Map();
+
+function makeControl(p) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  wrap.append(title);
+
+  if (p.type === 'bool') {
+    wrap.classList.add('bool');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => update(p.key, box.checked));
+    wrap.append(box);
+    controlsByKey.set(p.key, { wrap, set: (v) => (box.checked = v) });
+  } else {
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.inputMode = 'decimal';
+    num.min = p.min; num.max = p.max; num.step = p.step;
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = p.min; range.max = p.max; range.step = p.step;
+    const parse = (v) => {
+      let x = Number(v);
+      if (!Number.isFinite(x)) return null;
+      if (p.type === 'int') x = Math.round(x);
+      return Math.min(p.max, Math.max(p.min, x));
+    };
+    num.addEventListener('change', () => {
+      const x = parse(num.value);
+      if (x === null) { num.value = state[p.key]; return; }
+      num.value = x; range.value = x;
+      update(p.key, x);
+    });
+    range.addEventListener('input', () => {
+      const x = parse(range.value);
+      num.value = x;
+      update(p.key, x);
+    });
+    wrap.append(num, range);
+    controlsByKey.set(p.key, { wrap, set: (v) => { num.value = v; range.value = v; } });
+  }
+  return wrap;
+}
+
+// Form picker as big buttons.
+const formButtons = {};
+for (const f of PARAMS[0].options) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.innerHTML = `${FORM_ICONS[f]}<span>${FORM_LABELS[f]}</span>`;
+  b.addEventListener('click', () => update('form', f));
+  formButtons[f] = b;
+  $('forms').append(b);
+}
+controlsByKey.set('form', {
+  wrap: $('forms'),
+  set: (v) => { for (const [f, b] of Object.entries(formButtons)) b.setAttribute('aria-pressed', String(f === v)); },
+});
+
+const groupBodies = {};
+const wide = matchMedia('(min-width: 900px)').matches;
+for (const [id, title] of Object.entries(GROUPS)) {
+  const det = document.createElement('details');
+  det.open = wide || id === 'shape' || id === 'motion';
+  const sum = document.createElement('summary');
+  sum.textContent = title;
+  det.append(sum);
+  groupBodies[id] = det;
+  $('groups').append(det);
+}
+for (const p of PARAMS) if (p.type !== 'choice') groupBodies[p.group].append(makeControl(p));
+
+PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
+$('preset').add(new Option('— custom settings —', 'custom'));
+$('preset').value = fromHash ? 'custom' : 0;
+$('preset').addEventListener('change', () => {
+  const pr = PRESETS[Number($('preset').value)];
+  if (!pr) return;
+  const keep = Object.fromEntries(PARAMS.filter((p) => p.ui).map((p) => [p.key, state[p.key]]));
+  Object.assign(state, DEFAULTS, pr.params, keep);
+  syncForm();
+  schedule(true);
+});
+
+function syncVisibility() {
+  for (const p of PARAMS) controlsByKey.get(p.key).wrap.hidden = p.when ? !p.when(state) : false;
+}
+
+function syncForm() {
+  for (const p of PARAMS) controlsByKey.get(p.key).set(state[p.key]);
+  syncVisibility();
+}
+
+async function update(key, value) {
+  state[key] = value;
+  const p = PARAMS.find((q) => q.key === key);
+  if (key === 'form') controlsByKey.get('form').set(value);
+  if (key === 'mic') {
+    const ok = await enableMic(value);
+    if (!ok) { state.mic = false; controlsByKey.get('mic').set(false); }
+  }
+  if (!p.ui && key !== 'detail') $('preset').value = 'custom';
+  syncVisibility();
+  if (p.ui) writeHash();
+  else schedule(key === 'form' || key === 'size');
+}
+
+// ---------- scene ----------
+
+const viewport = $('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.domElement.className = 'gl';
+viewport.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20000);
+camera.up.set(0, 0, 1);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.autoRotateSpeed = 3;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.2));
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+scene.add(keyLight, keyLight.target);
+const rim = new THREE.DirectionalLight(0xffffff, 0.7);
+scene.add(rim);
+
+const material = new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0, vertexColors: true });
+let object = null;
+
+const view = { heat: true, wire: false };
+function toggle(id, key) {
+  $(id).addEventListener('click', () => {
+    view[key] = !view[key];
+    $(id).setAttribute('aria-pressed', String(view[key]));
+    if (key === 'wire') material.wireframe = view.wire;
+    else if (lastMesh) setColors(lastMesh);
+  });
+}
+toggle('heat', 'heat');
+toggle('wire', 'wire');
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewport);
+
+function frameObject(dims) {
+  const size = Math.max(...dims);
+  const d = size * 2.6;
+  camera.position.set(d * 0.55, -d * 0.75, dims[2] * 0.5 + d * 0.45);
+  orbit.target.set(0, 0, dims[2] * 0.45);
+  camera.near = size / 100;
+  camera.far = size * 40;
+  camera.updateProjectionMatrix();
+  keyLight.position.set(-size, -size * 0.6, size * 2);
+  rim.position.set(size * 1.5, size, size * 0.3);
+  orbit.update();
+}
+$('reset-view').addEventListener('click', () => lastMesh && frameObject(lastMesh.dims));
+
+// Colour by how hard the phone was shaken at that moment.
+const COLD = new THREE.Color(0xe9e7e1), HOT = new THREE.Color(0xe0443a), MID = new THREE.Color(0x3d7be0);
+function setColors(mesh) {
+  const n = mesh.tvals.length;
+  const col = new Float32Array(n * 3);
+  const c = new THREE.Color();
+  for (let k = 0; k < n; k++) {
+    if (!view.heat) { c.copy(COLD); } else {
+      const S = mesh.signals;
+      const e = clamp(S.get('mag', mesh.tvals[k]) * 1.6 * state.sensitivity, 0, 1);
+      const w = clamp(S.get('rot', mesh.tvals[k]) * 2 * state.sensitivity, 0, 1);
+      c.copy(COLD).lerp(MID, w * 0.6).lerp(HOT, e);
+    }
+    col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
+  }
+  object.geometry.setAttribute('color', new THREE.BufferAttribute(col, 3));
+}
+
+// ---------- trace ----------
+
+const trace = $('trace');
+const tctx = trace.getContext('2d');
+function drawTrace() {
+  const w = trace.clientWidth, h = trace.clientHeight, dpr = Math.min(devicePixelRatio, 2);
+  if (trace.width !== w * dpr) { trace.width = w * dpr; trace.height = h * dpr; }
+  tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  tctx.clearRect(0, 0, w, h);
+  const { frames, count } = lastFrames(SAMPLE_RATE * 4);
+  if (count < 2) {
+    tctx.fillStyle = getComputedStyle(document.body).color;
+    tctx.globalAlpha = 0.5;
+    tctx.font = '11px system-ui';
+    tctx.fillText('motion trace', 8, h / 2 + 4);
+    tctx.globalAlpha = 1;
+    return;
+  }
+  const line = (fn, color, scale) => {
+    tctx.strokeStyle = color;
+    tctx.lineWidth = 1.5;
+    tctx.beginPath();
+    for (let i = 0; i < count; i++) {
+      const x = (i / (SAMPLE_RATE * 4 - 1)) * w + (w - (count / (SAMPLE_RATE * 4)) * w);
+      const y = h - 4 - clamp(fn(frames, i * CH) * scale, 0, 1) * (h - 8);
+      if (i) tctx.lineTo(x, y); else tctx.moveTo(x, y);
+    }
+    tctx.stroke();
+  };
+  line((f, o) => f[o + C.touch], 'rgba(150,150,150,0.5)', 0.3);
+  line((f, o) => f[o + C.mic], '#2f9a55', 1);
+  line((f, o) => Math.hypot(f[o + C.ra], f[o + C.rb], f[o + C.rg]), '#3d7be0', 2);
+  line((f, o) => Math.hypot(f[o + C.ax], f[o + C.ay], f[o + C.az]), '#e0443a', 1.6);
+}
+
+// ---------- generation ----------
+
+let dirty = true, refit = true, lastBuild = 0, liveDetail = 1;
+
+function schedule(reframe = false) {
+  dirty = true;
+  if (reframe) refit = true;
+}
+
+function currentGesture() {
+  if (mode.recording) {
+    const n = ring.count - recordStartCount;
+    const { frames, count } = lastFrames(n);
+    if (count < 4) return null;
+    const dur = (count / SAMPLE_RATE);
+    return { n: GESTURE_FRAMES, dur, data: resampleFrames(frames, count, GESTURE_FRAMES), source: 'take' };
+  }
+  if (mode.live) {
+    const { frames, count } = lastFrames(Math.round(state.duration * SAMPLE_RATE));
+    if (count < 4) return null;
+    return { n: GESTURE_FRAMES, dur: count / SAMPLE_RATE, data: resampleFrames(frames, count, GESTURE_FRAMES), source: 'live' };
+  }
+  return gesture;
+}
+
+function regenerate() {
+  const busy = mode.live || mode.recording;
+  const g = currentGesture();
+  if (!g) return;
+  const t0 = performance.now();
+  const det = busy ? state.detail * liveDetail * 0.5 : state.detail;
+  const mesh = buildMesh(g, state, det);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+  geo.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
+  geo.computeVertexNormals();
+  if (object) { scene.remove(object); object.geometry.dispose(); }
+  object = new THREE.Mesh(geo, material);
+  scene.add(object);
+  lastMesh = mesh;
+  setColors(mesh);
+  if (refit) { frameObject(mesh.dims); refit = false; }
+  const ms = performance.now() - t0;
+  // Keep the live view smooth on slow phones.
+  if (busy) liveDetail = clamp(liveDetail * (ms > 45 ? 0.85 : ms < 20 ? 1.08 : 1), 0.3, 1);
+  if (!busy) { renderStats(mesh); writeHash(); }
+}
+
+function renderStats(mesh) {
+  const check = checkMesh(mesh);
+  const tris = mesh.indices.length / 3;
+  const cm3 = check.volume / 1000;
+  const rows = [
+    ['Dimensions, mm', mesh.dims.map((d) => d.toFixed(1)).join(' × ')],
+    ['Volume', `${cm3.toFixed(1)} cm³ (~${(cm3 * 1.24).toFixed(0)} g PLA solid)`],
+    ['Triangles', tris.toLocaleString('en-US')],
+    ['File size', `${((84 + tris * 50) / 1048576).toFixed(1)} MB`],
+    ['Mesh', check.closed ? '<span class="ok">closed, manifold</span>' : `<span class="warn">${check.badEdges} open edges</span>`],
+    ['Gesture', gesture.source === 'demo' ? `demo #${gesture.seed}` : `${gesture.dur.toFixed(1)} s ${gesture.source === 'link' ? 'from link' : 'recorded'}`],
+  ];
+  $('stats').innerHTML = '<dl style="display:contents">' + rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('') + '</dl>';
+}
+
+// ---------- recording ----------
+
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen');
+    if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch { /* not supported or refused */ }
+}
+
+let sampler = 0;
+function startSampler() {
+  if (sampler) return;
+  const t0 = performance.now(), c0 = ring.count;
+  sampler = setInterval(() => {
+    // Timers are throttled on busy phones: catch up with repeated frames,
+    // so frame count / rate stays real time.
+    const due = c0 + Math.floor(((performance.now() - t0) * SAMPLE_RATE) / 1000);
+    let f = sampleFrame();
+    for (let k = 0; k < 25 && ring.count < due; k++) f = sampleFrame();
+    if (mode.recording) {
+      const p = clamp((performance.now() - recordStart) / (state.duration * 1000), 0, 1);
+      $('rec').style.setProperty('--p', p);
+      const shake = Math.hypot(f[C.ax], f[C.ay], f[C.az]);
+      if (shake > 0.5 && performance.now() - lastShakeBuzz > 180) { buzz(12); lastShakeBuzz = performance.now(); }
+      if (p >= 1) stopRecording(true);
+    }
+  }, 1000 / SAMPLE_RATE);
+}
+
+function setBusyMode() {
+  const busy = mode.live || mode.recording || mode.countdown;
+  orbit.enabled = !busy;
+  orbit.autoRotate = mode.live || mode.recording;
+  keepAwake(busy);
+}
+
+function startTake() {
+  sensors.grav0 = null;
+  sensors.touch = 0;
+  lastPointer.t = 0;
+}
+
+async function startRecording() {
+  if (mode.live) setLive(false, false);
+  requestSensors();
+  startSampler();
+  startTake();
+  mode.countdown = true;
+  setBusyMode();
+  $('rec').classList.add('on');
+  if (state.countdown) {
+    for (const n of [3, 2, 1]) {
+      if (!mode.countdown) return;
+      $('countdown').hidden = false;
+      $('countdown').textContent = n;
+      buzz(20);
+      await new Promise((r) => setTimeout(r, 600));
+    }
+    $('countdown').hidden = true;
+  }
+  if (!mode.countdown) return;
+  mode.countdown = false;
+  sensors.grav0 = null;
+  mode.recording = true;
+  recordStart = performance.now();
+  recordStartCount = ring.count;
+  buzz([40, 40, 40]);
+  setStatus(hasMotion() ? 'Recording: shake, tilt, spin, touch' : 'Recording: move the pointer over the view');
+  setBusyMode();
+}
+
+function stopRecording(keep) {
+  if (mode.countdown) {
+    mode.countdown = false;
+    $('countdown').hidden = true;
+  }
+  if (mode.recording) {
+    const g = currentGesture();
+    mode.recording = false;
+    if (keep && g) {
+      gesture = g;
+      buzz(90);
+      setStatus(`Recorded ${g.dur.toFixed(1)} s`);
+      $('message').textContent = 'Take saved in the page link. Tweak the mapping below, then download the STL.';
+    }
+  }
+  $('rec').classList.remove('on');
+  $('rec').style.setProperty('--p', 0);
+  setBusyMode();
+  schedule(true);
+}
+
+function setLive(on, keep = true) {
+  if (on) {
+    if (mode.recording || mode.countdown) stopRecording(false);
+    requestSensors();
+    startSampler();
+    startTake();
+    mode.live = true;
+    setStatus(hasMotion() || 'DeviceMotionEvent' in window ? 'Live: the last seconds of motion' : 'Live: move the pointer over the view');
+  } else if (mode.live) {
+    const g = currentGesture();
+    mode.live = false;
+    if (keep && g) { gesture = g; setStatus('Frozen: the last seconds of motion'); }
+  }
+  $('live').setAttribute('aria-pressed', String(mode.live));
+  $('live').textContent = mode.live ? 'Freeze' : 'Live';
+  setBusyMode();
+  schedule(true);
+}
+
+$('rec').addEventListener('click', () => {
+  if (mode.recording || mode.countdown) stopRecording(mode.recording);
+  else startRecording();
+});
+$('live').addEventListener('click', () => setLive(!mode.live));
+$('demo').addEventListener('click', () => {
+  if (mode.live) setLive(false, false);
+  if (mode.recording || mode.countdown) stopRecording(false);
+  gesture = demoGesture(1 + Math.floor(Math.random() * 9999));
+  setStatus(`Demo gesture #${gesture.seed}`);
+  schedule(true);
+});
+
+// While recording, a finger on the view pinches the shape; without motion
+// sensors the pointer also stands in for the phone.
+function pointerXY(e) {
+  const r = viewport.getBoundingClientRect();
+  return { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) };
+}
+viewport.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('button')) return;
+  sensors.touch = 1;
+  sensors.pointer = pointerXY(e);
+});
+viewport.addEventListener('pointermove', (e) => { sensors.pointer = pointerXY(e); });
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+  viewport.addEventListener(ev, () => { sensors.touch = 0; });
+}
+
+// ---------- render loop ----------
+
+(function loop() {
+  const now = performance.now();
+  const busy = mode.live || mode.recording;
+  if (busy) dirty = true;
+  if (dirty && now - lastBuild > (busy ? 90 : 0)) {
+    dirty = false;
+    lastBuild = now;
+    try { regenerate(); } catch (e) { $('message').textContent = `Error: ${e.message}`; console.error(e); }
+  }
+  drawTrace();
+  orbit.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+// ---------- export & sharing ----------
+
+$('export').addEventListener('click', () => {
+  if (mode.live) setLive(false);
+  if (mode.recording) stopRecording(true);
+  const params = { ...state };
+  const btn = $('export');
+  btn.disabled = true;
+  $('message').textContent = 'Building export mesh…';
+  setTimeout(() => {
+    try {
+      const mesh = buildMesh(gesture, params, params.detail);
+      const check = checkMesh(mesh);
+      if (!check.closed) throw new Error(`mesh is not closed (${check.badEdges} bad edges)`);
+      const blob = new Blob([meshToSTL(mesh)], { type: 'model/stl' });
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+      const name = `motion-${params.form}-${Math.round(params.size)}mm-${stamp}.stl`;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+      $('message').textContent = `Saved: ${name}`;
+    } catch (e) {
+      $('message').textContent = `Error: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  }, 30);
+});
+
+function writeHash() {
+  const q = new URLSearchParams();
+  for (const p of PARAMS) if (state[p.key] !== p.value && p.key !== 'mic') q.set(p.key, state[p.key]);
+  if (gesture.source === 'demo') q.set('demo', gesture.seed);
+  else q.set('g', encodeGesture(gesture));
+  history.replaceState(null, '', `#${q}`);
+}
+
+function readHash() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (![...q.keys()].length) return false;
+  Object.assign(state, DEFAULTS);
+  for (const p of PARAMS) {
+    if (!q.has(p.key) || p.key === 'mic') continue;
+    const raw = q.get(p.key);
+    if (p.type === 'bool') state[p.key] = raw === 'true';
+    else if (p.type === 'choice') { if (p.options.includes(raw)) state[p.key] = raw; }
+    else if (Number.isFinite(Number(raw))) state[p.key] = Math.min(p.max, Math.max(p.min, Number(raw)));
+  }
+  try {
+    if (q.has('g')) gesture = decodeGesture(q.get('g'));
+    else if (q.has('demo')) gesture = demoGesture(Math.max(1, Math.round(Number(q.get('demo'))) || 1));
+  } catch { /* keep the demo */ }
+  return true;
+}
+
+$('share').addEventListener('click', async () => {
+  try {
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ title: 'Motion sculpture', url: location.href });
+      return;
+    }
+    await navigator.clipboard.writeText(location.href);
+    $('message').textContent = 'Link with the gesture and parameters copied.';
+  } catch {
+    $('message').textContent = 'Copy the page URL: the gesture and parameters are saved in it.';
+  }
+});
+
+if (!('DeviceMotionEvent' in window)) setStatus('No motion sensor: tap ● and move the pointer');
+
+// For automated checks.
+window.motionSculpture = { buildMesh, checkMesh, demoGesture, encodeGesture, decodeGesture, PARAMS, DEFAULTS, PRESETS, state };
+
+syncForm();
+resize();
+  </script>
+</body>
+</html>
