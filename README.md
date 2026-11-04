@@ -16,5 +16,6 @@ Some parametric generators of relief 3D textures and printable models, all with 
 | [`layers/`](layers/) | Overlapping wavy plates: stripes, rings or contours bent by noise. Shingles or terraces, rounded edges, shadow gap, lip, pinch-out, fibres and fine lines. |
 | [`stones/`](stones/) | Faceted stones: irregular stones of mixed size with rounded edges, separated by joints. Tops carved with facets, V-folds (chevrons) and scoops. From plaster wall panels to cut pebbles and flagstones. |
 | [`khrushchyovka/`](khrushchyovka/) | Soviet five-storey blocks of flats as printable models: large-panel, large-block or brick walls, entrances with canopies, stairwell windows, balconies or loggias, flat, gable or hip roof, lived-in details. Self-supporting overhangs, hollow shell with windows cut through for lighting, split into parts with pin holes. |
+| [`city/`](city/) | Impossible city: a fragment of a metaphysical city as a printable game level. A route of stairs and viaducts, arcades, towers, a pit of pillars, gates and balls on a floating island; an endless stair that closes into a loop from one isometric angle, with a little figure walking it. Edit cell by cell (constructor). Self-supporting arch crowns, one closed solid. |
 
 See the README in each folder for details.

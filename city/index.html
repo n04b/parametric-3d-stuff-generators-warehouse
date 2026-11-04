@@ -1,0 +1,2856 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Impossible City</title>
+  <style>
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --accent-text: #ffffff;
+  --view: #d9dadb;
+  --glass: rgba(255, 255, 255, 0.82);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --panel: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9b9a94;
+    --line: #34332f;
+    --accent: #5b92ec;
+    --view: #2a2a28;
+    --glass: rgba(31, 31, 29, 0.85);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --panel: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #9b9a94;
+  --line: #34332f;
+  --accent: #5b92ec;
+  --view: #2a2a28;
+  --glass: rgba(31, 31, 29, 0.85);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  height: 100vh;
+}
+
+#panel {
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+h1 { font-size: 18px; margin: 0 0 4px; }
+
+details { border-top: 1px solid var(--line); padding: 4px 0 8px; }
+summary {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 10px 0 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hint { color: var(--muted); margin: 0; font-size: 13px; }
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.field > span { font-size: 13px; }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+.field.bool { grid-template-columns: 1fr auto; }
+.field.select { grid-template-columns: 1fr 160px; }
+#panel > .field { grid-template-columns: 1fr 190px; margin: 16px 0 10px; }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button:disabled { opacity: 0.5; cursor: progress; }
+.group-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.group-actions button { flex: 1; }
+
+#stats {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+#stats dt { color: var(--muted); }
+#stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+#stats .warn { color: #c9582b; grid-column: 1 / -1; text-align: left; }
+
+.actions { display: flex; gap: 8px; margin: 16px 0 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; }
+
+#viewport { position: relative; background: var(--view); min-height: 0; overflow: hidden; }
+#viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+#viewport.editing canvas { cursor: crosshair; }
+
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+#title {
+  position: absolute;
+  left: 22px;
+  top: 18px;
+  pointer-events: none;
+  color: var(--title, #2b2420);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  text-shadow: 0 1px 12px rgba(255, 255, 255, 0.25);
+}
+#title small { display: block; font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase; opacity: 0.75; }
+#title span { display: block; font-size: 26px; font-style: italic; margin-top: 2px; }
+
+#busy {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+#magic-hint {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+#tools {
+  position: absolute;
+  left: 14px;
+  top: 92px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 8px;
+  width: 196px;
+}
+#tools .head { grid-column: 1 / -1; font-size: 12px; color: var(--muted); padding: 2px 2px 4px; }
+#tools button { padding: 5px 6px; font-size: 12px; text-align: left; display: flex; gap: 6px; align-items: center; }
+#tools button kbd { font: 10px ui-monospace, monospace; opacity: 0.6; margin-left: auto; }
+#tools .wide { grid-column: 1 / -1; }
+
+.view-tools {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  margin-left: auto;
+  width: fit-content;
+}
+.view-tools select { width: auto; }
+
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 62vh auto; height: auto; }
+  #viewport { grid-row: 1; height: 62vh; }
+  #panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+  #title span { font-size: 20px; }
+  #tools { top: 76px; width: 168px; }
+  .view-tools { gap: 4px 8px; padding: 4px 6px; font-size: 12px; right: 8px; left: 8px; bottom: 8px; }
+  .view-tools button { padding: 4px 8px; }
+  .view-tools select { padding: 2px 4px; }
+}
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>Impossible City</h1>
+      <p class="hint">A fragment of a city as a printable game level: a route of stairs and viaducts, arcades, towers, a pit of pillars, an island that floats. Edit it cell by cell; export to STL. Sizes in millimetres.</p>
+    </header>
+
+    <label class="field">
+      <span>Preset</span>
+      <select id="preset"></select>
+    </label>
+    <div class="group-actions">
+      <button id="regen" type="button">New city</button>
+      <button id="blank" type="button">Empty island</button>
+    </div>
+
+    <div id="groups"></div>
+
+    <section id="stats"></section>
+
+    <div class="actions">
+      <button id="export" type="button" class="primary" disabled>Download STL</button>
+      <button id="share" type="button">Copy link</button>
+    </div>
+    <p id="message" class="hint" role="status"></p>
+  </aside>
+
+  <main id="viewport">
+    <div id="title"><small id="chapter"></small><span id="levelname"></span></div>
+    <div id="busy" class="glass">Loading the geometry engine…</div>
+    <div id="magic-hint" class="glass" hidden>Impossible view: the stair never ends. Turn the view to break the spell.</div>
+    <div id="tools" class="glass" hidden></div>
+    <div class="view-tools glass">
+      <label>Style
+        <select id="style">
+          <option value="game">Game</option>
+          <option value="clay">Clay</option>
+          <option value="ink">Ink</option>
+        </select>
+      </label>
+      <label>Palette
+        <select id="palette"></select>
+      </label>
+      <label><input type="checkbox" id="iso" checked> Isometric</label>
+      <label><input type="checkbox" id="wanderer" checked> Wanderer</label>
+      <label><input type="checkbox" id="overhangs"> Overhangs</label>
+      <button id="edit" type="button" title="Edit cells (E)">Edit</button>
+      <button id="magic" type="button" title="Look from the one angle where the impossible connects">Impossible view</button>
+      <button id="reset-view" type="button">Reset view</button>
+    </div>
+  </main>
+
+  <!-- The geometry runs as a module both on the page (parameters, generator,
+       walking graph) and in a Web Worker (the solid modelling), loaded from
+       this text. -->
+  <script type="text/plain" id="geometry">
+// ===== util =====
+
+function hashInt(a, b, c) {
+  let h = a ^ Math.imul(b, 0x8da6b343) ^ Math.imul(c, 0xd8163841);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+// Uniform in [0, 1) from the seed and up to three integers.
+const rnd = (seed, a, b = 0, c = 0) => hashInt(hashInt(seed, a, b), c, 0x51ed) / 4294967296;
+
+// A seeded stream of uniform numbers in [0, 1) (xorshift).
+function makeRng(seed) {
+  let s = hashInt(seed, 0x9e3779b9, 17) || 1;
+  return () => {
+    s ^= s << 13; s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5; s >>>= 0;
+    return s / 4294967296;
+  };
+}
+
+// ===== params =====
+
+// Generator parameters lay the city out on its grid; changing one generates
+// a new grid (edits are kept in the undo history). The others only change how
+// the grid is built in solid, so edits survive them.
+
+const GROUPS = {
+  gen: 'City',
+  arch: 'Architecture',
+  island: 'Island',
+  print: 'Print',
+};
+
+const PARAMS = [
+  { key: 'seed', group: 'gen', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 7 },
+  {
+    key: 'layout', group: 'gen', label: 'Layout', type: 'select', value: 'city',
+    options: [['city', 'City'], ['blank', 'Empty island']],
+  },
+  { key: 'cols', group: 'gen', label: 'Cells across', type: 'int', min: 5, max: 20, step: 1, value: 10 },
+  { key: 'rows', group: 'gen', label: 'Cells deep', type: 'int', min: 5, max: 20, step: 1, value: 10 },
+  { key: 'height', group: 'gen', label: 'Height, levels', type: 'int', min: 2, max: 12, step: 1, value: 6, when: (s) => s.layout === 'city' },
+  { key: 'loop', group: 'gen', label: 'Endless stair (impossible loop)', type: 'bool', value: true, when: (s) => s.layout === 'city' },
+  { key: 'pit', group: 'gen', label: 'Pit of pillars', type: 'bool', value: true, when: (s) => s.layout === 'city' },
+  { key: 'fragment', group: 'gen', label: 'Broken edges', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3 },
+  { key: 'arcades', group: 'gen', label: 'Arcade buildings', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, when: (s) => s.layout === 'city' },
+  { key: 'towers', group: 'gen', label: 'Towers', type: 'int', min: 0, max: 10, step: 1, value: 2, when: (s) => s.layout === 'city' },
+  { key: 'gates', group: 'gen', label: 'Gates over the route', type: 'int', min: 0, max: 8, step: 1, value: 2, when: (s) => s.layout === 'city' },
+  { key: 'decor', group: 'gen', label: 'Balls, obelisks, domes', type: 'number', min: 0, max: 1, step: 0.01, value: 0.45, when: (s) => s.layout === 'city' },
+  { key: 'figure', group: 'gen', label: 'Little figure at the start', type: 'bool', value: true, when: (s) => s.layout === 'city' },
+
+  { key: 'cell', group: 'arch', label: 'Cell size, mm', type: 'number', min: 4, max: 40, step: 0.5, value: 10 },
+  { key: 'level', group: 'arch', label: 'Level height, mm', type: 'number', min: 3, max: 40, step: 0.5, value: 10 },
+  { key: 'steps', group: 'arch', label: 'Steps per level', type: 'int', min: 2, max: 16, step: 1, value: 4 },
+  {
+    key: 'shape', group: 'arch', label: 'Arches', type: 'select', value: 'round',
+    options: [['round', 'Round'], ['pointed', 'Pointed'], ['flat', 'Flat lintel']],
+  },
+  { key: 'selfSupport', group: 'arch', label: 'Self-supporting crowns (pointed tip)', type: 'bool', value: true },
+  { key: 'crownAngle', group: 'arch', label: 'Steepest overhang, °', type: 'number', min: 30, max: 70, step: 1, value: 45, when: (s) => s.selfSupport },
+  { key: 'pier', group: 'arch', label: 'Piers, share of a cell', type: 'number', min: 0.1, max: 0.45, step: 0.01, value: 0.24 },
+  { key: 'openH', group: 'arch', label: 'Arch height, share of a level', type: 'number', min: 0.4, max: 0.92, step: 0.01, value: 0.76 },
+  {
+    key: 'windows', group: 'arch', label: 'Windows', type: 'select', value: 'mixed',
+    options: [['mixed', 'Mixed'], ['arched', 'Arched'], ['slit', 'Slits'], ['twin', 'Twin slits'], ['round', 'Round'], ['none', 'None']],
+  },
+  { key: 'winRate', group: 'arch', label: 'Window density', type: 'number', min: 0, max: 1, step: 0.01, value: 0.55, when: (s) => s.windows !== 'none' },
+  { key: 'winDepth', group: 'arch', label: 'Window depth, mm', type: 'number', min: 0.3, max: 4, step: 0.1, value: 0.9, when: (s) => s.windows !== 'none' },
+  { key: 'towerW', group: 'arch', label: 'Tower width, share of a cell', type: 'number', min: 0.3, max: 0.9, step: 0.01, value: 0.56 },
+
+  { key: 'baseT', group: 'island', label: 'Ground thickness, mm', type: 'number', min: 2, max: 80, step: 0.5, value: 24 },
+  {
+    key: 'underside', group: 'island', label: 'Underside', type: 'select', value: 'taper',
+    options: [['taper', 'Floating (45° taper)'], ['flat', 'Flat']],
+  },
+  { key: 'taperD', group: 'island', label: 'Taper depth, mm', type: 'number', min: 1, max: 100, step: 0.5, value: 20, when: (s) => s.underside === 'taper' },
+
+  { key: 'segments', group: 'print', label: 'Segments per circle', type: 'int', min: 12, max: 128, step: 4, value: 40 },
+];
+
+const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
+const GEN_KEYS = new Set(PARAMS.filter((p) => p.group === 'gen').map((p) => p.key));
+
+// Starting points; unlisted keys keep the defaults. view sets the preview.
+const PRESETS = [
+  { name: 'The endless stair', params: {} },
+  { name: 'Hill citadel', params: { seed: 23, cols: 12, rows: 12, height: 8, loop: false, towers: 3, arcades: 0.3, gates: 3 } },
+  { name: 'Aqueduct quarter', params: { seed: 5, loop: false, arcades: 0.6, windows: 'arched', pier: 0.2, towers: 1 }, view: { pal: 'desert' } },
+  { name: 'Pit of pillars', params: { seed: 14, loop: false, height: 5, baseT: 34, towers: 1 }, view: { pal: 'concrete' } },
+  { name: 'Floating fragment', params: { seed: 9, cols: 9, rows: 9, fragment: 0.85, taperD: 32, height: 5 }, view: { pal: 'mint' } },
+  { name: 'Night arcades', params: { seed: 31, cols: 11, rows: 11, arcades: 0.5, winRate: 0.75, loop: false, towers: 3 }, view: { pal: 'night' } },
+  { name: 'Empty island to build on', params: { layout: 'blank', fragment: 0.15, cols: 9, rows: 9 } },
+];
+
+// ===== grid =====
+
+// A cell: kind k, top level h, floor level f (where arches start, or the base
+// of a tower or pillar), direction or axis d, decoration o, route flag w.
+// Levels are counted from the datum, the island's ground; negative is a pit.
+
+const VOID = 0, BLOCK = 1, STAIR = 2, ARCADE = 3, TOWER = 4, PILLAR = 5;
+const NONE = 0, BALL = 1, GATE_X = 2, GATE_Y = 3, OBELISK = 4, DOME = 5, SPIRE = 6, FIGURE = 7;
+const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+const VOID_CELL = Object.freeze({ k: VOID, h: 0, f: 0, d: 0, o: 0, w: 0 });
+
+const newCell = (k = VOID, h = 0) => ({ k, h, f: h, d: 0, o: NONE, w: 0 });
+
+// The level the solid column of a cell reaches.
+function colTop(c) {
+  if (c.k === STAIR) return c.h - 1;
+  if (c.k === TOWER || c.k === PILLAR) return c.f;
+  return c.h;
+}
+
+// How high a cell closes off its neighbour's side: what stands at its edges.
+// A stair counts to its top, a gate one level above its cell.
+function sideTop(c) {
+  if (c.k === VOID) return -Infinity;
+  if (c.k === TOWER || c.k === PILLAR) return c.f;
+  return c.h + (c.o === GATE_X || c.o === GATE_Y ? 1 : 0);
+}
+
+// The highest thing in a cell, in levels (for sight lines).
+function peakTop(c) {
+  if (c.k === VOID) return -Infinity;
+  return c.h + (c.o !== NONE ? 1 : 0);
+}
+
+function gridAt(g, i, j) {
+  return i >= 0 && j >= 0 && i < g.cols && j < g.rows ? g.cells[i + j * g.cols] : VOID_CELL;
+}
+
+const b64 = {
+  enc(bytes) {
+    let s = '';
+    for (const b of bytes) s += String.fromCharCode(b);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  },
+  dec(str) {
+    const s = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(s, (ch) => ch.charCodeAt(0));
+  },
+};
+
+// Three bytes a cell: kind, direction and route flag; top level; floor level
+// and decoration.
+function encodeGrid(g) {
+  const b = new Uint8Array(2 + g.cells.length * 3);
+  b[0] = g.cols; b[1] = g.rows;
+  g.cells.forEach((c, i) => {
+    b[2 + i * 3] = c.k | (c.d << 3) | (c.w ? 32 : 0);
+    b[3 + i * 3] = clamp(c.h + 8, 0, 255);
+    b[4 + i * 3] = clamp(c.f + 8, 0, 31) | (c.o << 5);
+  });
+  return b64.enc(b);
+}
+
+function decodeGrid(str) {
+  const b = b64.dec(str);
+  const cols = b[0], rows = b[1];
+  if (!(cols >= 1 && rows >= 1) || b.length < 2 + cols * rows * 3) return null;
+  const cells = [];
+  for (let i = 0; i < cols * rows; i++) {
+    const x = b[2 + i * 3], y = b[3 + i * 3], z = b[4 + i * 3];
+    cells.push({ k: clamp(x & 7, 0, 5), h: y - 8, f: (z & 31) - 8, d: (x >> 3) & 3, o: z >> 5, w: x & 32 ? 1 : 0 });
+  }
+  return { cols, rows, cells };
+}
+
+// ===== generator =====
+
+// The island: the grid with bites taken out of its edges by coarse noise,
+// reduced to its largest connected piece.
+function islandMask(p, r, C, R) {
+  const land = new Uint8Array(C * R).fill(1);
+  if (p.fragment > 0) {
+    const KC = Math.ceil(C / 3) + 2;
+    const knots = Array.from({ length: KC * (Math.ceil(R / 3) + 2) }, () => r());
+    const s = (t) => t * t * (3 - 2 * t);
+    const noise = (i, j) => {
+      const u = i / 3, v = j / 3, a = Math.floor(u), b = Math.floor(v);
+      const k = (x, y) => knots[x + y * KC];
+      return lerp(lerp(k(a, b), k(a + 1, b), s(u - a)), lerp(k(a, b + 1), k(a + 1, b + 1), s(u - a)), s(v - b));
+    };
+    for (let j = 0; j < R; j++) {
+      for (let i = 0; i < C; i++) {
+        const e = Math.min(i, j, C - 1 - i, R - 1 - j);
+        if (noise(i, j) < 0.85 * p.fragment * (1 - e / 3.2)) land[i + j * C] = 0;
+      }
+    }
+  }
+  return keepLargest(land, C, R);
+}
+
+function keepLargest(land, C, R) {
+  const comp = new Int32Array(C * R).fill(-1);
+  let best = -1, bestSize = 0;
+  for (let id = 0; id < C * R; id++) {
+    if (!land[id] || comp[id] >= 0) continue;
+    const stack = [id];
+    comp[id] = id;
+    let size = 0;
+    while (stack.length) {
+      const q = stack.pop();
+      size++;
+      const i = q % C, j = (q / C) | 0;
+      for (const [di, dj] of DIRS) {
+        const ni = i + di, nj = j + dj;
+        if (ni < 0 || nj < 0 || ni >= C || nj >= R) continue;
+        const n = ni + nj * C;
+        if (land[n] && comp[n] < 0) { comp[n] = id; stack.push(n); }
+      }
+    }
+    if (size > bestSize) { bestSize = size; best = id; }
+  }
+  return land.map((v, id) => (v && comp[id] === best ? 1 : 0));
+}
+
+// Cheapest route between two cells over cells that are not blocked, with a
+// cost per cell and a penalty per turn (Dijkstra over cell and heading).
+function route(C, R, from, to, blocked, cost, turn) {
+  const S = C * R * 5;
+  const dist = new Float64Array(S).fill(Infinity);
+  const prev = new Int32Array(S).fill(-1);
+  const heap = [];
+  const push = (d, s) => {
+    heap.push([d, s]);
+    let i = heap.length - 1;
+    while (i > 0) {
+      const q = (i - 1) >> 1;
+      if (heap[q][0] <= heap[i][0]) break;
+      [heap[q], heap[i]] = [heap[i], heap[q]];
+      i = q;
+    }
+  };
+  const pop = () => {
+    const top = heap[0], last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1, rr = l + 1;
+        let m = i;
+        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+        if (rr < heap.length && heap[rr][0] < heap[m][0]) m = rr;
+        if (m === i) break;
+        [heap[m], heap[i]] = [heap[i], heap[m]];
+        i = m;
+      }
+    }
+    return top;
+  };
+  const s0 = from * 5 + 4;
+  dist[s0] = 0;
+  push(0, s0);
+  let goal = -1;
+  while (heap.length) {
+    const [d, s] = pop();
+    if (d > dist[s]) continue;
+    const id = (s / 5) | 0, dir = s % 5;
+    if (id === to) { goal = s; break; }
+    const i = id % C, j = (id / C) | 0;
+    for (let k = 0; k < 4; k++) {
+      const ni = i + DIRS[k][0], nj = j + DIRS[k][1];
+      if (ni < 0 || nj < 0 || ni >= C || nj >= R) continue;
+      const n = ni + nj * C;
+      if (n !== to && blocked(n)) continue;
+      if (dir < 4 && k === (dir + 2) % 4) continue;
+      const nd = d + cost[n] + (dir < 4 && dir !== k ? turn : 0);
+      const ns = n * 5 + k;
+      if (nd < dist[ns]) { dist[ns] = nd; prev[ns] = s; push(nd, ns); }
+    }
+  }
+  if (goal < 0) return null;
+  const out = [];
+  for (let s = goal; s >= 0; s = prev[s]) out.push((s / 5) | 0);
+  return out.reverse();
+}
+
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+const ADJ = ['Silent', 'Hollow', 'Pale', 'Forgotten', 'Upper', 'Sunken', 'Quiet', 'Distant', 'Folded', 'Hidden', 'Last', 'Inverted', 'Weightless', 'Sleeping', 'Amber', 'Rose', 'Ivory', 'Ashen', 'Noon', 'Second'];
+const NOUN = ['Arcade', 'Citadel', 'Courtyard', 'Gate', 'Terrace', 'Cloister', 'Tower', 'Labyrinth', 'Bridge', 'Colonnade', 'Observatory', 'Garden', 'Threshold', 'Atrium', 'Belvedere', 'Aqueduct', 'Rampart', 'Sanctuary', 'Piazza', 'Stair'];
+const OF = ['', '', '', ' of Echoes', ' of the Sun', ' of Doors', ' of Shadows', ' of Clouds', ' of Small Hours', ' of the Return'];
+
+function levelTitle(p, loop) {
+  const r = makeRng(hashInt(p.seed, 77, 1));
+  const pick = (a) => a[Math.floor(r() * a.length)];
+  let name;
+  if (p.layout === 'blank') name = 'The Empty Lot';
+  else if (loop) name = `The Endless ${pick(['Stair', 'Ascent', 'Return', 'Climb'])}${pick(OF)}`;
+  else name = `The ${pick(ADJ)} ${pick(NOUN)}${pick(OF)}`;
+  return { chapter: `Chapter ${ROMAN[p.seed % 12]}`, name };
+}
+
+// Lays out a city on the grid:
+// 1. the island, with broken edges;
+// 2. optionally the endless stair: a square ring of walkway climbing k levels
+//    whose end sits k cells nearer and k levels higher than its start, so that
+//    from one angle it closes into a loop;
+// 3. a route from the front edge, winding through waypoints, rising by stairs;
+// 4. a pit with pillars, then blocks of buildings whose heights follow the
+//    route (walls beside it, terraces below it), some of them arcades;
+// 5. towers, viaducts where the route crosses lower ground, gates, ornaments.
+function generate(p) {
+  const C = p.cols, R = p.rows, H = p.height, N = C * R;
+  const r = makeRng(p.seed);
+  const pick = (a) => a[Math.floor(r() * a.length)];
+  const cells = Array.from({ length: N }, () => newCell());
+  const warn = [];
+  const id = (i, j) => i + j * C;
+  const inGrid = (i, j) => i >= 0 && j >= 0 && i < C && j < R;
+  const pitD = Math.min(3, Math.floor((p.baseT - 2) / p.level));
+  const land = islandMask(p, r, C, R);
+  if (p.layout === 'blank') {
+    land.forEach((v, n) => { if (v) cells[n] = newCell(BLOCK, 0); });
+    return { grid: { cols: C, rows: R, cells }, warnings: warn, ...levelTitle(p, false) };
+  }
+  const used = new Uint8Array(N);
+  const set = (n, c) => { cells[n] = c; used[n] = 1; land[n] = 1; };
+
+  // ---- the endless stair ----
+  let loop = null;
+  if (p.loop) {
+    const k = C >= 11 && R >= 11 && H >= 6 ? 3 : 2, a = k;
+    const W = k + 3, D = a + k + 1;
+    if (C >= W + 3 && R >= D + 2) {
+      const x0 = 1, y0 = 1;
+      const sx = x0 + k + 2, sy = y0 + k;
+      const ring = [];
+      for (let y = sy; y <= sy + a; y++) ring.push([sx, y]);
+      for (let x = sx - 1; x >= sx - k - 2; x--) ring.push([x, sy + a]);
+      for (let y = sy + a - 1; y >= sy - k; y--) ring.push([sx - k - 2, y]);
+      ring.push([sx - k - 1, sy - k]);
+      // Everything inside the ring and in front of its start stays low: the
+      // sight line from the end to the start runs over it.
+      const onRing = new Set(ring.map(([x, y]) => id(x, y)));
+      const low = [];
+      for (let y = sy - k; y <= sy + a - 1; y++) for (let x = sx - k - 1; x <= sx; x++) if (!onRing.has(id(x, y))) low.push([x, y]);
+      // A plaza all round at the ground: the loop stands free on its arches,
+      // and nothing stands between it and the viewer.
+      const margin = [];
+      const taken = new Set([...ring, ...low].map(([x, y]) => id(x, y)));
+      for (let y = sy - k - 1; y <= sy + a + 1; y++) {
+        for (let x = sx - k - 3; x <= sx + 1; x++) if (inGrid(x, y) && !taken.has(id(x, y))) margin.push([x, y]);
+      }
+      loop = { k, sx, sy, ring, low, margin };
+      for (const [x, y] of [...ring, ...low]) { used[id(x, y)] = 1; land[id(x, y)] = 1; }
+      for (const [x, y] of margin) used[id(x, y)] = 1;
+    } else warn.push('The grid is too small for the endless stair.');
+  }
+
+  // ---- the route ----
+  const front = [];
+  for (let n = 0; n < N; n++) {
+    const i = n % C, j = (n / C) | 0;
+    if (!land[n] || used[n]) continue;
+    if (j > 0 && land[id(i, j - 1)]) continue;
+    if (loop && i <= loop.sx + 1) continue;
+    front.push(n);
+  }
+  const start = front.length ? pick(front) : land.findIndex((v, n) => v && !used[n]);
+  let target;
+  if (loop && inGrid(loop.sx + 1, loop.sy)) {
+    target = id(loop.sx + 1, loop.sy);
+    land[target] = 1;
+  } else {
+    const far = [];
+    for (let n = 0; n < N; n++) if (land[n] && !used[n] && (n / C | 0) >= R * 0.55) far.push(n);
+    target = far.length ? pick(far) : start;
+  }
+  const freeCells = [];
+  for (let n = 0; n < N; n++) if (land[n] && !used[n] && n !== start && n !== target) freeCells.push(n);
+  const manhattan = (a, b) => Math.abs((a % C) - (b % C)) + Math.abs(((a / C) | 0) - ((b / C) | 0));
+
+  let path = null;
+  for (let attempt = 0; attempt < 12 && !path; attempt++) {
+    const cost = Float64Array.from({ length: N }, () => 1 + 2.2 * r());
+    const nWay = N > 110 ? 2 : 1;
+    const ways = [];
+    for (let t = 0; t < 40 && ways.length < nWay; t++) {
+      const w = pick(freeCells);
+      if (w !== undefined && manhattan(w, start) >= 3 && manhattan(w, target) >= 3 && ways.every((q) => manhattan(q, w) >= 3)) ways.push(w);
+    }
+    const ids = [start];
+    const inPath = new Uint8Array(N);
+    inPath[start] = 1;
+    const touches = (n, last) => {
+      const i = n % C, j = (n / C) | 0;
+      return DIRS.some(([di, dj]) => inGrid(i + di, j + dj) && inPath[id(i + di, j + dj)] && id(i + di, j + dj) !== last);
+    };
+    let ok = true;
+    for (const goal of [...ways, target]) {
+      if (goal === ids.at(-1)) continue;
+      const last = ids.at(-1);
+      const seg = route(C, R, last, goal, (n) => !land[n] || used[n] || inPath[n] || touches(n, last), cost, 0.9);
+      if (!seg) { if (goal === target) ok = false; continue; }
+      for (const n of seg.slice(1)) { ids.push(n); inPath[n] = 1; }
+    }
+    // A route that touches itself reads as a tangle: try again.
+    for (let t = 0; t < ids.length && ok; t++) {
+      for (let u = t + 2; u < ids.length; u++) if (manhattan(ids[t], ids[u]) === 1) { ok = false; break; }
+    }
+    if (ok || attempt === 11) path = ids;
+  }
+
+  const n = path.length;
+  const dirOf = (a, b) => DIRS.findIndex(([di, dj]) => (a % C) + di === b % C && ((a / C) | 0) + dj === ((b / C) | 0));
+  const dirs = path.map((q, t) => (t < n - 1 ? dirOf(q, path[t + 1]) : t > 0 ? dirOf(path[t - 1], q) : 0));
+  const straight = [];
+  for (let t = 1; t < n - 1; t++) if (dirs[t - 1] === dirs[t]) straight.push(t);
+
+  // Stairs: runs of one to three on straight stretches, spread along the route.
+  const wantTop = loop ? clamp(2 + Math.floor(r() * 2), 1, H - loop.k) : Math.max(1, H - 1 - Math.floor(r() * 2));
+  const stairAt = new Uint8Array(n);
+  let need = Math.min(wantTop, straight.length);
+  const runs = [];
+  for (const t of straight) {
+    if (runs.length && runs.at(-1).at(-1) === t - 1) runs.at(-1).push(t);
+    else runs.push([t]);
+  }
+  for (let pass = 0; pass < 4 && need > 0; pass++) {
+    for (const run of runs.map((x) => [r(), x]).sort((a, b) => a[0] - b[0]).map((x) => x[1])) {
+      if (need <= 0) break;
+      const free = run.filter((t) => !stairAt[t]);
+      if (!free.length) continue;
+      const take = Math.min(free.length, need, 1 + Math.floor(r() * 3));
+      const off = Math.floor(r() * (free.length - take + 1));
+      for (let q = 0; q < take; q++) stairAt[free[off + q]] = 1;
+      need -= take;
+    }
+  }
+  const climb = stairAt.reduce((s, v) => s + v, 0);
+  const top = loop ? Math.max(2, climb) : climb;
+  let h = top - climb;
+  for (let t = 0; t < n; t++) {
+    if (stairAt[t]) {
+      h++;
+      set(path[t], { ...newCell(STAIR, h), d: dirs[t], f: h - 1, w: 1 });
+    } else set(path[t], { ...newCell(BLOCK, h), w: 1 });
+  }
+  if (p.figure) cells[path[0]].o = FIGURE;
+
+  // ---- the endless stair, now that its start level is known ----
+  if (loop) {
+    const { k, ring, low } = loop;
+    const L0 = top;
+    const rdir = ring.map((q, t) => {
+      const nx = t < ring.length - 1 ? ring[t + 1] : [q[0] + 1, q[1]];
+      return DIRS.findIndex(([di, dj]) => q[0] + di === nx[0] && q[1] + dj === nx[1]);
+    });
+    const cand = [];
+    for (let t = 1; t < ring.length - 1; t++) if (rdir[t - 1] === rdir[t]) cand.push(t);
+    const steps = new Set();
+    for (let q = 0; q < k; q++) steps.add(cand[Math.floor(((q + 0.5) * cand.length) / k)]);
+    let lv = L0;
+    ring.forEach(([x, y], t) => {
+      if (steps.has(t)) {
+        lv++;
+        set(id(x, y), { ...newCell(STAIR, lv), d: rdir[t], f: lv - 1, w: 1 });
+      } else set(id(x, y), { ...newCell(BLOCK, lv), w: 1 });
+    });
+    // Inside the ring a well drops away, with pillars rising out of it (but
+    // none on the sight line from the ring's end to its start).
+    const well = pitD >= 1 ? -pitD : 0;
+    const sight = new Set();
+    for (let t = 0; t < k; t++) sight.add(id(loop.sx - k + t, loop.sy - k + t));
+    for (const [x, y] of low) {
+      const q = id(x, y);
+      const inside = y > loop.sy - k && x < loop.sx;
+      if (inside && !sight.has(q) && r() < 0.65) set(q, { ...newCell(PILLAR, clamp(well + 1 + Math.floor(r() * (L0 - well)), well + 1, L0 - 1)), f: well, o: r() < 0.3 ? BALL : NONE });
+      else set(q, newCell(BLOCK, well));
+    }
+    for (const [x, y] of loop.margin) if (land[id(x, y)] && !cells[id(x, y)].w) set(id(x, y), newCell(BLOCK, 0));
+    // The start of the ring meets the route at the same level.
+    if (path.at(-1) === target) cells[target].h = L0;
+  } else {
+    // The goal: a gate on the last cell and an orb beyond it.
+    const last = path[n - 1], d = dirs[n - 1];
+    if (n > 2 && cells[last].k === BLOCK) {
+      cells[last].o = d % 2 === 0 ? GATE_X : GATE_Y;
+      const i = (last % C) + DIRS[d][0], j = ((last / C) | 0) + DIRS[d][1];
+      if (inGrid(i, j) && land[id(i, j)] && !used[id(i, j)]) set(id(i, j), { ...newCell(BLOCK, cells[last].h), o: BALL });
+    }
+  }
+
+  // ---- distance to the route ----
+  const near = new Int32Array(N).fill(-1), dist = new Int32Array(N).fill(1e9);
+  const queue = [];
+  for (let q = 0; q < N; q++) {
+    if (cells[q].w) { near[q] = q; dist[q] = 0; queue.push(q); }
+  }
+  for (let qi = 0; qi < queue.length; qi++) {
+    const q = queue[qi], i = q % C, j = (q / C) | 0;
+    for (const [di, dj] of DIRS) {
+      if (!inGrid(i + di, j + dj)) continue;
+      const m = id(i + di, j + dj);
+      if (land[m] && dist[m] > dist[q] + 1) { dist[m] = dist[q] + 1; near[m] = near[q]; queue.push(m); }
+    }
+  }
+  const routeH = (q) => (near[q] >= 0 ? colTop(cells[near[q]]) : 0);
+
+  // ---- the pit of pillars ----
+  if (p.pit && pitD >= 1) {
+    let placed = false;
+    for (let t = 0; t < 80 && !placed; t++) {
+      const w = 2 + Math.floor(r() * 2), d = 2 + Math.floor(r() * 2);
+      const i0 = Math.floor(r() * (C - w + 1)), j0 = Math.floor(r() * (R - d + 1));
+      let ok = true;
+      for (let j = j0; j < j0 + d && ok; j++) for (let i = i0; i < i0 + w && ok; i++) ok = land[id(i, j)] && !used[id(i, j)] && dist[id(i, j)] >= 2;
+      if (!ok) continue;
+      for (let j = j0; j < j0 + d; j++) {
+        for (let i = i0; i < i0 + w; i++) {
+          const q = id(i, j);
+          if (r() < 0.82) set(q, { ...newCell(PILLAR, clamp(-pitD + 1 + Math.floor(r() * (routeH(q) + pitD + 4)), -pitD + 1, H + 2)), f: -pitD });
+          else set(q, newCell(BLOCK, -pitD));
+        }
+      }
+      placed = true;
+    }
+  } else if (p.pit) warn.push('The ground is too thin for a pit: thicken it.');
+
+  // ---- buildings ----
+  const order = [];
+  for (let q = 0; q < N; q++) if (land[q] && !used[q]) order.push(q);
+  order.sort(() => r() - 0.5);
+  const weighted = (list) => {
+    const total = list.reduce((s, [, w]) => s + w, 0);
+    let x = r() * total;
+    for (const [v, w] of list) if ((x -= w) < 0) return v;
+    return list[0][0];
+  };
+  for (const q of order) {
+    if (used[q]) continue;
+    const i0 = q % C, j0 = (q / C) | 0;
+    const tw = 1 + Math.floor(r() * 3), td = 1 + Math.floor(r() * 3);
+    let w = 1, d = 1;
+    const free = (i, j) => inGrid(i, j) && land[id(i, j)] && !used[id(i, j)];
+    while (w < tw && Array.from({ length: d }, (_, y) => free(i0 + w, j0 + y)).every(Boolean)) w++;
+    while (d < td && Array.from({ length: w }, (_, x) => free(i0 + x, j0 + d)).every(Boolean)) d++;
+    const hp = routeH(q), dd = dist[q];
+    // Beside the route: plazas at its level, terraces below, some walls above.
+    // The city steps down towards the viewer, like seats in a theatre.
+    const frontness = 1 - (i0 + j0) / Math.max(1, C + R - 2);
+    let bh = hp + (dd <= 1
+      ? weighted([[-2, 1], [-1, 3], [0, 3], [1, 3], [2, 2], [3, 1]])
+      : weighted([[-2, 1], [-1, 2], [0, 2], [1, 2], [2, 1]]) - (dd > 3 ? 1 : 0));
+    bh = clamp(bh - Math.round(2 * frontness * frontness), 0, H + 1);
+    const arcade = bh >= 2 && r() < p.arcades;
+    const axis = w > d ? 0 : d > w ? 1 : r() < 0.5 ? 2 : Math.floor(r() * 2);
+    const af = r() < 0.5 ? 0 : Math.max(0, bh - 1 - Math.floor(r() * 2));
+    for (let y = 0; y < d; y++) {
+      for (let x = 0; x < w; x++) {
+        const c = newCell(arcade ? ARCADE : BLOCK, bh);
+        if (arcade) { c.d = axis; c.f = af; }
+        set(id(i0 + x, j0 + y), c);
+      }
+    }
+  }
+
+  // ---- towers ----
+  const nearStair = (q) => {
+    const i = q % C, j = (q / C) | 0;
+    return DIRS.some(([di, dj]) => gridAt({ cols: C, rows: R, cells }, i + di, j + dj).k === STAIR);
+  };
+  const towerSpots = [];
+  for (let q = 0; q < N; q++) {
+    const c = cells[q];
+    if (c.k === BLOCK && !c.w && !c.o && !nearStair(q) && dist[q] >= 1) towerSpots.push([c.h + 2.5 * r() + (dist[q] > 2 ? 1 : 0), q]);
+  }
+  towerSpots.sort((a, b) => b[0] - a[0]);
+  const towers = [];
+  for (const [, q] of towerSpots) {
+    if (towers.length >= p.towers) break;
+    if (towers.some((t) => manhattan(t, q) < 3)) continue;
+    const c = cells[q];
+    cells[q] = { ...newCell(TOWER, c.h + 2 + Math.floor(r() * 3)), f: c.h, o: pick([DOME, SPIRE, BALL, DOME]) };
+    towers.push(q);
+  }
+
+  // ---- viaducts: arches under the route where the ground falls away ----
+  const g = { cols: C, rows: R, cells };
+  // Past the island's edge the arches open at ground level.
+  const beside = (c) => (c.k === VOID ? 0 : sideTop(c));
+  path.forEach((q, t) => {
+    const c = cells[q];
+    const i = q % C, j = (q / C) | 0;
+    const ax = dirs[t] % 2; // 0: travelling along x
+    const s1 = gridAt(g, i + (ax ? 1 : 0), j + (ax ? 0 : 1)), s2 = gridAt(g, i - (ax ? 1 : 0), j - (ax ? 0 : 1));
+    const sides = Math.max(beside(s1), beside(s2), -pitD);
+    const base = c.k === STAIR ? c.h - 1 : c.h;
+    if (base - sides < 2) return;
+    if (c.k === BLOCK && !c.o) { c.k = ARCADE; c.d = 1 - ax; c.f = sides; }
+    if (c.k === STAIR) c.f = sides;
+  });
+  if (loop) {
+    // The ring on arches: across the walkway, both ways at the corners.
+    const onRing = new Set(loop.ring.map(([x, y]) => id(x, y)));
+    for (let t = 0; t < loop.ring.length; t++) {
+      const [x, y] = loop.ring[t];
+      const c = cells[id(x, y)];
+      const nx = loop.ring[Math.min(t + 1, loop.ring.length - 1)], pv = loop.ring[Math.max(t - 1, 0)];
+      const corner = nx[0] !== pv[0] && nx[1] !== pv[1];
+      const ax = nx[0] !== pv[0] ? 0 : 1;
+      const around = corner
+        ? DIRS.map(([di, dj]) => [x + di, y + dj]).filter(([u, v]) => !onRing.has(id(u, v)))
+        : [[x + (ax ? 1 : 0), y + (ax ? 0 : 1)], [x - (ax ? 1 : 0), y - (ax ? 0 : 1)]];
+      const sides = Math.max(...around.map(([u, v]) => beside(gridAt(g, u, v))), -pitD);
+      const base = c.k === STAIR ? c.h - 1 : c.h;
+      if (base - sides < 2) continue;
+      if (c.k === BLOCK) { c.k = ARCADE; c.d = corner ? 2 : 1 - ax; c.f = Math.max(sides, 0); }
+      else if (c.k === STAIR) c.f = Math.max(sides, 0);
+    }
+  }
+
+  // ---- gates over the route ----
+  const gateSpots = path.map((q, t) => [q, t]).filter(([q, t]) => t > 1 && t < n - 2 && cells[q].k === BLOCK && !cells[q].o);
+  gateSpots.sort(() => r() - 0.5);
+  const gates = [];
+  for (const [q, t] of gateSpots) {
+    if (gates.length >= p.gates) break;
+    if (gates.some((x) => Math.abs(x - t) < 3)) continue;
+    cells[q].o = dirs[t] % 2 === 0 ? GATE_X : GATE_Y;
+    gates.push(t);
+  }
+
+  // ---- ornaments on the roofs that stand above their neighbours ----
+  for (let q = 0; q < N; q++) {
+    const c = cells[q];
+    if (c.w || c.o || !(c.k === BLOCK || c.k === ARCADE || c.k === PILLAR) || c.h < 1) continue;
+    const i = q % C, j = (q / C) | 0;
+    if (!DIRS.every(([di, dj]) => sideTop(gridAt(g, i + di, j + dj)) <= c.h)) continue;
+    if (r() < p.decor * (c.k === PILLAR ? 0.4 : 0.5)) c.o = c.k === PILLAR ? BALL : pick([BALL, OBELISK, DOME, BALL]);
+  }
+
+  return { grid: g, warnings: warn, ...levelTitle(p, !!loop) };
+}
+
+// ===== walking =====
+
+// The walking graph of the grid: flat roofs at the same level, stairs between
+// their low and high sides, gates crossed along their passage. Ghost links
+// join a dead end (a walkway with one way out) to the walkway it meets in
+// the impossible view: m cells
+// further back on both axes and m levels lower, with nothing standing up in
+// between to break the line.
+const BLOCKING = new Set([BALL, OBELISK, DOME, SPIRE, FIGURE]);
+
+function walkGraph(g) {
+  const { cols: C, rows: R, cells } = g;
+  const flat = (c) => (c.k === BLOCK || c.k === ARCADE) && !BLOCKING.has(c.o);
+  const gateAxis = (c) => (c.o === GATE_X ? 0 : c.o === GATE_Y ? 1 : -1);
+  // The level a walker stands at when crossing the edge of cell c in direction s, leaving it.
+  const exitLevel = (c, s) => {
+    if (c.k === STAIR) return s === c.d ? c.h : s === (c.d + 2) % 4 ? c.h - 1 : null;
+    if (!flat(c)) return null;
+    const ga = gateAxis(c);
+    return ga < 0 || ga === s % 2 ? c.h : null;
+  };
+  const entryLevel = (c, s) => {
+    if (c.k === STAIR) return s === c.d ? c.h - 1 : s === (c.d + 2) % 4 ? c.h : null;
+    if (!flat(c)) return null;
+    const ga = gateAxis(c);
+    return ga < 0 || ga === s % 2 ? c.h : null;
+  };
+  const edges = cells.map(() => []);
+  const walkable = cells.map((c) => c.k === STAIR || flat(c));
+  for (let q = 0; q < C * R; q++) {
+    if (!walkable[q]) continue;
+    const i = q % C, j = (q / C) | 0;
+    for (let s = 0; s < 4; s++) {
+      const ni = i + DIRS[s][0], nj = j + DIRS[s][1];
+      if (ni < 0 || nj < 0 || ni >= C || nj >= R) continue;
+      const a = exitLevel(cells[q], s), b = entryLevel(cells[ni + nj * C], s);
+      if (a !== null && b !== null && a === b) edges[q].push({ to: ni + nj * C, s });
+    }
+  }
+  const ghosts = [];
+  for (let q = 0; q < C * R; q++) {
+    const A = cells[q];
+    if (!flat(A) || edges[q].length !== 1) continue;
+    const i = q % C, j = (q / C) | 0;
+    for (let s = 0; s < 4; s++) {
+      if (edges[q].some((e) => e.s === s)) continue;
+      if (exitLevel(A, s) === null) continue;
+      const bi = i + DIRS[s][0], bj = j + DIRS[s][1];
+      for (let m = 1; m <= 8; m++) {
+        let clear = true;
+        for (let t = 0; t < m && clear; t++) clear = peakTop(gridAt(g, bi + t, bj + t)) <= A.h - t - 1;
+        if (!clear) break;
+        const qi = bi + m, qj = bj + m;
+        if (qi >= C || qj >= R) break;
+        const Q = cells[qi + qj * C];
+        if (Q.h === A.h - m && entryLevel(Q, s) === Q.h) {
+          ghosts.push({ from: q, to: qi + qj * C, s, m });
+          ghosts.push({ from: qi + qj * C, to: q, s: (s + 2) % 4, m: -m });
+          break;
+        }
+      }
+    }
+  }
+  return { edges, ghosts, walkable };
+}
+
+// ===== engine =====
+
+// manifold-3d (WASM) does the solid modelling: every boolean result is a
+// closed, oriented 2-manifold, which is what a slicer wants. WASM objects are
+// not garbage-collected, so every object created while a model is built is
+// recorded in an arena and freed in one go afterwards.
+
+const MANIFOLD_URL = 'https://cdn.jsdelivr.net/npm/manifold-3d@3.5.4/manifold.js';
+
+let Manifold = null;
+let CrossSection = null;
+let arena = null;
+
+function track(r) {
+  if (arena && r && typeof r === 'object') {
+    if (Array.isArray(r)) r.forEach(track);
+    else if (typeof r.isDeleted === 'function') arena.push(r);
+  }
+  return r;
+}
+
+const UNWRAPPED = new Set(['constructor', 'prototype', 'length', 'name', 'delete', 'isDeleted', 'deleteLater', 'isAliasOf', 'clone']);
+
+function wrapFunctions(target) {
+  for (const name of Object.getOwnPropertyNames(target)) {
+    if (UNWRAPPED.has(name)) continue;
+    const d = Object.getOwnPropertyDescriptor(target, name);
+    if (!d || typeof d.value !== 'function' || !d.writable) continue;
+    const f = d.value;
+    target[name] = function (...args) {
+      return track(f.apply(this, args));
+    };
+  }
+}
+
+async function loadEngine(url = MANIFOLD_URL) {
+  const { default: Module } = await import(url);
+  const wasm = await Module();
+  wasm.setup();
+  ({ Manifold, CrossSection } = wasm);
+  const probe = CrossSection.square(1);
+  const crossProto = Object.getPrototypeOf(probe);
+  probe.delete();
+  wrapFunctions(Manifold);
+  wrapFunctions(Manifold.prototype);
+  wrapFunctions(CrossSection);
+  wrapFunctions(crossProto);
+}
+
+function withArena(fn) {
+  arena = [];
+  try {
+    return fn();
+  } finally {
+    const list = arena;
+    arena = null;
+    for (const o of list) if (!o.isDeleted()) o.delete();
+  }
+}
+
+// Pieces are joined by overlapping volumes, and where their faces coincide
+// they face the same way: solids that merely touch, face against face, can
+// come out as two shells, and a hair of overlap leaves slivers. So layers of
+// the ground all start at its bottom, stairs and gates reach down into their
+// columns, and EPS welds a piece into a neighbour that stands taller.
+const EPS = 0.02; // overlap that welds a solid into its taller neighbour, mm
+const OUT = 0.5; // how far a cutter reaches past the surface it cuts, mm
+const SILL = 0.02; // arches start a hair above their floor, so no faces coincide, mm
+const CROWN = 0.04; // keeps the crowns of crossing arches apart, mm
+let SEG = 40; // segments per full circle, set for each build
+let STEEP = Math.PI / 4; // steepest overhang the print takes, from the vertical
+
+function box(x0, y0, z0, x1, y1, z1) {
+  if (x1 - x0 < 1e-4 || y1 - y0 < 1e-4 || z1 - z0 < 1e-4) return null;
+  return Manifold.cube([x1 - x0, y1 - y0, z1 - z0]).translate([x0, y0, z0]);
+}
+
+const rect = (a0, b0, a1, b1) => [[a0, b0], [a1, b0], [a1, b1], [a0, b1]];
+
+function polygon(pts) {
+  const clean = pts.filter((q, i) => {
+    const r = pts[(i + pts.length - 1) % pts.length];
+    return Math.abs(q[0] - r[0]) > 1e-6 || Math.abs(q[1] - r[1]) > 1e-6;
+  });
+  return CrossSection.ofPolygons([clean]);
+}
+
+// Extrudes a cross-section by len along c and maps its x, y onto a, b; the
+// basis (a, b, c) must be right-handed. t is where the origin lands.
+function extrudeTo(cs, len, a, b, c, t) {
+  if (cs.isEmpty() || !(len > 0)) return null;
+  return cs.extrude(len).transform([a[0], a[1], a[2], 0, b[0], b[1], b[2], 0, c[0], c[1], c[2], 0, t[0], t[1], t[2], 1]);
+}
+
+const X = [1, 0, 0], Y = [0, 1, 0], Z = [0, 0, 1], NX = [-1, 0, 0];
+// A drawing in the (y, z) plane run along x.
+const alongX = (cs, y, z, x0, x1) => extrudeTo(cs, x1 - x0, Y, Z, X, [x0, y, z]);
+// A drawing in the (−x, z) plane run along y; arches are symmetric, so the mirror does not matter.
+const alongY = (cs, x, z, y0, y1) => extrudeTo(cs, y1 - y0, NX, Z, Y, [x, y0, z]);
+// A drawing in (s, z) where s runs along d; it is extruded to the right of d from the point o.
+const sideways = (cs, d, o, len) => extrudeTo(cs, len, [d[0], d[1], 0], Z, [d[1], -d[0], 0], o);
+
+// ===== arches =====
+
+// The right half of an arch above its springing line, from the springing
+// (w / 2, 0) to the crown on the axis. A round arch is a half circle, a
+// pointed one two arcs of radius w (equilateral). With self-support the arcs
+// stop where they overhang more than STEEP and run on as straight lines at
+// that angle to a tip, so the crown prints without support.
+function archHalf(w, shape, self, seg = SEG) {
+  const r = w / 2;
+  if (shape === 'flat' || !(r > 0)) return [[r, 0], [0, 0]];
+  const R = shape === 'pointed' ? w : r;
+  const cu = r - R;
+  const end = Math.acos(clamp(-cu / R, -1, 1));
+  const stop = self ? Math.min(end, STEEP) : end;
+  const n = Math.max(2, Math.ceil((seg * stop) / (2 * Math.PI)));
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const a = (stop * i) / n;
+    pts.push([cu + R * Math.cos(a), R * Math.sin(a)]);
+  }
+  if (stop < end - 1e-9) {
+    const [tu, tv] = pts[pts.length - 1];
+    pts.push([0, tv + tu / Math.tan(stop)]);
+  } else pts[pts.length - 1][0] = 0;
+  return pts;
+}
+
+const archRise = (w, shape, self) => archHalf(w, shape, self).at(-1)[1];
+
+// Outline of an arched opening w wide and h high standing on v = 0, centred on
+// u = 0, counter-clockwise. An opening lower than its arch gets a squashed arch.
+function archOutline(w, h, shape, self, seg = SEG) {
+  const half = archHalf(w, shape, self, seg);
+  const rise = half.at(-1)[1];
+  const spring = Math.max(0, h - rise);
+  const k = rise > 0 && h < rise ? h / rise : 1;
+  const right = half.map(([u, v]) => [u, spring + v * k]);
+  const left = right.slice(0, -1).reverse().map(([u, v]) => [-u, v]);
+  return [[-w / 2, 0], [w / 2, 0], ...right, ...left];
+}
+
+// A round opening of radius r centred on the origin; its top is an arch, so it
+// gets the same self-supporting tip.
+function roundOutline(r, self, seg) {
+  const n = Math.max(4, Math.ceil(seg / 2));
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const a = Math.PI + (Math.PI * i) / n;
+    pts.push([r * Math.cos(a), r * Math.sin(a)]);
+  }
+  const half = archHalf(2 * r, 'round', self, seg);
+  const left = half.slice(0, -1).reverse().slice(0, -1).map(([u, v]) => [-u, v]);
+  return [...pts, ...half.slice(1), ...left];
+}
+
+const shift = (pts, u, v) => pts.map(([a, b]) => [a + u, b + v]);
+
+// ===== ornaments =====
+
+// A ball of radius r cut flat at the latitude lowest (negative, radians),
+// standing on the cut at z = 0. Revolved from a profile, so the steepest facet
+// under it is known exactly.
+function ballSolid(r, lowest) {
+  const k = Math.max(3, Math.ceil(((Math.PI / 2 - lowest) * SEG) / (2 * Math.PI)));
+  const z0 = r * Math.sin(lowest);
+  const pts = [[0, 0]];
+  for (let i = 0; i <= k; i++) {
+    const a = lowest + ((Math.PI / 2 - lowest) * i) / k;
+    pts.push([i === k ? 0 : r * Math.cos(a), r * Math.sin(a) - z0]);
+  }
+  return Manifold.revolve(polygon(pts), SEG);
+}
+
+// The lowest latitude a ball keeps: 3° short of the steepest overhang with
+// self-support, so the underside needs none; otherwise it just sits.
+const ballCut = (self) => (self ? -(STEEP - (3 * Math.PI) / 180) : -Math.asin(0.85));
+
+// A half sphere of radius r standing on z = 0.
+function domeSolid(r) {
+  const k = Math.max(3, Math.ceil(SEG / 4));
+  const pts = [[0, 0]];
+  for (let i = 0; i <= k; i++) {
+    const a = ((Math.PI / 2) * i) / k;
+    pts.push([i === k ? 0 : r * Math.cos(a), r * Math.sin(a)]);
+  }
+  return Manifold.revolve(polygon(pts), SEG);
+}
+
+// A square pyramid with side b and height h standing on z = 0, centred.
+const pyramid = (b, h) => CrossSection.square([b, b], true).extrude(h, 0, 0, [0, 0]);
+
+// A cone of radius r and height h on z = 0, cut flat at the top radius rt.
+function coneSolid(r, rt, h) {
+  return Manifold.revolve(polygon(rt > 0 ? [[0, 0], [r, 0], [rt, h], [0, h]] : [[0, 0], [r, 0], [0, h]]), SEG);
+}
+
+// ===== city =====
+
+// A flight of n steps (going g, rise r) climbing along d from the point s0,
+// solid down to zb, w wide and centred on the line. It reaches EPS past its
+// cell only where a neighbour stands to weld to (e: start, end, left, right);
+// elsewhere a lip that thin would be an overhang.
+function flightSolid(s0, d, n, g, r, z0, zb, w, e) {
+  const a = e.start ? EPS : 0, b = e.end ? EPS : 0;
+  const pts = [[-a, zb]];
+  for (let j = 0; j < n; j++) {
+    const z = z0 + (j + 1) * r;
+    pts.push([j === 0 ? -a : j * g, z], [j === n - 1 ? n * g + b : (j + 1) * g, z]);
+  }
+  pts.push([n * g + b, zb]);
+  const l = e.left ? EPS : 0, rr = e.right ? EPS : 0;
+  const o = [s0[0] - d[1] * (w / 2 + l), s0[1] + d[0] * (w / 2 + l), 0];
+  return sideways(polygon(pts.reverse()), d, o, w + l + rr);
+}
+
+// Roles colour the preview: each solid (or cutter, whose cut faces keep its
+// identity) is tagged, and the mesh keeps the tag per triangle.
+function context(p) {
+  const T = { p, self: p.selfSupport, warn: [], roleList: [{ role: 'mass' }], roleById: new Map(), roles: new Map() };
+  T.role = (role) => {
+    if (!T.roles.has(role)) {
+      const r = { role, index: T.roleList.length };
+      T.roleList.push(r);
+      T.roles.set(role, r);
+    }
+    return T.roles.get(role);
+  };
+  T.tag = (m, role) => {
+    if (!m) return null;
+    const t = m.asOriginal();
+    T.roleById.set(t.originalID(), T.role(role));
+    return t;
+  };
+  T.tagAll = (list, role) => list.filter(Boolean).map((m) => T.tag(m, role));
+  return T;
+}
+
+// The city in solid. The ground and every column are built as layers of the
+// heightmap (one extrusion per level, so roofs at one level are one face);
+// stairs, towers, pillars and ornaments are added; arches, windows and the
+// taper under the island are cut.
+function buildCity(p, g, T) {
+  const { cols: C, rows: R } = g;
+  const c = p.cell, lh = p.level;
+  const X0 = (-C * c) / 2, Y0 = (-R * c) / 2;
+  const zb = -p.baseT;
+  const minLevel = Math.ceil((zb + 1.2) / lh);
+  // Pits deeper than the ground are raised to it.
+  let raised = false;
+  const cells = g.cells.map((cl) => {
+    if (cl.k === VOID) return cl;
+    const h = Math.max(cl.h, minLevel + (cl.k === STAIR ? 1 : 0)), f = Math.max(Math.min(cl.f, h), minLevel);
+    if (h !== cl.h || f !== Math.min(cl.f, cl.h)) raised = true;
+    return { ...cl, h, f };
+  });
+  if (raised) T.warn.push('Pits deeper than the ground are raised to it: thicken the ground for deeper ones.');
+  const G = { cols: C, rows: R, cells };
+  const at = (i, j) => gridAt(G, i, j);
+  const x = (i) => X0 + i * c, y = (j) => Y0 + j * c;
+  const sq = (i, j) => rect(x(i), y(j), x(i + 1), y(j + 1));
+  const adds = [], cuts = [];
+  const solidCells = [];
+  for (let j = 0; j < R; j++) for (let i = 0; i < C; i++) if (at(i, j).k !== VOID) solidCells.push([i, j]);
+  if (!solidCells.length) throw new Error('the island is empty');
+  const G2 = { colTopAt: (i, j) => (at(i, j).k === VOID ? -Infinity : colTop(at(i, j))) };
+  // Columns that meet only at a corner would share an edge, which no solid
+  // can; a hair-thin pillar at that corner joins them.
+  const bridges = (filled) => {
+    const out = [];
+    for (let j = -1; j < R; j++) {
+      for (let i = -1; i < C; i++) {
+        const a = filled(i, j), b = filled(i + 1, j), cc = filled(i, j + 1), d = filled(i + 1, j + 1);
+        if ((a && d && !b && !cc) || (b && cc && !a && !d)) out.push(rect(x(i + 1) - EPS, y(j + 1) - EPS, x(i + 1) + EPS, y(j + 1) + EPS));
+      }
+    }
+    return out;
+  };
+
+  // ---- heightmap: one prism per level, each from the bottom of the ground ----
+  const tops = solidCells.map(([i, j]) => colTop(at(i, j)) * lh);
+  const zs = [...new Set(tops.filter((z) => z > zb + 1e-6))].sort((a, b) => a - b);
+  for (const z1 of zs) {
+    const squares = solidCells.filter((_, q) => tops[q] >= z1 - 1e-6).map(([i, j]) => sq(i, j));
+    adds.push(T.tag(extrudeTo(CrossSection.ofPolygons(squares), z1 - zb, X, Y, Z, [0, 0, zb]), 'mass'));
+  }
+
+  // ---- hair-thin pillars where solids would meet only along an edge ----
+  // At each grid corner, how high the cell on each side stands right there: a
+  // flight is one riser high at its start corners and full height at its end.
+  const cornerZ = (i, j, ci, cj) => {
+    const cl = at(i, j);
+    if (cl.k === VOID) return zb;
+    if (cl.k !== STAIR) return colTop(cl) * lh;
+    const d = DIRS[cl.d];
+    return (ci - i - 0.5) * d[0] + (cj - j - 0.5) * d[1] > 0 ? cl.h * lh : (cl.h - 1) * lh + lh / p.steps;
+  };
+  for (let cj = 0; cj <= R; cj++) {
+    for (let ci = 0; ci <= C; ci++) {
+      const a = cornerZ(ci - 1, cj - 1, ci, cj), b = cornerZ(ci, cj - 1, ci, cj);
+      const cc = cornerZ(ci - 1, cj, ci, cj), d = cornerZ(ci, cj, ci, cj);
+      for (const [lo, hi] of [[Math.max(b, cc), Math.min(a, d)], [Math.max(a, d), Math.min(b, cc)]]) {
+        // Reaching a little below, into the lower columns, so it joins them too.
+        if (hi - lo > 1e-6) adds.push(T.tag(box(x(ci) - EPS, y(cj) - EPS, Math.max(zb, lo - 0.1), x(ci) + EPS, y(cj) + EPS, hi), 'mass'));
+      }
+    }
+  }
+
+  // ---- the underside: a 45° taper, cut by frusta grown from the empty cells ----
+  if (p.underside === 'taper') {
+    const foot = CrossSection.ofPolygons([...solidCells.map(([i, j]) => sq(i, j)), ...bridges((i, j) => at(i, j).k !== VOID)]);
+    const area = foot.area();
+    let D = p.taperD;
+    const keeps = (d) => foot.offset(-d, 'Miter', 2).area() >= 0.12 * area;
+    if (!keeps(D)) {
+      let lo = 0, hi = D;
+      for (let t = 0; t < 20; t++) { const mid = (lo + hi) / 2; if (keeps(mid)) lo = mid; else hi = mid; }
+      D = lo;
+      T.warn.push(`The taper is cut to ${D.toFixed(1)} mm, so the island keeps a foot to stand on.`);
+    }
+    if (D > 0.2) {
+      const slab = extrudeTo(foot, D + EPS, X, Y, Z, [0, 0, zb - D]);
+      const K = Math.ceil((D + OUT) / c) + 1, W = C + 2 * K, Hh = R + 2 * K;
+      const empty = (u, v) => at(u - K, v - K).k === VOID;
+      const done = new Uint8Array(W * Hh);
+      const frusta = [];
+      const g2 = D + OUT;
+      for (let v = 0; v < Hh; v++) {
+        for (let u = 0; u < W; u++) {
+          if (!empty(u, v) || done[u + v * W]) continue;
+          let u1 = u;
+          while (u1 + 1 < W && empty(u1 + 1, v) && !done[u1 + 1 + v * W]) u1++;
+          let v1 = v;
+          const rowFree = (vv) => { for (let uu = u; uu <= u1; uu++) if (!empty(uu, vv) || done[uu + vv * W]) return false; return true; };
+          while (v1 + 1 < Hh && rowFree(v1 + 1)) v1++;
+          for (let vv = v; vv <= v1; vv++) for (let uu = u; uu <= u1; uu++) done[uu + vv * W] = 1;
+          const a0 = x(u - K), b0 = y(v - K), a1 = x(u1 + 1 - K), b1 = y(v1 + 1 - K);
+          frusta.push(Manifold.hull([
+            [a0, b0, zb], [a1, b0, zb], [a1, b1, zb], [a0, b1, zb],
+            [a0 - g2, b0 - g2, zb - g2], [a1 + g2, b0 - g2, zb - g2], [a1 + g2, b1 + g2, zb - g2], [a0 - g2, b1 + g2, zb - g2],
+          ]));
+        }
+      }
+      adds.push(T.tag(minus(slab, T.tagAll(frusta, 'base')), 'base'));
+    }
+  }
+
+  // ---- stairs ----
+  const n = p.steps;
+  for (const [i, j] of solidCells) {
+    const cl = at(i, j);
+    if (cl.k !== STAIR) continue;
+    const d = DIRS[cl.d];
+    const s0 = [x(i) + c / 2 - (d[0] * c) / 2, y(j) + c / 2 - (d[1] * c) / 2];
+    const e = {
+      start: G2.colTopAt(i - d[0], j - d[1]) >= cl.h - 1,
+      end: G2.colTopAt(i + d[0], j + d[1]) >= cl.h,
+      left: sideTop(at(i - d[1], j + d[0])) >= cl.h,
+      right: sideTop(at(i + d[1], j - d[0])) >= cl.h,
+    };
+    adds.push(T.tag(flightSolid(s0, d, n, c / n, lh / n, (cl.h - 1) * lh, zb, c, e), 'stair'));
+  }
+
+  // ---- arch tunnels: runs of cells along a line at one level ----
+  // A cell wants a tunnel at level k along an axis when it is an arcade on
+  // that axis with k between its floor and top, or a stair with arches under
+  // it, across its run. A run is cut through where both ends open onto lower
+  // ground, as an alcove where one does, and not at all where neither does.
+  // Arches narrow (the piers widen) when a level is too low for their curve.
+  const oh = Math.min(p.openH * lh, lh - Math.max(0.8, 0.1 * lh)) - SILL;
+  const ratio = archRise(1, p.shape, T.self);
+  let aw = c - p.pier * c;
+  if (ratio > 0 && aw * ratio > oh - 0.3) {
+    aw = Math.max(1, (oh - 0.3) / ratio);
+    T.warn.push(`Levels are low for the arches: they narrow to ${aw.toFixed(1)} mm.`);
+  }
+  const wants = (cl, axis, k) => {
+    if (cl.k === ARCADE) return (cl.d === axis || cl.d === 2) && k >= cl.f && k < cl.h;
+    if (cl.k === STAIR) return cl.d % 2 !== axis && k >= cl.f && k < cl.h - 1;
+    return false;
+  };
+  const opens = (cl, k) => sideTop(cl) <= k;
+  const tunnelCS = [0, 1].map((axis) => polygon(archOutline(aw, oh - (axis ? CROWN : 0), p.shape, T.self)));
+  const levels = solidCells.flatMap(([i, j]) => [at(i, j).f, at(i, j).h]);
+  const kMin = Math.min(...levels), kMax = Math.max(...levels);
+  const vaults = [];
+  for (const axis of [0, 1]) {
+    const lines = axis ? C : R, len = axis ? R : C;
+    const cellOf = (line, t) => (axis ? at(line, t) : at(t, line));
+    const pos = (t) => (axis ? y(t) : x(t));
+    for (let line = 0; line < lines; line++) {
+      const mid = axis ? x(line) + c / 2 : y(line) + c / 2;
+      for (let k = kMin; k < kMax; k++) {
+        for (let t = 0; t < len; t++) {
+          if (!wants(cellOf(line, t), axis, k)) continue;
+          let e = t;
+          while (e + 1 < len && wants(cellOf(line, e + 1), axis, k)) e++;
+          const lo = opens(cellOf(line, t - 1), k), hi = opens(cellOf(line, e + 1), k);
+          if (lo || hi) {
+            const s0 = lo ? pos(t) - OUT : pos(e + 1) - (e - t + 0.6) * c;
+            const s1 = hi ? pos(e + 1) + OUT : pos(t) + (e - t + 0.6) * c;
+            const zf = k * lh + SILL;
+            vaults.push(axis ? alongY(tunnelCS[1], mid, zf, s0, s1) : alongX(tunnelCS[0], mid, zf, s0, s1));
+          }
+          t = e;
+        }
+      }
+    }
+  }
+  cuts.push(...T.tagAll(vaults, 'vault'));
+
+  // ---- windows: niches in the walls that stand free ----
+  const wseg = Math.max(8, Math.round(SEG / 2));
+  const STYLES = ['arched', 'slit', 'twin', 'round'];
+  const shapes = {
+    arched: { pts: [archOutline(0.32 * c, 0.56 * lh, p.shape, T.self, wseg)], v: 0.2 * lh },
+    slit: { pts: [archOutline(0.13 * c, 0.62 * lh, p.shape, T.self, wseg)], v: 0.18 * lh },
+    twin: { pts: [-1, 1].map((sgn) => shift(archOutline(0.11 * c, 0.56 * lh, p.shape, T.self, wseg), sgn * 0.13 * c, 0)), v: 0.2 * lh },
+    round: { pts: [shift(roundOutline(0.15 * Math.min(c, 1.3 * lh), T.self, wseg), 0, 0.15 * Math.min(c, 1.3 * lh))], v: 0.5 * lh - 0.15 * Math.min(c, 1.3 * lh) },
+  };
+  const windowCS = Object.fromEntries(Object.entries(shapes).map(([k, s]) => [k, s.pts.map(polygon)]));
+  const wd = Math.min(p.winDepth, 0.3 * c);
+  const windows = [];
+  const face = (list, side, cx, cy, half, z) => {
+    for (const cs of list) {
+      if (side === 0) windows.push(alongX(cs, cy, z, cx + half - wd, cx + half + OUT));
+      else if (side === 2) windows.push(alongX(cs, cy, z, cx - half - OUT, cx - half + wd));
+      else if (side === 1) windows.push(alongY(cs, cx, z, cy + half - wd, cy + half + OUT));
+      else windows.push(alongY(cs, cx, z, cy - half - OUT, cy - half + wd));
+    }
+  };
+  if (p.windows !== 'none' && p.winRate > 0) {
+    for (const [i, j] of solidCells) {
+      const cl = at(i, j);
+      if (cl.k !== BLOCK && cl.k !== TOWER) continue;
+      const style = p.windows === 'mixed' ? STYLES[hashInt(i >> 1, j >> 1, 5) % 4] : p.windows;
+      const cx = x(i) + c / 2, cy = y(j) + c / 2;
+      for (let s = 0; s < 4; s++) {
+        if (cl.k === BLOCK) {
+          const nb = at(i + DIRS[s][0], j + DIRS[s][1]);
+          const from = Math.max(nb.k === VOID ? 0 : sideTop(nb), minLevel);
+          for (let k = from; k < cl.h; k++) {
+            if (rnd(p.seed, i * 64 + j, s * 64 + k + 40, 3) >= p.winRate) continue;
+            face(windowCS[style], s, cx, cy, c / 2, k * lh + shapes[style].v);
+          }
+        } else {
+          // Slits up the tower, turning from face to face.
+          for (let k = cl.f + 1; k < cl.h; k++) {
+            if ((k + s) % 2 || rnd(p.seed, i * 64 + j, s * 64 + k, 4) >= Math.max(p.winRate, 0.5)) continue;
+            face(windowCS.slit, s, cx, cy, (p.towerW * c) / 2, k * lh + shapes.slit.v);
+          }
+        }
+      }
+    }
+  }
+  cuts.push(...T.tagAll(windows, 'window'));
+
+  // ---- towers, pillars, ornaments ----
+  const tw = p.towerW * c, pw = 0.32 * c;
+  for (const [i, j] of solidCells) {
+    const cl = at(i, j);
+    const cx = x(i) + c / 2, cy = y(j) + c / 2;
+    const zt = cl.h * lh;
+    if (cl.k === TOWER) {
+      adds.push(T.tag(box(cx - tw / 2, cy - tw / 2, cl.f * lh - EPS, cx + tw / 2, cy + tw / 2, zt), 'tower'));
+      if (cl.o === DOME) adds.push(T.tag(domeSolid(tw / 2).translate([cx, cy, zt - EPS]), 'deco'));
+      else if (cl.o === SPIRE) adds.push(T.tag(pyramid(tw, 1.3 * tw).translate([cx, cy, zt - EPS]), 'deco'));
+      else if (cl.o === BALL) adds.push(T.tag(ballSolid(0.42 * tw, ballCut(T.self)).translate([cx, cy, zt - EPS]), 'ball'));
+      continue;
+    }
+    if (cl.k === PILLAR) {
+      adds.push(T.tag(box(cx - pw / 2, cy - pw / 2, cl.f * lh - EPS, cx + pw / 2, cy + pw / 2, zt), 'pillar'));
+      if (cl.o === BALL) adds.push(T.tag(ballSolid(0.5 * pw, ballCut(T.self)).translate([cx, cy, zt - EPS]), 'ball'));
+      continue;
+    }
+    if (cl.k === STAIR || cl.o === NONE) continue;
+    if (cl.o === BALL) {
+      adds.push(T.tag(box(cx - 0.2 * c, cy - 0.2 * c, zt - EPS, cx + 0.2 * c, cy + 0.2 * c, zt + 0.08 * lh), 'deco'));
+      adds.push(T.tag(ballSolid(0.25 * c, ballCut(T.self)).translate([cx, cy, zt + 0.08 * lh - EPS]), 'ball'));
+    } else if (cl.o === GATE_X || cl.o === GATE_Y) {
+      const along = cl.o === GATE_X;
+      const gd = 0.34 * c, post = 0.19 * c, gh = Math.max(1.15 * lh, 0.95 * c);
+      const weld = (di, dj) => (sideTop(at(i + di, j + dj)) > cl.h ? EPS : 0);
+      const gate = along
+        ? box(cx - gd / 2, y(j) - weld(0, -1), zt - 0.1 * lh, cx + gd / 2, y(j + 1) + weld(0, 1), zt + gh)
+        : box(x(i) - weld(-1, 0), cy - gd / 2, zt - 0.1 * lh, x(i + 1) + weld(1, 0), cy + gd / 2, zt + gh);
+      const cs = polygon(archOutline(c - 2 * post, gh - 0.85 * post + OUT, p.shape, T.self));
+      const hole = along ? alongX(cs, cy, zt - OUT, cx - gd / 2 - OUT, cx + gd / 2 + OUT) : alongY(cs, cx, zt - OUT, cy - gd / 2 - OUT, cy + gd / 2 + OUT);
+      adds.push(minus(T.tag(gate, 'gate'), T.tag(hole, 'gate')));
+    } else if (cl.o === OBELISK) {
+      const ob = 0.24 * c, oh2 = 1.5 * lh;
+      adds.push(T.tag(box(cx - 0.19 * c, cy - 0.19 * c, zt - EPS, cx + 0.19 * c, cy + 0.19 * c, zt + 0.1 * lh), 'deco'));
+      adds.push(T.tag(CrossSection.square([ob, ob], true).extrude(oh2, 0, 0, [0.62, 0.62]).translate([cx, cy, zt + 0.1 * lh - EPS]), 'deco'));
+      adds.push(T.tag(pyramid(0.62 * ob, 0.55 * ob).translate([cx, cy, zt + 0.1 * lh + oh2 - 2 * EPS]), 'deco'));
+    } else if (cl.o === DOME) {
+      adds.push(T.tag(Manifold.cylinder(0.12 * lh, 0.38 * c, 0.38 * c, SEG).translate([cx, cy, zt - EPS]), 'deco'));
+      adds.push(T.tag(domeSolid(0.34 * c).translate([cx, cy, zt + 0.12 * lh - 2 * EPS]), 'deco'));
+    } else if (cl.o === SPIRE) {
+      adds.push(T.tag(pyramid(0.5 * c, 0.9 * c).translate([cx, cy, zt - EPS]), 'deco'));
+    } else if (cl.o === FIGURE) {
+      // The wanderer, in stone: a cone of a body, a head, a pointed hat.
+      const bodyH = 0.42 * c, hr = 0.085 * c;
+      adds.push(T.tag(coneSolid(0.15 * c, 0.05 * c, bodyH).translate([cx, cy, zt - EPS]), 'figure'));
+      adds.push(T.tag(ballSolid(hr, ballCut(true)).translate([cx, cy, zt + bodyH - 0.8 * hr]), 'figure'));
+      adds.push(T.tag(coneSolid(0.055 * c, 0, 0.14 * c).translate([cx, cy, zt + bodyH + 0.55 * hr]), 'figure'));
+    }
+  }
+
+  return Manifold.difference([Manifold.union(adds.filter(Boolean)), ...cuts.filter(Boolean)]);
+}
+
+function minus(a, ...bs) {
+  const cut = bs.flat().filter(Boolean);
+  return a && cut.length ? Manifold.difference([a, ...cut]) : a;
+}
+
+// ===== model =====
+
+function extractMesh(m, roleById) {
+  const mesh = m.getMesh();
+  const np = mesh.numProp;
+  const vp = mesh.vertProperties;
+  const nv = vp.length / np;
+  // Weld vertices that land on the same float32 position: the engine keeps
+  // coincident vertices apart symbolically, an STL cannot. The zero-area
+  // triangles left between welded vertices are dropped.
+  const index = new Map();
+  const remap = new Uint32Array(nv);
+  const pos = [];
+  const f32 = new Float32Array(3), bits = new Uint32Array(f32.buffer);
+  for (let i = 0; i < nv; i++) {
+    f32[0] = vp[i * np];
+    f32[1] = vp[i * np + 1];
+    f32[2] = vp[i * np + 2];
+    const key = `${bits[0]},${bits[1]},${bits[2]}`;
+    let j = index.get(key);
+    if (j === undefined) {
+      j = pos.length / 3;
+      index.set(key, j);
+      pos.push(f32[0], f32[1], f32[2]);
+    }
+    remap[i] = j;
+  }
+  const tv = mesh.triVerts;
+  const runRole = new Uint16Array(tv.length / 3);
+  const ids = mesh.runOriginalID, runs = mesh.runIndex;
+  for (let r = 0; r < ids.length; r++) {
+    const role = roleById.get(ids[r]);
+    if (role) runRole.fill(role.index, runs[r] / 3, runs[r + 1] / 3);
+  }
+  const tris = [], triRole = [];
+  // Welding can also turn a pair of flat slivers into the same triangle twice,
+  // once each way round; such a pair encloses nothing and is dropped.
+  const seen = new Map();
+  const keep = new Uint8Array(tv.length / 3).fill(1);
+  for (let t = 0; t < tv.length / 3; t++) {
+    const a = remap[tv[t * 3]], b = remap[tv[t * 3 + 1]], c = remap[tv[t * 3 + 2]];
+    if (a === b || b === c || a === c) { keep[t] = 0; continue; }
+    const lo = Math.min(a, b, c), hi = Math.max(a, b, c), mid = a + b + c - lo - hi;
+    // Orientation: whether (a, b, c) is an even rotation of (lo, mid, hi).
+    const even = (a === lo && b === mid) || (b === lo && c === mid) || (c === lo && a === mid);
+    const key = `${lo},${mid},${hi},${even ? 0 : 1}`, twin = `${lo},${mid},${hi},${even ? 1 : 0}`;
+    const list = seen.get(twin);
+    if (list && list.length) { keep[list.pop()] = 0; keep[t] = 0; continue; }
+    if (!seen.has(key)) seen.set(key, []);
+    seen.get(key).push(t);
+  }
+  for (let t = 0; t < tv.length / 3; t++) {
+    if (!keep[t]) continue;
+    tris.push(remap[tv[t * 3]], remap[tv[t * 3 + 1]], remap[tv[t * 3 + 2]]);
+    triRole.push(runRole[t]);
+  }
+  const b = m.boundingBox();
+  return {
+    positions: Float32Array.from(pos), tris: Uint32Array.from(tris), triRole: Uint16Array.from(triRole), volume: m.volume(),
+    min: [...b.min], max: [...b.max], ...meshChecks(tris, pos.length / 3),
+  };
+}
+
+// Separate pieces, and edges that do not close (each edge should be used once
+// in each direction).
+function meshChecks(tris, nv) {
+  const parent = Int32Array.from({ length: nv }, (_, i) => i);
+  const find = (x) => { while (parent[x] !== x) x = parent[x] = parent[parent[x]]; return x; };
+  const edges = new Map();
+  for (let t = 0; t < tris.length; t += 3) {
+    for (let k = 0; k < 3; k++) {
+      const a = tris[t + k], b = tris[t + ((k + 1) % 3)];
+      parent[find(a)] = find(b);
+      const key = a * nv + b;
+      edges.set(key, (edges.get(key) || 0) + 1);
+    }
+  }
+  let open = 0;
+  for (const [key, n] of edges) {
+    const a = Math.floor(key / nv), b = key % nv;
+    if (n !== 1 || edges.get(b * nv + a) !== 1) open++;
+  }
+  const roots = new Set();
+  for (const v of tris) roots.add(find(v));
+  return { pieces: roots.size, openEdges: open };
+}
+
+const printAngle = (p) => (p.selfSupport ? p.crownAngle : 45);
+
+// Builds the city standing on z = 0; zShift is where the datum went.
+function buildModel(p, g) {
+  SEG = p.segments;
+  STEEP = (printAngle(p) * Math.PI) / 180;
+  const T = context(p);
+  let solid = buildCity(p, g, T);
+  if (!solid || solid.isEmpty()) throw new Error('nothing to build');
+  // Collapse the slivers that coinciding faces can leave (a micron wide).
+  solid = solid.simplify(1e-3);
+  const zShift = -solid.boundingBox().min[2];
+  solid = solid.translate([0, 0, zShift]);
+  const out = extractMesh(solid, T.roleById);
+  out.roleList = T.roleList.map(({ role, index }) => ({ role, index }));
+  out.status = solid.status();
+  out.genus = solid.genus();
+  out.warnings = [...new Set(T.warn)];
+  out.zShift = zShift;
+  return out;
+}
+
+// Area of faces turned down further than angle (degrees from the vertical),
+// away from the bed: what would need support.
+function overhangs(positions, tris, flags, angle = 45) {
+  const limit = -Math.sin((angle * Math.PI) / 180) - 0.01;
+  let zMin = Infinity;
+  for (let i = 2; i < positions.length; i += 3) zMin = Math.min(zMin, positions[i]);
+  let area = 0;
+  for (let t = 0; t < tris.length; t += 3) {
+    const a = tris[t] * 3, b = tris[t + 1] * 3, c = tris[t + 2] * 3;
+    const ux = positions[b] - positions[a], uy = positions[b + 1] - positions[a + 1], uz = positions[b + 2] - positions[a + 2];
+    const vx = positions[c] - positions[a], vy = positions[c + 1] - positions[a + 1], vz = positions[c + 2] - positions[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz);
+    if (!(len > 0)) continue;
+    const zc = (positions[a + 2] + positions[b + 2] + positions[c + 2]) / 3;
+    const over = nz / len < limit && zc > zMin + 0.05;
+    if (flags) flags[t / 3] = over ? 1 : 0;
+    if (over) area += len / 2;
+  }
+  return area;
+}
+
+// ===== stl =====
+
+function meshToSTL(positions, tris, header = 'impossible city generator') {
+  const triCount = tris.length / 3;
+  const buffer = new ArrayBuffer(84 + triCount * 50);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < Math.min(80, header.length); i++) bytes[i] = header.charCodeAt(i) & 0x7f;
+  view.setUint32(80, triCount, true);
+
+  let o = 84;
+  for (let t = 0; t < tris.length; t += 3) {
+    const a = tris[t] * 3, b = tris[t + 1] * 3, c = tris[t + 2] * 3;
+    const ax = positions[a], ay = positions[a + 1], az = positions[a + 2];
+    const bx = positions[b], by = positions[b + 1], bz = positions[b + 2];
+    const cx = positions[c], cy = positions[c + 1], cz = positions[c + 2];
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    view.setFloat32(o, nx, true); view.setFloat32(o + 4, ny, true); view.setFloat32(o + 8, nz, true);
+    view.setFloat32(o + 12, ax, true); view.setFloat32(o + 16, ay, true); view.setFloat32(o + 20, az, true);
+    view.setFloat32(o + 24, bx, true); view.setFloat32(o + 28, by, true); view.setFloat32(o + 32, bz, true);
+    view.setFloat32(o + 36, cx, true); view.setFloat32(o + 40, cy, true); view.setFloat32(o + 44, cz, true);
+    view.setUint16(o + 48, 0, true);
+    o += 50;
+  }
+  return buffer;
+}
+
+// ===== worker =====
+
+// The worker builds the cities it is sent, one at a time: { id, params, grid }.
+if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+  const ready = loadEngine();
+  self.onmessage = async ({ data }) => {
+    try {
+      await ready;
+      const t0 = performance.now();
+      const out = withArena(() => buildModel(data.params, data.grid));
+      out.ms = performance.now() - t0;
+      self.postMessage({ id: data.id, out }, [out.positions.buffer, out.tris.buffer, out.triRole.buffer]);
+    } catch (e) {
+      self.postMessage({ id: data.id, error: String(e?.message ?? e) });
+    }
+  };
+}
+
+export {
+  PARAMS, GROUPS, DEFAULTS, GEN_KEYS, PRESETS,
+  VOID, BLOCK, STAIR, ARCADE, TOWER, PILLAR, NONE, BALL, GATE_X, GATE_Y, OBELISK, DOME, SPIRE, FIGURE, DIRS,
+  newCell, colTop, sideTop, gridAt, encodeGrid, decodeGrid, generate, walkGraph,
+  loadEngine, withArena, buildModel, printAngle, overhangs, meshToSTL,
+};
+  </script>
+
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ===== main =====
+
+const $ = (id) => document.getElementById(id);
+const geometryURL = URL.createObjectURL(new Blob([$('geometry').textContent], { type: 'text/javascript' }));
+const G = await import(geometryURL);
+const { PARAMS, GROUPS, DEFAULTS, GEN_KEYS, PRESETS } = G;
+const { VOID, BLOCK, STAIR, ARCADE, TOWER, PILLAR, NONE, BALL, GATE_X, GATE_Y, OBELISK, DOME, SPIRE, FIGURE, DIRS } = G;
+
+const state = { ...DEFAULTS, ...PRESETS[0].params };
+const view = { pal: 'monument', style: 'game' };
+let grid = null; // the city being edited: { cols, rows, cells }
+let title = { chapter: '', name: '' };
+let genWarnings = [];
+let edited = false; // the grid differs from what the seed generates
+let walk = null; // walking graph of the grid
+const undo = [], redo = [];
+
+const controlsByKey = new Map();
+let result = null; // { params, grid, mesh, ms, flags, overhang } of the last finished build
+
+// ---------- palettes ----------
+
+// Colours per role, a sky gradient, the haze that low parts fade into, and
+// the roles that glow (drawn unshaded).
+const PALETTES = {
+  monument: {
+    name: 'Monument', sky: ['#f9e0d2', '#eea596'], haze: '#f6c9bb', hazeK: 0.28, title: '#5a2f35',
+    mass: '#f3e4da', base: '#b5677a', path: '#fff8f2', stair: '#f8ece4', vault: '#c77a86', window: '#a24f66',
+    tower: '#ebbcc1', pillar: '#ead0c6', deco: '#e48b83', ball: '#ffffff', gate: '#da6c6c', figure: '#ffffff', glow: [],
+  },
+  dusk: {
+    name: 'Dusk', sky: ['#3d3a6b', '#ec9a74'], haze: '#b2788a', hazeK: 0.32, title: '#fff1e4',
+    mass: '#e9d7cc', base: '#5a4a7a', path: '#fff3e6', stair: '#f2e2d6', vault: '#7a5c92', window: '#4f3d72',
+    tower: '#c9a7c9', pillar: '#d7c0cf', deco: '#f0a36f', ball: '#ffe1b8', gate: '#e2865f', figure: '#ffffff', glow: [],
+  },
+  mint: {
+    name: 'Mint', sky: ['#d4ecef', '#f8f2e1'], haze: '#e4efe6', hazeK: 0.3, title: '#24514a',
+    mass: '#eef4ee', base: '#3f7f74', path: '#ffffff', stair: '#d9ebe2', vault: '#5fa595', window: '#2f6f63',
+    tower: '#a6d6c6', pillar: '#c6e1d6', deco: '#f0a35e', ball: '#ffffff', gate: '#f08a5d', figure: '#ffffff', glow: [],
+  },
+  desert: {
+    name: 'Desert', sky: ['#9fd2e3', '#f7e5c7'], haze: '#efe0c4', hazeK: 0.3, title: '#5b3320',
+    mass: '#ecd1ab', base: '#9b5a3a', path: '#f8e7cd', stair: '#f3dcb9', vault: '#b8704b', window: '#7d4228',
+    tower: '#e2b38a', pillar: '#e6c49e', deco: '#4d8f8a', ball: '#f7f0e2', gate: '#c55f3c', figure: '#ffffff', glow: [],
+  },
+  concrete: {
+    name: 'Concrete', sky: ['#e9e9e7', '#bdbdb9'], haze: '#d5d5d2', hazeK: 0.22, title: '#26262a',
+    mass: '#d9d8d4', base: '#8d8c88', path: '#ecebe7', stair: '#e4e3df', vault: '#a7a6a1', window: '#6e6d69',
+    tower: '#cfcec9', pillar: '#dddcd8', deco: '#bdbcb7', ball: '#2b2b2a', gate: '#c4c3be', figure: '#f6f5f1', glow: [],
+  },
+  night: {
+    name: 'Night', sky: ['#04060d', '#1d2747'], haze: '#18203a', hazeK: 0.35, title: '#f3e6c4',
+    mass: '#343848', base: '#1c1f2b', path: '#474c5f', stair: '#41465a', vault: '#ffd98a', window: '#ffcf6e',
+    tower: '#3c4155', pillar: '#3a3f52', deco: '#59607a', ball: '#fff4d2', gate: '#5d6480', figure: '#fff4d2',
+    glow: ['vault', 'window', 'ball', 'figure'], bloom: 0.55,
+  },
+};
+for (const [k, p] of Object.entries(PALETTES)) $('palette').add(new Option(p.name, k));
+
+// ---------- form ----------
+
+function makeControl(p) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  wrap.append(title);
+
+  if (p.type === 'bool') {
+    wrap.classList.add('bool');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => update(p.key, box.checked));
+    wrap.append(box);
+    controlsByKey.set(p.key, { wrap, set: (v) => (box.checked = v) });
+  } else if (p.type === 'select') {
+    wrap.classList.add('select');
+    const sel = document.createElement('select');
+    for (const [value, text] of p.options) sel.add(new Option(text, value));
+    sel.addEventListener('change', () => update(p.key, sel.value));
+    wrap.append(sel);
+    controlsByKey.set(p.key, { wrap, set: (v) => (sel.value = v) });
+  } else {
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.min = p.min; num.max = p.max; num.step = p.step;
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = p.min; range.max = p.max; range.step = p.step;
+    const parse = (v) => {
+      let x = Number(v);
+      if (!Number.isFinite(x)) return null;
+      if (p.type === 'int') x = Math.round(x);
+      return Math.min(p.max, Math.max(p.min, x));
+    };
+    num.addEventListener('change', () => {
+      const x = parse(num.value);
+      if (x === null) { num.value = state[p.key]; return; }
+      num.value = x; range.value = x;
+      update(p.key, x);
+    });
+    // Generator sliders regenerate when let go; the others rebuild as they move.
+    range.addEventListener(GEN_KEYS.has(p.key) ? 'change' : 'input', () => {
+      const x = parse(range.value);
+      num.value = x;
+      update(p.key, x);
+    });
+    if (GEN_KEYS.has(p.key)) range.addEventListener('input', () => (num.value = parse(range.value)));
+    wrap.append(num, range);
+    controlsByKey.set(p.key, { wrap, set: (v) => { num.value = v; range.value = v; } });
+  }
+  return wrap;
+}
+
+const groupBodies = {};
+for (const [id, title] of Object.entries(GROUPS)) {
+  const det = document.createElement('details');
+  det.open = id !== 'print';
+  const sum = document.createElement('summary');
+  sum.textContent = title;
+  det.append(sum);
+  groupBodies[id] = det;
+  $('groups').append(det);
+}
+for (const p of PARAMS) groupBodies[p.group].append(makeControl(p));
+
+PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
+$('preset').add(new Option('— custom —', 'custom'));
+$('preset').addEventListener('change', () => {
+  const pr = PRESETS[Number($('preset').value)];
+  if (!pr) return;
+  remember();
+  Object.assign(state, DEFAULTS, pr.params);
+  Object.assign(view, { pal: 'monument', style: 'game' }, pr.view);
+  syncView();
+  syncForm();
+  regenerate();
+});
+
+function syncVisibility() {
+  for (const p of PARAMS) controlsByKey.get(p.key).wrap.hidden = p.when ? !p.when(state) : false;
+}
+
+function syncForm() {
+  for (const p of PARAMS) controlsByKey.get(p.key).set(state[p.key]);
+  syncVisibility();
+}
+
+function update(key, value) {
+  if (GEN_KEYS.has(key)) remember();
+  if (GEN_KEYS.has(key) && edited) $('message').textContent = 'A new city was laid out; Undo (⌘Z) brings back the edited one.';
+  state[key] = value;
+  $('preset').value = 'custom';
+  syncVisibility();
+  if (GEN_KEYS.has(key)) regenerate();
+  else schedule();
+}
+
+// ---------- grid, history ----------
+
+const snapshot = () => ({ grid: G.encodeGrid(grid), state: { ...state }, edited, title: { ...title } });
+
+function restore(s) {
+  grid = G.decodeGrid(s.grid);
+  Object.assign(state, s.state);
+  edited = s.edited;
+  title = s.title;
+  syncForm();
+  gridChanged();
+}
+
+// Saves the current city before a change, for undo.
+function remember() {
+  if (!grid) return;
+  undo.push(snapshot());
+  if (undo.length > 120) undo.shift();
+  redo.length = 0;
+}
+
+function regenerate() {
+  const out = G.generate(state);
+  grid = out.grid;
+  title = { chapter: out.chapter, name: out.name };
+  genWarnings = out.warnings;
+  edited = false;
+  gridChanged();
+}
+
+function gridChanged() {
+  walk = G.walkGraph(grid);
+  $('chapter').textContent = title.chapter;
+  $('levelname').textContent = title.name;
+  resetWanderer();
+  schedule();
+}
+
+function doUndo() {
+  if (!undo.length) return;
+  redo.push(snapshot());
+  restore(undo.pop());
+}
+
+function doRedo() {
+  if (!redo.length) return;
+  undo.push(snapshot());
+  restore(redo.pop());
+}
+
+$('regen').addEventListener('click', () => {
+  remember();
+  state.seed = Math.floor(Math.random() * 100000);
+  if (state.layout === 'blank') state.layout = 'city';
+  $('preset').value = 'custom';
+  syncForm();
+  regenerate();
+});
+
+$('blank').addEventListener('click', () => {
+  remember();
+  const out = G.generate({ ...state, layout: 'blank' });
+  grid = out.grid;
+  title = { chapter: 'Constructor', name: 'The Empty Lot' };
+  edited = true;
+  gridChanged();
+  setEditing(true);
+});
+
+// ---------- scene ----------
+
+const viewport = $('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+viewport.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const persp = new THREE.PerspectiveCamera(30, 1, 0.5, 20000);
+const ortho = new THREE.OrthographicCamera(-100, 100, 100, -100, 0.5, 20000);
+for (const cam of [persp, ortho]) cam.up.set(0, 0, 1);
+let camera = ortho;
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.zoomToCursor = true;
+orbit.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.25);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 2.3);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+scene.add(sun, sun.target);
+const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+scene.add(fill);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.18 }));
+ground.receiveShadow = true;
+scene.add(ground);
+
+const basicMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+const litMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
+const inkLines = new THREE.LineBasicMaterial({ color: 0x2b2622 });
+const model = new THREE.Group();
+scene.add(model);
+let modelMesh = null;
+
+let composer = null, gtao = null, bloom = null;
+function makeComposer() {
+  composer?.dispose();
+  const { clientWidth: w, clientHeight: h } = viewport;
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  gtao = new GTAOPass(scene, camera, w, h);
+  gtao.blendIntensity = 0.85;
+  composer.addPass(gtao);
+  bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.5, 0.75);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+  composer.setSize(w, h);
+  tuneEffects();
+}
+
+function tuneEffects() {
+  if (!gtao) return;
+  const c = state.cell;
+  gtao.updateGtaoMaterial({ radius: 0.9 * c, distanceExponent: 1.2, thickness: 0.6 * c, scale: 1, samples: 16 });
+  gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+  gtao.enabled = view.style !== 'ink';
+  const pal = PALETTES[view.pal];
+  bloom.enabled = !!pal.bloom && view.style !== 'ink';
+  bloom.strength = pal.bloom ?? 0;
+}
+
+function skyTexture(top, bottom) {
+  const cv = document.createElement('canvas');
+  cv.width = 4; cv.height = 256;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0, top);
+  grad.addColorStop(1, bottom);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function applyBackground() {
+  const pal = PALETTES[view.pal];
+  scene.background?.dispose?.();
+  scene.background = view.style === 'ink' ? new THREE.Color('#f4f0e6') : skyTexture(...pal.sky);
+  $('title').style.setProperty('--title', view.style === 'ink' ? '#2b2622' : pal.title);
+}
+
+function sceneBox() {
+  if (!result) return { min: new THREE.Vector3(-50, -50, 0), max: new THREE.Vector3(50, 50, 60) };
+  const { min, max } = result.mesh;
+  return { min: new THREE.Vector3(...min), max: new THREE.Vector3(...max) };
+}
+
+function applyLights() {
+  const { min, max } = sceneBox();
+  const size = max.clone().sub(min).length();
+  const centre = min.clone().add(max).multiplyScalar(0.5);
+  sun.position.copy(centre).add(new THREE.Vector3(-0.45 * size, -0.7 * size, 1.1 * size));
+  sun.target.position.copy(centre);
+  fill.position.copy(centre).add(new THREE.Vector3(size, 0.5 * size, 0.4 * size));
+  const cam = sun.shadow.camera;
+  cam.left = cam.bottom = -size * 0.75;
+  cam.right = cam.top = size * 0.75;
+  cam.near = size * 0.05;
+  cam.far = size * 4;
+  cam.updateProjectionMatrix();
+  sun.shadow.bias = -0.0002;
+  sun.shadow.normalBias = (1.5 * size) / sun.shadow.mapSize.x;
+  sun.castShadow = view.style === 'clay';
+  ground.visible = view.style === 'clay';
+  ground.scale.set(size * 4, size * 4, 1);
+  ground.position.set(centre.x, centre.y, min.z - 0.01);
+}
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  renderer.setSize(w, h, false);
+  persp.aspect = w / Math.max(h, 1);
+  persp.updateProjectionMatrix();
+  fitOrtho();
+  composer?.setSize(w, h);
+}
+new ResizeObserver(resize).observe(viewport);
+
+let orthoHalf = 100;
+function fitOrtho() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  const a = w / Math.max(h, 1);
+  ortho.left = -orthoHalf * a; ortho.right = orthoHalf * a;
+  ortho.top = orthoHalf; ortho.bottom = -orthoHalf;
+  ortho.updateProjectionMatrix();
+}
+
+// The direction the camera looks in the impossible view: one cell across, one
+// cell back and one level down all line up.
+const magicDir = () => new THREE.Vector3(state.cell, state.cell, -state.level).normalize();
+const homeDir = () => new THREE.Vector3(0.62, 1, -0.78).normalize();
+
+function frameObject(dir = homeDir(), animate = false) {
+  const { min, max } = sceneBox();
+  const centre = min.clone().add(max).multiplyScalar(0.5);
+  const r = 0.5 * max.clone().sub(min).length();
+  // Isometric: fit the box as projected along dir, a margin all round.
+  const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 0, 1)).normalize();
+  const up = new THREE.Vector3().crossVectors(right, dir).normalize();
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  for (let k = 0; k < 8; k++) {
+    const p = new THREE.Vector3(k & 1 ? max.x : min.x, k & 2 ? max.y : min.y, k & 4 ? max.z : min.z).sub(centre);
+    u0 = Math.min(u0, p.dot(right)); u1 = Math.max(u1, p.dot(right));
+    v0 = Math.min(v0, p.dot(up)); v1 = Math.max(v1, p.dot(up));
+  }
+  const { clientWidth: w, clientHeight: h } = viewport;
+  orthoHalf = Math.max((v1 - v0) / 2, (u1 - u0) / 2 / (w / Math.max(h, 1))) * 1.14;
+  // Nudge down a little: the title sits at the top.
+  centre.addScaledVector(right, (u0 + u1) / 2).addScaledVector(up, (v0 + v1) / 2 + 0.05 * orthoHalf);
+  const half = ((persp.fov / 2) * Math.PI) / 180;
+  const halfH = Math.atan(Math.tan(half) * persp.aspect);
+  const d = (r / Math.sin(Math.min(half, halfH))) * 1.02;
+  const target = { pos: centre.clone().addScaledVector(dir, -(camera === ortho ? 3 * r : d)), centre, zoom: 1 };
+  if (animate) tweenTo(target);
+  else {
+    orbit.target.copy(centre);
+    camera.position.copy(target.pos);
+    camera.zoom = 1;
+    fitOrtho();
+    camera.updateProjectionMatrix();
+    orbit.update();
+  }
+  persp.near = r / 50;
+  persp.far = r * 40;
+  persp.updateProjectionMatrix();
+}
+
+// Camera moves glide; the impossible view is a destination.
+let tween = null;
+function tweenTo({ pos, centre, zoom }) {
+  tween = {
+    t0: performance.now(), dur: 1100,
+    fromPos: camera.position.clone(), fromTarget: orbit.target.clone(), fromZoom: camera.zoom,
+    pos, centre, zoom,
+  };
+}
+
+function stepTween(now) {
+  if (!tween) return;
+  const t = Math.min(1, (now - tween.t0) / tween.dur);
+  const e = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+  // Swing around the target rather than through it.
+  const a = tween.fromPos.clone().sub(tween.fromTarget), b = tween.pos.clone().sub(tween.centre);
+  const len = lerpN(a.length(), b.length(), e);
+  const dir = a.clone().normalize().lerp(b.clone().normalize(), e).normalize();
+  orbit.target.copy(tween.fromTarget).lerp(tween.centre, e);
+  camera.position.copy(orbit.target).addScaledVector(dir, len);
+  camera.zoom = lerpN(tween.fromZoom, tween.zoom, e);
+  camera.updateProjectionMatrix();
+  if (t >= 1) {
+    camera.position.copy(tween.pos);
+    orbit.target.copy(tween.centre);
+    tween = null;
+  }
+}
+const lerpN = (a, b, t) => a + (b - a) * t;
+
+function useCamera(cam) {
+  if (cam === camera) return;
+  // Keep the view: same direction and target, a matching scale.
+  const dir = camera.position.clone().sub(orbit.target);
+  const dist = dir.length();
+  if (cam === ortho) {
+    orthoHalf = (dist * Math.tan(((persp.fov / 2) * Math.PI) / 180)) / camera.zoom;
+    cam.zoom = 1;
+    cam.position.copy(orbit.target).addScaledVector(dir.normalize(), Math.max(dist, orthoHalf * 3));
+    fitOrtho();
+  } else {
+    const d = (orthoHalf / camera.zoom) / Math.tan(((persp.fov / 2) * Math.PI) / 180);
+    cam.position.copy(orbit.target).addScaledVector(dir.normalize(), d);
+    cam.zoom = 1;
+  }
+  cam.updateProjectionMatrix();
+  camera = cam;
+  orbit.object = cam;
+  orbit.update();
+  makeComposer();
+}
+
+$('iso').addEventListener('change', () => {
+  setMagic(false);
+  useCamera($('iso').checked ? ortho : persp);
+});
+$('reset-view').addEventListener('click', () => { setMagic(false); frameObject(homeDir(), true); });
+
+let magic = false;
+function setMagic(on) {
+  magic = on;
+  $('magic').classList.toggle('on', on);
+  $('magic-hint').hidden = !on;
+  if (on) {
+    $('magic-hint').textContent = walk?.ghosts.length
+      ? 'Impossible view: the walkway closes into a loop. Turn the view to break the spell.'
+      : 'Impossible view: everything lines up from here. Build a dead end one level above a walkway one cell back on both axes to make a loop.';
+  }
+}
+
+$('magic').addEventListener('click', () => {
+  if (magic) { setMagic(false); frameObject(homeDir(), true); return; }
+  if (camera !== ortho) { $('iso').checked = true; useCamera(ortho); }
+  setMagic(true);
+  frameObject(magicDir(), true);
+});
+// Zooming and panning keep the spell; turning the view breaks it.
+function checkMagic() {
+  if (!magic || tween) return;
+  const dir = orbit.target.clone().sub(camera.position).normalize();
+  if (dir.angleTo(magicDir()) > 0.004) setMagic(false);
+}
+
+// ---------- preview mesh ----------
+
+const tmp = new THREE.Color();
+function shade(base, n, z, zMin, zMax, pal, role) {
+  tmp.set(base);
+  if (view.style !== 'clay' && !pal.glow.includes(role)) {
+    // Flat tones by the way a face turns: roofs brightest, the side facing
+    // the viewer next, the other side darker, undersides darkest.
+    const up = Math.max(n.z, 0) ** 2, down = Math.max(-n.z, 0) ** 2;
+    const k = up * 1.0 + down * 0.5 + Math.max(-n.y, 0) ** 2 * 0.86 + Math.max(-n.x, 0) ** 2 * 0.68 +
+      Math.max(n.x, 0) ** 2 * 0.8 + Math.max(n.y, 0) ** 2 * 0.74;
+    tmp.multiplyScalar(k);
+    if (up > 0.8) tmp.lerp(WHITE, 0.06);
+  }
+  if (view.style !== 'ink') {
+    const t = 1 - (z - zMin) / Math.max(zMax - zMin, 1e-6);
+    tmp.lerp(new THREE.Color(pal.haze), pal.hazeK * t ** 1.6);
+  }
+  return tmp;
+}
+const WHITE = new THREE.Color(1, 1, 1);
+const INK = { mass: '#f7f3ea', base: '#ece6d8', path: '#ffffff', vault: '#d9d2c3', window: '#5a5248', ball: '#2b2622', figure: '#ffffff' };
+const OVER = new THREE.Color('#e0472b');
+
+function buildPreview() {
+  for (const ch of [...model.children]) { model.remove(ch); ch.geometry.dispose(); }
+  modelMesh = null;
+  applyBackground();
+  tuneEffects();
+  if (!result) return;
+  const pal = PALETTES[view.pal];
+  const { mesh, grid: g, params } = result;
+  const c = params.cell, lh = params.level;
+  const X0 = (-g.cols * c) / 2, Y0 = (-g.rows * c) / 2;
+  const datum = mesh.zShift;
+  const showOver = $('overhangs').checked;
+  const t = mesh.tris.length / 3;
+  const glowRoles = view.style === 'ink' ? [] : pal.glow;
+  // Glowing triangles go last, as a group of their own (unlit in clay).
+  const order = [];
+  for (let i = 0; i < t; i++) order.push(i);
+  const isGlow = (i) => glowRoles.includes(mesh.roleList[mesh.triRole[i]]?.role);
+  order.sort((a, b) => isGlow(a) - isGlow(b));
+  const pos = new Float32Array(t * 9), clr = new Float32Array(t * 9);
+  const n = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  const zMin = mesh.min[2], zMax = mesh.max[2];
+  let glowFrom = t;
+  order.forEach((tri, o) => {
+    if (isGlow(tri) && glowFrom === t) glowFrom = o;
+    const v = [0, 1, 2].map((k) => mesh.tris[tri * 3 + k] * 3);
+    for (let k = 0; k < 3; k++) for (let a = 0; a < 3; a++) pos[o * 9 + k * 3 + a] = mesh.positions[v[k] + a];
+    e1.set(pos[o * 9 + 3] - pos[o * 9], pos[o * 9 + 4] - pos[o * 9 + 1], pos[o * 9 + 5] - pos[o * 9 + 2]);
+    e2.set(pos[o * 9 + 6] - pos[o * 9], pos[o * 9 + 7] - pos[o * 9 + 1], pos[o * 9 + 8] - pos[o * 9 + 2]);
+    n.crossVectors(e1, e2).normalize();
+    const cx = (pos[o * 9] + pos[o * 9 + 3] + pos[o * 9 + 6]) / 3;
+    const cy = (pos[o * 9 + 1] + pos[o * 9 + 4] + pos[o * 9 + 7]) / 3;
+    const cz = (pos[o * 9 + 2] + pos[o * 9 + 5] + pos[o * 9 + 8]) / 3;
+    let role = mesh.roleList[mesh.triRole[tri]]?.role ?? 'mass';
+    if (role === 'mass') {
+      if (cz < datum - 0.05) role = 'base';
+      else if (n.z > 0.9) {
+        const cell = G.gridAt(g, Math.floor((cx - X0) / c), Math.floor((cy - Y0) / c));
+        if (cell.w && Math.abs(cz - datum - G.colTop(cell) * lh) < 0.05) role = 'path';
+      }
+    }
+    const base = view.style === 'ink' ? INK[role] ?? INK.mass : pal[role] ?? pal.mass;
+    const col = showOver && result.flags[tri] ? OVER : shade(base, n, cz, zMin, zMax, pal, role);
+    for (let k = 0; k < 3; k++) { clr[o * 9 + k * 3] = col.r; clr[o * 9 + k * 3 + 1] = col.g; clr[o * 9 + k * 3 + 2] = col.b; }
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(clr, 3));
+  geo.computeVertexNormals();
+  geo.addGroup(0, glowFrom * 3, 0);
+  if (glowFrom < t) geo.addGroup(glowFrom * 3, (t - glowFrom) * 3, 1);
+  const mats = view.style === 'clay' ? [litMat, basicMat] : [basicMat, basicMat];
+  modelMesh = new THREE.Mesh(geo, mats);
+  modelMesh.castShadow = modelMesh.receiveShadow = true;
+  model.add(modelMesh);
+  if (view.style === 'ink') model.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 24), inkLines));
+  applyLights();
+  placeEditHelpers();
+}
+
+for (const id of ['overhangs']) $(id).addEventListener('change', () => buildPreview());
+
+function syncView() {
+  $('palette').value = view.pal;
+  $('style').value = view.style;
+}
+$('palette').addEventListener('change', () => { view.pal = $('palette').value; buildPreview(); writeHash(); });
+$('style').addEventListener('change', () => { view.style = $('style').value; buildPreview(); writeHash(); });
+
+// ---------- the wanderer ----------
+
+// A small figure walks the city: along roofs at one level, up and down
+// stairs, through gates. In the impossible view it also takes the ghost
+// links, stepping off a dead end onto the walkway it lines up with, which
+// from that one angle looks like a step.
+const wanderer = new THREE.Group();
+const wMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const hatMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+{
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.42, 24), wMat);
+  body.rotation.x = Math.PI / 2; body.position.z = 0.21;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.085, 20, 14), wMat);
+  head.position.z = 0.46;
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.17, 20), hatMat);
+  hat.rotation.x = Math.PI / 2; hat.position.z = 0.6;
+  wanderer.add(body, head, hat);
+}
+scene.add(wanderer);
+const walker = { node: -1, prev: -1, queue: [], from: new THREE.Vector3(), to: new THREE.Vector3(), t: 1, seg: 1, heading: 0 };
+
+function nodePos(q, out = new THREE.Vector3()) {
+  const c = state.cell, lh = state.level;
+  const cell = grid.cells[q];
+  const lvl = cell.k === STAIR ? cell.h - 0.5 : cell.h;
+  return out.set((-grid.cols * c) / 2 + ((q % grid.cols) + 0.5) * c, (-grid.rows * c) / 2 + (Math.floor(q / grid.cols) + 0.5) * c, (result?.mesh.zShift ?? 0) + lvl * state.level);
+}
+
+function resetWanderer() {
+  walker.queue.length = 0;
+  walker.node = -1;
+  if (!walk) return;
+  const routeCells = grid.cells.map((c, q) => [c, q]).filter(([c, q]) => c.w && walk.walkable[q] && walk.edges[q].length);
+  const any = grid.cells.map((c, q) => q).filter((q) => walk.walkable[q] && walk.edges[q].length);
+  const pickFrom = routeCells.length ? routeCells.map(([, q]) => q) : any;
+  if (!pickFrom.length) return;
+  walker.node = pickFrom.reduce((a, b) => (grid.cells[b].h < grid.cells[a].h ? b : a));
+  walker.prev = -1;
+  nodePos(walker.node, walker.from);
+  walker.to.copy(walker.from);
+  walker.t = 1;
+}
+
+function chooseNext() {
+  const here = walker.node;
+  const options = [...walk.edges[here].map((e) => ({ ...e, ghost: null }))];
+  if (magic) for (const gh of walk.ghosts) if (gh.from === here) options.push({ to: gh.to, s: gh.s, ghost: gh });
+  let list = options.filter((o) => o.to !== walker.prev);
+  if (!list.length) list = options;
+  if (!list.length) return false;
+  // Keep going straight when possible, prefer the route and the ghosts.
+  const weight = (o) => (o.ghost ? 6 : 1) * (grid.cells[o.to].w ? 2.5 : 1) * (o.s === walker.lastDir ? 2 : 1);
+  const total = list.reduce((s, o) => s + weight(o), 0);
+  let x = Math.random() * total;
+  let pick = list[0];
+  for (const o of list) if ((x -= weight(o)) < 0) { pick = o; break; }
+  const c = state.cell, lh = state.level;
+  if (pick.ghost) {
+    // Walk to the edge, jump along the line of sight, walk on.
+    const m = pick.ghost.m;
+    const edge = nodePos(here).add(new THREE.Vector3(DIRS[pick.s][0] * c / 2, DIRS[pick.s][1] * c / 2, 0));
+    walker.queue.push({ p: edge }, { p: edge.clone().add(new THREE.Vector3(m * c, m * c, -m * lh)), jump: true }, { p: nodePos(pick.to), node: pick.to });
+  } else walker.queue.push({ p: nodePos(pick.to), node: pick.to });
+  walker.lastDir = pick.s;
+  walker.prev = here;
+  return true;
+}
+
+function stepWanderer(dt) {
+  wanderer.visible = $('wanderer').checked && walker.node >= 0 && !!result;
+  if (!wanderer.visible) return;
+  const c = state.cell;
+  wanderer.scale.setScalar(c);
+  if (walker.t >= 1) {
+    if (!walker.queue.length && !chooseNext()) { walker.t = 1; }
+    const next = walker.queue.shift();
+    if (next) {
+      walker.from.copy(walker.to);
+      if (next.jump) { walker.from.copy(next.p); walker.to.copy(next.p); walker.t = 1; }
+      else {
+        walker.to.copy(next.p);
+        walker.seg = Math.max(walker.from.distanceTo(walker.to), 1e-3);
+        walker.t = 0;
+        const dx = walker.to.x - walker.from.x, dy = walker.to.y - walker.from.y;
+        if (Math.hypot(dx, dy) > 1e-3) walker.heading = Math.atan2(dy, dx);
+      }
+      if (next.node !== undefined) walker.node = next.node;
+    }
+  }
+  if (walker.t < 1) walker.t = Math.min(1, walker.t + (dt * 1.3 * c) / walker.seg);
+  wanderer.position.copy(walker.from).lerp(walker.to, walker.t);
+  wanderer.position.z += Math.abs(Math.sin(performance.now() / 140)) * 0.03 * c;
+  wanderer.rotation.z = walker.heading;
+  const pal = PALETTES[view.pal];
+  wMat.color.set(view.style === 'ink' ? '#ffffff' : pal.figure);
+  hatMat.color.set(view.style === 'ink' ? '#2b2622' : pal.gate);
+}
+
+// ---------- the constructor ----------
+
+const TOOLS = [
+  { id: 'raise', label: 'Raise', key: '1', hint: 'One level up; Shift-click lowers' },
+  { id: 'lower', label: 'Lower', key: '2', hint: 'One level down; Shift-click raises' },
+  { id: 'block', label: 'Block', key: '3', hint: 'A plain building or roof' },
+  { id: 'stair', label: 'Stair', key: '4', hint: 'Climbs one level; click again to turn' },
+  { id: 'arcade', label: 'Arcade', key: '5', hint: 'Arches on every level; click again: along X, along Y, both' },
+  { id: 'tower', label: 'Tower', key: '6', hint: 'A tower; click again to change its cap' },
+  { id: 'pillar', label: 'Pillar', key: '7', hint: 'A slender pillar' },
+  { id: 'path', label: 'Route', key: '8', hint: 'Paint or clear the route the figure prefers' },
+  { id: 'ball', label: 'Ball', key: 'Q', hint: 'A ball on the roof' },
+  { id: 'gate', label: 'Gate', key: 'W', hint: 'A gateway; click again to turn it, a third time to remove' },
+  { id: 'obelisk', label: 'Obelisk', key: 'R', hint: 'An obelisk on the roof' },
+  { id: 'dome', label: 'Dome', key: 'T', hint: 'A dome on the roof' },
+  { id: 'figure', label: 'Figure', key: 'Y', hint: 'A little figure in stone' },
+  { id: 'clear', label: 'Bare roof', key: 'U', hint: 'Removes the ornament' },
+  { id: 'remove', label: 'Remove', key: 'X', hint: 'Takes the cell off the island' },
+];
+let tool = 'raise';
+let editing = false;
+for (const t of TOOLS) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.dataset.tool = t.id;
+  b.title = t.hint;
+  b.innerHTML = `${t.label}<kbd>${t.key}</kbd>`;
+  b.addEventListener('click', () => selectTool(t.id));
+  $('tools').append(b);
+}
+{
+  const head = document.createElement('div');
+  head.className = 'head';
+  head.textContent = 'Click a cell to change it. Drag turns the view.';
+  $('tools').prepend(head);
+  for (const [id, label, f] of [['undo', 'Undo ⌘Z', doUndo], ['redo', 'Redo ⇧⌘Z', doRedo]]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.id = id;
+    b.textContent = label;
+    b.addEventListener('click', f);
+    $('tools').append(b);
+  }
+}
+
+function selectTool(id) {
+  tool = id;
+  for (const b of $('tools').querySelectorAll('button[data-tool]')) b.classList.toggle('on', b.dataset.tool === id);
+}
+selectTool('raise');
+
+function setEditing(on) {
+  editing = on;
+  $('tools').hidden = !on;
+  $('edit').classList.toggle('on', on);
+  viewport.classList.toggle('editing', on);
+  if (!on) hoverBox.visible = false;
+}
+$('edit').addEventListener('click', () => setEditing(!editing));
+
+const hoverBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthTest: false }));
+hoverBox.renderOrder = 10;
+hoverBox.visible = false;
+scene.add(hoverBox);
+const hoverEdges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x1d1d1b, depthTest: false }));
+hoverEdges.renderOrder = 11;
+hoverBox.add(hoverEdges);
+// The ground under empty cells, for picking only (the raycaster does not
+// care that it is hidden).
+const groundPick = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial());
+groundPick.visible = false;
+scene.add(groundPick);
+
+function placeEditHelpers() {
+  if (!result || !grid) return;
+  const c = state.cell;
+  groundPick.scale.set(grid.cols * c, grid.rows * c, 1);
+  groundPick.position.set(0, 0, result.mesh.zShift);
+}
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let hovered = null;
+
+function pickCell(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects([modelMesh, groundPick].filter(Boolean), false);
+  if (!hits.length || !grid) return null;
+  const hit = hits[0];
+  const c = state.cell;
+  const nrm = hit.face ? hit.face.normal.clone() : new THREE.Vector3(0, 0, 1);
+  const p = hit.point.clone().addScaledVector(nrm, -0.01);
+  const i = Math.floor((p.x + (grid.cols * c) / 2) / c), j = Math.floor((p.y + (grid.rows * c) / 2) / c);
+  if (i < 0 || j < 0 || i >= grid.cols || j >= grid.rows) return null;
+  return { i, j };
+}
+
+function showHover(cell) {
+  hovered = cell;
+  if (!cell || !editing || !result) { hoverBox.visible = false; return; }
+  const c = state.cell, lh = state.level;
+  const cl = grid.cells[cell.i + cell.j * grid.cols];
+  const top = cl.k === VOID ? 0 : cl.h;
+  hoverBox.visible = true;
+  hoverBox.scale.set(c * 1.02, c * 1.02, lh * 0.4);
+  hoverBox.position.set((-grid.cols * c) / 2 + (cell.i + 0.5) * c, (-grid.rows * c) / 2 + (cell.j + 0.5) * c, result.mesh.zShift + top * lh + 0.2 * lh);
+}
+
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', (ev) => { downAt = [ev.clientX, ev.clientY, ev.button]; });
+renderer.domElement.addEventListener('pointermove', (ev) => {
+  if (editing && !ev.buttons) showHover(pickCell(ev));
+});
+renderer.domElement.addEventListener('pointerup', (ev) => {
+  if (!editing || !downAt || downAt[2] !== 0) return;
+  if (Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 5) return;
+  const cell = pickCell(ev);
+  if (cell) applyTool(cell.i, cell.j, ev.shiftKey);
+});
+renderer.domElement.addEventListener('pointerleave', () => showHover(null));
+
+function applyTool(i, j, invert) {
+  const q = i + j * grid.cols;
+  const old = grid.cells[q];
+  const c = { ...old };
+  const at = (x, y) => G.gridAt(grid, x, y);
+  const nbTop = (s) => G.sideTop(at(i + DIRS[s][0], j + DIRS[s][1]));
+  const flatTop = c.k === BLOCK || c.k === ARCADE || c.k === PILLAR || c.k === TOWER;
+  let t = tool;
+  if (invert && t === 'raise') t = 'lower';
+  else if (invert && t === 'lower') t = 'raise';
+  const MIN = -3, MAX = 24;
+  switch (t) {
+    case 'raise':
+      if (c.k === VOID) Object.assign(c, G.newCell(BLOCK, 0));
+      else c.h = Math.min(MAX, c.h + 1);
+      break;
+    case 'lower':
+      if (c.k === VOID) return;
+      if ((c.k === TOWER || c.k === PILLAR) && c.h - 1 <= c.f) Object.assign(c, { k: BLOCK, h: c.f, o: NONE });
+      else if (c.k === ARCADE && c.h - 1 <= c.f) Object.assign(c, { k: BLOCK, h: c.h - 1 });
+      else if (c.k === STAIR && c.h - 1 <= MIN) return;
+      else c.h = Math.max(MIN, c.h - 1);
+      c.f = Math.min(c.f, c.h);
+      break;
+    case 'block':
+      if (c.k === VOID) Object.assign(c, G.newCell(BLOCK, 0));
+      else if (c.k === TOWER || c.k === PILLAR) Object.assign(c, { k: BLOCK, h: c.f, o: NONE });
+      else Object.assign(c, { k: BLOCK, f: c.h });
+      break;
+    case 'stair': {
+      if (c.k === VOID) Object.assign(c, G.newCell(BLOCK, 1));
+      if (c.k === STAIR) { c.d = (c.d + 1) % 4; break; }
+      const h = c.k === TOWER || c.k === PILLAR ? c.f + 1 : Math.max(c.h, 1);
+      // Climb towards the neighbour at the stair's top, from the one a level below.
+      let d = [0, 1, 2, 3].find((s) => nbTop(s) === h && nbTop((s + 2) % 4) === h - 1);
+      if (d === undefined) d = [0, 1, 2, 3].find((s) => nbTop(s) === h);
+      Object.assign(c, { k: STAIR, h, f: h - 1, d: d ?? 0, o: NONE });
+      break;
+    }
+    case 'arcade': {
+      if (c.k === VOID) return;
+      if (c.k === ARCADE) { c.d = (c.d + 1) % 3; break; }
+      const h = c.k === TOWER || c.k === PILLAR ? c.f : c.h;
+      const low = Math.min(...[0, 1, 2, 3].map(nbTop).filter(Number.isFinite), h - 1);
+      Object.assign(c, { k: ARCADE, h: Math.max(h, low + 1), f: Math.max(low, -3), d: 2 });
+      break;
+    }
+    case 'tower':
+      if (c.k === VOID) return;
+      if (c.k === TOWER) { c.o = [DOME, SPIRE, BALL, NONE][([DOME, SPIRE, BALL, NONE].indexOf(c.o) + 1) % 4]; break; }
+      Object.assign(c, { k: TOWER, f: G.colTop(c), h: G.colTop(c) + 3, o: DOME });
+      break;
+    case 'pillar':
+      if (c.k === VOID) return;
+      if (c.k === PILLAR) { c.h++; break; }
+      Object.assign(c, { k: PILLAR, f: G.colTop(c), h: G.colTop(c) + 2, o: NONE });
+      break;
+    case 'path':
+      if (c.k === VOID) return;
+      c.w = c.w ? 0 : 1;
+      break;
+    case 'gate':
+      if (!(c.k === BLOCK || c.k === ARCADE)) return;
+      c.o = c.o === GATE_X ? GATE_Y : c.o === GATE_Y ? NONE : GATE_X;
+      break;
+    case 'ball': case 'obelisk': case 'dome': case 'figure': {
+      const o = { ball: BALL, obelisk: OBELISK, dome: DOME, figure: FIGURE }[t];
+      if (!flatTop) return;
+      if (c.k === TOWER && !(o === BALL || o === DOME)) return;
+      if (c.k === PILLAR && o !== BALL) return;
+      c.o = c.o === o ? NONE : o;
+      break;
+    }
+    case 'clear':
+      if (c.k === TOWER) return;
+      c.o = NONE;
+      break;
+    case 'remove':
+      Object.assign(c, G.newCell(VOID));
+      break;
+  }
+  if (JSON.stringify(c) === JSON.stringify(old)) return;
+  remember();
+  grid.cells[q] = c;
+  edited = true;
+  $('preset').value = 'custom';
+  gridChanged();
+}
+
+addEventListener('keydown', (ev) => {
+  if (ev.target.closest('input, select, textarea')) return;
+  const mod = ev.metaKey || ev.ctrlKey;
+  if (mod && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.shiftKey ? doRedo() : doUndo(); return; }
+  if (mod && ev.key.toLowerCase() === 'y') { ev.preventDefault(); doRedo(); return; }
+  if (mod) return;
+  if (ev.key.toLowerCase() === 'e') { setEditing(!editing); return; }
+  const t = TOOLS.find((x) => x.key.toLowerCase() === ev.key.toLowerCase());
+  if (t && editing) selectTool(t.id);
+});
+
+// ---------- render loop ----------
+
+let last = performance.now();
+(function loop(now) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - last) / 1000 || 0);
+  last = now;
+  stepTween(now);
+  orbit.update();
+  checkMagic();
+  stepWanderer(dt);
+  composer ? composer.render() : renderer.render(scene, camera);
+})(performance.now());
+
+// ---------- generation ----------
+
+// The city is built in a Web Worker. A new build starts when the previous one
+// has finished; edits made meanwhile are collected into the next one. A page
+// opened from disk may not be allowed to start workers; then it builds on the
+// page itself.
+let useWorkers = typeof Worker !== 'undefined';
+let workerInst = null;
+let engine = null;
+let jobId = 0;
+let job = null;
+let pending = false;
+let timer = 0;
+let lastFrameKey = '';
+
+function getWorker() {
+  if (!workerInst) {
+    workerInst = new Worker(geometryURL, { type: 'module' });
+    workerInst.onmessage = onBuilt;
+    workerInst.onerror = (e) => {
+      e.preventDefault();
+      buildOnPage();
+    };
+  }
+  return workerInst;
+}
+
+function buildOnPage() {
+  if (useWorkers) {
+    useWorkers = false;
+    workerInst?.terminate();
+    workerInst = null;
+  }
+  if (!job) return;
+  const j = job;
+  (async () => {
+    try {
+      engine ??= G.loadEngine();
+      await engine;
+    } catch (e) {
+      onBuilt({ data: { id: j.id, error: `could not load the engine: ${e.message ?? e}` } });
+      return;
+    }
+    await new Promise((r) => setTimeout(r, 0));
+    if (job !== j) return;
+    try {
+      const t0 = performance.now();
+      const out = G.withArena(() => G.buildModel(j.params, j.grid));
+      out.ms = performance.now() - t0;
+      onBuilt({ data: { id: j.id, out } });
+    } catch (e) {
+      onBuilt({ data: { id: j.id, error: String(e?.message ?? e) } });
+    }
+  })();
+}
+
+function schedule() {
+  clearTimeout(timer);
+  $('busy').hidden = false;
+  if (result) $('busy').textContent = 'Building…';
+  $('export').disabled = true;
+  timer = setTimeout(startBuild, 40);
+}
+
+function startBuild() {
+  if (job) { pending = true; return; }
+  job = { id: ++jobId, params: { ...state }, grid: { cols: grid.cols, rows: grid.rows, cells: grid.cells.map((c) => ({ ...c })) } };
+  if (!useWorkers) return buildOnPage();
+  try {
+    getWorker().postMessage({ id: job.id, params: job.params, grid: job.grid });
+  } catch {
+    buildOnPage();
+  }
+}
+
+function onBuilt({ data }) {
+  if (!job || data.id !== job.id) return;
+  if (data.error) {
+    console.error(data.error);
+    $('message').textContent = /fetch|import|engine/i.test(data.error)
+      ? 'Could not load the geometry engine (needs an internet connection).'
+      : `Could not build this: ${data.error}`;
+    finishBuild();
+    return;
+  }
+  const mesh = data.out;
+  const params = job.params;
+  const flags = new Uint8Array(mesh.tris.length / 3);
+  const overhang = G.overhangs(mesh.positions, mesh.tris, flags, G.printAngle(params));
+  result = { params, grid: job.grid, mesh, ms: mesh.ms, flags, overhang };
+  if ($('message').textContent.startsWith('Could not')) $('message').textContent = '';
+  buildPreview();
+  const frameKey = [params.cols, params.rows, params.cell, params.level, params.baseT, params.layout].join();
+  if (frameKey !== lastFrameKey) {
+    frameObject(magic ? magicDir() : homeDir(), lastFrameKey !== '');
+    lastFrameKey = frameKey;
+  }
+  if (walker.node >= 0) { nodePos(walker.node, walker.to); if (walker.t >= 1) walker.from.copy(walker.to); }
+  renderStats();
+  writeHash();
+  finishBuild();
+}
+
+function finishBuild() {
+  job = null;
+  if (pending) {
+    pending = false;
+    startBuild();
+    return;
+  }
+  $('busy').hidden = true;
+  $('export').disabled = !result;
+}
+
+function renderStats() {
+  const { mesh, params, grid: g } = result;
+  const L = mesh.max[0] - mesh.min[0], D = mesh.max[1] - mesh.min[1], H = mesh.max[2] - mesh.min[2];
+  const tris = mesh.tris.length / 3;
+  const land = g.cells.filter((c) => c.k !== VOID).length;
+  const rows = [
+    ['Size, mm', `${L.toFixed(1)} × ${D.toFixed(1)} × ${H.toFixed(1)}`],
+    ['Cells', `${land} of ${g.cols} × ${g.rows}`],
+    ['Impossible links', String(walk.ghosts.length / 2)],
+    ['Triangles', tris.toLocaleString('en-US')],
+    ['STL size', `${((84 + tris * 50) / 1048576).toFixed(1)} MB`],
+    ['Volume', `${(mesh.volume / 1000).toFixed(1)} cm³`],
+    [`Overhangs past ${G.printAngle(params)}°`, result.overhang < 0.5 ? 'none' : `${result.overhang.toFixed(0)} mm²`],
+    ['Built in', `${(result.ms / 1000).toFixed(1)} s`],
+  ];
+  const warns = [...(edited ? [] : genWarnings), ...mesh.warnings];
+  if (result.overhang >= 0.5) {
+    warns.push(params.shape === 'flat'
+      ? 'Flat lintels are bridges: tick Overhangs to see them.'
+      : `Some faces overhang past ${G.printAngle(params)}°: tick Overhangs to see them.`);
+  }
+  if (mesh.pieces > 1) warns.push(`The city is in ${mesh.pieces} separate pieces: join them, or print them apart.`);
+  if (mesh.openEdges) warns.push(`${mesh.openEdges} edges do not quite close where pieces meet; slicers repair this.`);
+  if (mesh.status !== 'NoError') warns.push(`Geometry engine status: ${mesh.status}`);
+  $('stats').innerHTML = '<dl style="display:contents">' +
+    rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('') +
+    warns.map((w) => `<dd class="warn">${w}</dd>`).join('') + '</dl>';
+}
+
+// ---------- export & sharing ----------
+
+function download(data, name, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data], { type }));
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}
+
+$('export').addEventListener('click', () => {
+  if (!result) return;
+  const slug = title.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'city';
+  const name = `${slug}.stl`;
+  try {
+    download(G.meshToSTL(result.mesh.positions, result.mesh.tris), name, 'model/stl');
+    $('message').textContent = `Saved: ${name}`;
+  } catch (e) {
+    $('message').textContent = `Error: ${e.message}`;
+  }
+});
+
+function writeHash() {
+  const q = new URLSearchParams();
+  for (const p of PARAMS) if (state[p.key] !== p.value) q.set(p.key, state[p.key]);
+  if (view.pal !== 'monument') q.set('pal', view.pal);
+  if (view.style !== 'game') q.set('style', view.style);
+  if (edited) {
+    q.set('g', G.encodeGrid(grid));
+    q.set('t', title.name);
+  }
+  history.replaceState(null, '', `#${q}`);
+}
+
+function readHash() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (![...q.keys()].length) return false;
+  Object.assign(state, DEFAULTS);
+  for (const p of PARAMS) {
+    if (!q.has(p.key)) continue;
+    const raw = q.get(p.key);
+    if (p.type === 'bool') state[p.key] = raw === 'true';
+    else if (p.type === 'select') { if (p.options.some(([v]) => v === raw)) state[p.key] = raw; }
+    else if (Number.isFinite(Number(raw))) state[p.key] = Math.min(p.max, Math.max(p.min, Number(raw)));
+  }
+  if (PALETTES[q.get('pal')]) view.pal = q.get('pal');
+  if (['game', 'clay', 'ink'].includes(q.get('style'))) view.style = q.get('style');
+  if (q.has('g')) {
+    try {
+      const g = G.decodeGrid(q.get('g'));
+      if (g) return { grid: g, name: q.get('t') || 'An Edited City' };
+    } catch { /* fall back to the seed */ }
+  }
+  return true;
+}
+
+$('share').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('message').textContent = 'Link with the city copied.';
+  } catch {
+    $('message').textContent = 'Copy the page URL: the city is saved in it.';
+  }
+});
+
+// ---------- start ----------
+
+const fromHash = readHash();
+$('preset').value = fromHash ? 'custom' : 0;
+syncView();
+syncForm();
+if (fromHash && fromHash.grid) {
+  grid = fromHash.grid;
+  title = { chapter: 'Constructor', name: fromHash.name };
+  edited = true;
+  gridChanged();
+} else regenerate();
+resize();
+makeComposer();
+applyBackground();
+frameObject();
+  </script>
+</body>
+</html>
