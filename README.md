@@ -16,5 +16,6 @@ Some parametric generators of relief 3D textures and printable models, all with 
 | [`layers/`](layers/) | Overlapping wavy plates: stripes, rings or contours bent by noise. Shingles or terraces, rounded edges, shadow gap, lip, pinch-out, fibres and fine lines. |
 | [`stones/`](stones/) | Faceted stones: irregular stones of mixed size with rounded edges, separated by joints. Tops carved with facets, V-folds (chevrons) and scoops. From plaster wall panels to cut pebbles and flagstones. |
 | [`khrushchyovka/`](khrushchyovka/) | Soviet five-storey blocks of flats as printable models: large-panel, large-block or brick walls, entrances with canopies, stairwell windows, balconies or loggias, flat, gable or hip roof, lived-in details. Self-supporting overhangs, hollow shell with windows cut through for lighting, split into parts with pin holes. |
+| [`fabric/`](fabric/) | Print-in-place space fabric (after NASA's 4D-printed chainmail): tiles linked underneath by hooks and bars. Squares, rhombi, hexagons, triangles, octagons + squares, hexagons + triangles; solid tiles or rings, polygon / rounded / circle / star / flower outlines, flat, chamfered, domed, pyramid, dish or stepped tops. Any STL placed on the top face of the tiles. |
 
 See the README in each folder for details.
