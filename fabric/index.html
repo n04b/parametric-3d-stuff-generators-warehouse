@@ -1,0 +1,1512 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Space Fabric</title>
+  <style>
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --accent-text: #ffffff;
+  --view: #d9d9d6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --panel: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9b9a94;
+    --line: #34332f;
+    --accent: #5b92ec;
+    --view: #2a2a28;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --panel: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #9b9a94;
+  --line: #34332f;
+  --accent: #5b92ec;
+  --view: #2a2a28;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 100vh;
+}
+
+#panel {
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+h1 { font-size: 18px; margin: 0 0 4px; }
+
+details { border-top: 1px solid var(--line); padding: 4px 0 8px; }
+summary {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 10px 0 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hint { color: var(--muted); margin: 0; font-size: 13px; }
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.field > span { font-size: 13px; }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+.field.bool { grid-template-columns: 1fr auto; }
+.field.choice { grid-template-columns: 1fr 170px; }
+#panel > .field { grid-template-columns: 1fr 180px; margin: 16px 0; }
+
+input[type="number"], select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: progress; }
+.group-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.group-actions .hint { flex: 1 1 100%; overflow-wrap: anywhere; }
+
+#stats {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+#stats dt { color: var(--muted); }
+#stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+#stats .warn { color: #c9582b; }
+
+.actions { display: flex; gap: 8px; margin: 16px 0 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1; }
+
+#viewport { position: relative; background: var(--view); min-height: 0; overflow: hidden; }
+#viewport canvas { display: block; width: 100%; height: 100%; }
+
+#busy {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.view-tools {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  margin-left: auto;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.view-tools input[type="range"] { width: 120px; accent-color: var(--accent); vertical-align: middle; }
+
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
+  #viewport { grid-row: 1; height: 55vh; }
+  #panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+}
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>Space Fabric</h1>
+      <p class="hint">Print-in-place chainmail of tiles linked underneath, like NASA's 4D-printed space fabric. Dimensions in millimetres, export to STL.</p>
+    </header>
+
+    <label class="field">
+      <span>Preset</span>
+      <select id="preset"></select>
+    </label>
+
+    <div id="groups"></div>
+
+    <section id="stats"></section>
+
+    <div class="actions">
+      <button id="export" type="button" class="primary">Download STL</button>
+      <button id="share" type="button">Copy link</button>
+    </div>
+    <p id="message" class="hint" role="status"></p>
+  </aside>
+
+  <main id="viewport">
+    <div id="busy" hidden>Generating…</div>
+    <div class="view-tools">
+      <label><input type="checkbox" id="colors" checked> Colours</label>
+      <label><input type="checkbox" id="shadows" checked> Shadows</label>
+      <label><input type="checkbox" id="wire"> Wireframe</label>
+      <label><input type="checkbox" id="cut"> Cutaway</label>
+      <input type="range" id="cutpos" min="-1" max="1" step="0.005" value="0" aria-label="Cutaway position" hidden>
+      <button id="bottom-view" type="button">From below</button>
+      <button id="reset-view" type="button">Reset view</button>
+    </div>
+  </main>
+
+  <input type="file" id="stl-file" accept=".stl,model/stl,application/sla" hidden>
+
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===== util =====
+
+function hashInt(a, b, c) {
+  let h = a ^ Math.imul(b, 0x8da6b343) ^ Math.imul(c, 0xd8163841);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+const rand01 = (seed, i, k = 0) => hashInt(seed | 0, i | 0, k | 0) / 4294967296;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const TAU = Math.PI * 2;
+
+// ===== params =====
+
+const GROUPS = {
+  fabric: 'Fabric',
+  tiles: 'Tiles',
+  top: 'Top face',
+  links: 'Links under the tiles',
+  decor: 'Model on the top face',
+  output: 'Output',
+};
+
+const TILINGS = [
+  ['square', 'Squares'],
+  ['hex', 'Hexagons'],
+  ['triangle', 'Triangles'],
+  ['octagon', 'Octagons + squares'],
+  ['kagome', 'Hexagons + triangles'],
+  ['rhombus', 'Rhombi (sheared squares)'],
+];
+
+const isSolid = (s) => s.plateStyle === 'solid';
+const hasDecor = (s) => s.decor !== 'none';
+
+const PARAMS = [
+  { key: 'tiling', group: 'fabric', label: 'Tiling', type: 'select', options: TILINGS, value: 'square' },
+  { key: 'edge', group: 'fabric', label: 'Tile edge, mm', type: 'number', min: 3, max: 200, step: 0.5, value: 16 },
+  { key: 'shear', group: 'fabric', label: 'Rhombus angle, °', type: 'number', min: 45, max: 90, step: 1, value: 70, when: (s) => s.tiling === 'rhombus' },
+  { key: 'shape', group: 'fabric', label: 'Fabric outline', type: 'select', options: [['rect', 'Rectangle'], ['ellipse', 'Ellipse / circle'], ['hexagon', 'Hexagon'], ['diamond', 'Diamond']], value: 'rect' },
+  { key: 'width', group: 'fabric', label: 'Width, mm', type: 'number', min: 10, max: 2000, step: 1, value: 150 },
+  { key: 'height', group: 'fabric', label: 'Height, mm', type: 'number', min: 10, max: 2000, step: 1, value: 150, when: (s) => s.shape !== 'hexagon' },
+  { key: 'rotation', group: 'fabric', label: 'Tiling rotation, °', type: 'number', min: 0, max: 180, step: 0.5, value: 0 },
+
+  { key: 'plateStyle', group: 'tiles', label: 'Tile style', type: 'select', options: [['solid', 'Solid tile'], ['ring', 'Ring (chainmail link)']], value: 'solid' },
+  { key: 'outline', group: 'tiles', label: 'Tile outline', type: 'select', options: [['polygon', 'Cell polygon'], ['rounded', 'Rounded polygon'], ['circle', 'Circle'], ['star', 'Star'], ['flower', 'Flower']], value: 'polygon' },
+  { key: 'cornerRadius', group: 'tiles', label: 'Corner radius, mm', type: 'number', min: 0, max: 50, step: 0.1, value: 2, when: (s) => s.outline === 'rounded' },
+  { key: 'points', group: 'tiles', label: 'Points / petals', type: 'int', min: 3, max: 24, step: 1, value: 6, when: (s) => s.outline === 'star' || s.outline === 'flower' },
+  { key: 'pointDepth', group: 'tiles', label: 'Point depth', type: 'number', min: 0.05, max: 0.9, step: 0.01, value: 0.4, when: (s) => s.outline === 'star' || s.outline === 'flower' },
+  { key: 'plateScale', group: 'tiles', label: 'Tile size (share of cell)', type: 'number', min: 0.3, max: 1, step: 0.01, value: 1 },
+  { key: 'ringWidth', group: 'tiles', label: 'Ring width, mm', type: 'number', min: 0.5, max: 50, step: 0.1, value: 3.5, when: (s) => s.plateStyle === 'ring' },
+  { key: 'gap', group: 'tiles', label: 'Gap between tiles, mm', type: 'number', min: 0.2, max: 20, step: 0.05, value: 0.8 },
+  { key: 'plateH', group: 'tiles', label: 'Tile thickness, mm', type: 'number', min: 0.4, max: 20, step: 0.1, value: 1.4 },
+  { key: 'pillar', group: 'tiles', label: 'Centre pillar (shorter bridges)', type: 'bool', value: true, when: isSolid },
+  { key: 'pillarD', group: 'tiles', label: 'Pillar diameter, mm', type: 'number', min: 0.8, max: 60, step: 0.1, value: 4, when: (s) => isSolid(s) && s.pillar },
+
+  { key: 'relief', group: 'top', label: 'Top relief', type: 'select', options: [['flat', 'Flat'], ['chamfer', 'Chamfered edge'], ['dome', 'Dome / rounded'], ['pyramid', 'Pyramid / ridge'], ['dish', 'Dish (concave)'], ['steps', 'Stepped (ziggurat)']], value: 'chamfer' },
+  { key: 'reliefH', group: 'top', label: 'Relief height, mm', type: 'number', min: 0.1, max: 40, step: 0.1, value: 1.5, when: (s) => !['flat', 'chamfer'].includes(s.relief) },
+  { key: 'steps', group: 'top', label: 'Steps', type: 'int', min: 2, max: 8, step: 1, value: 3, when: (s) => s.relief === 'steps' },
+  { key: 'chamfer', group: 'top', label: 'Chamfer, mm', type: 'number', min: 0.1, max: 10, step: 0.05, value: 0.5, when: (s) => s.relief === 'chamfer' },
+
+  { key: 'links', group: 'links', label: 'Links per edge (pairs)', type: 'int', min: 1, max: 5, step: 1, value: 1 },
+  { key: 'spread', group: 'links', label: 'Spread along the edge', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4 },
+  { key: 'clearXY', group: 'links', label: 'Clearance (sideways), mm', type: 'number', min: 0.1, max: 3, step: 0.05, value: 0.45 },
+  { key: 'clearZ', group: 'links', label: 'Clearance (vertical), mm', type: 'number', min: 0.1, max: 3, step: 0.05, value: 0.4 },
+  { key: 'postW', group: 'links', label: 'Post width, mm', type: 'number', min: 0.4, max: 10, step: 0.05, value: 1.2 },
+  { key: 'hookW', group: 'links', label: 'Hook width, mm', type: 'number', min: 0.4, max: 10, step: 0.05, value: 1.2 },
+  { key: 'barW', group: 'links', label: 'Bar width, mm', type: 'number', min: 0.4, max: 10, step: 0.05, value: 1.2 },
+  { key: 'legW', group: 'links', label: 'Hook leg width, mm', type: 'number', min: 0.4, max: 10, step: 0.05, value: 1.2 },
+  { key: 'barH', group: 'links', label: 'Bar thickness, mm', type: 'number', min: 0.2, max: 10, step: 0.05, value: 1 },
+  { key: 'beamH', group: 'links', label: 'Hook thickness, mm', type: 'number', min: 0.2, max: 10, step: 0.05, value: 1 },
+  { key: 'postInset', group: 'links', label: 'Post inset from tile edge, mm', type: 'number', min: 0, max: 20, step: 0.05, value: 0.2 },
+  { key: 'borderBars', group: 'links', label: 'Bars on the outer edges', type: 'bool', value: false },
+
+  { key: 'decor', group: 'decor', label: 'Model', type: 'select', options: [['none', 'None'], ['stl', 'Loaded STL'], ['dome', 'Hemisphere'], ['cone', 'Cone'], ['pyramid', 'Pyramid'], ['stud', 'Cylinder stud'], ['star', 'Star'], ['heart', 'Heart'], ['torus', 'Ring']], value: 'none' },
+  { key: 'decorUp', group: 'decor', label: 'STL up axis', type: 'select', options: [['z', 'Z up'], ['y', 'Y up'], ['x', 'X up']], value: 'z', when: (s) => s.decor === 'stl' },
+  { key: 'decorSize', group: 'decor', label: 'Size (share of tile)', type: 'number', min: 0.05, max: 2, step: 0.01, value: 0.7, when: hasDecor },
+  { key: 'decorHeight', group: 'decor', label: 'Height, mm (0 = proportional)', type: 'number', min: 0, max: 200, step: 0.1, value: 0, when: hasDecor },
+  { key: 'decorJitter', group: 'decor', label: 'Size spread', type: 'number', min: 0, max: 0.9, step: 0.01, value: 0, when: hasDecor },
+  { key: 'decorRot', group: 'decor', label: 'Rotation, °', type: 'number', min: 0, max: 360, step: 1, value: 0, when: hasDecor },
+  { key: 'decorRotMode', group: 'decor', label: 'Turn per tile', type: 'select', options: [['fixed', 'Same for all'], ['tile', 'Follow the tile'], ['alternate', 'Alternate 180°'], ['random', 'Random']], value: 'tile', when: hasDecor },
+  { key: 'decorWhere', group: 'decor', label: 'On which tiles', type: 'select', options: [['all', 'All'], ['class0', 'Checkerboard'], ['notclass0', 'Inverse checkerboard'], ['main', 'Largest tiles only'], ['random', 'Random share']], value: 'all', when: hasDecor },
+  { key: 'decorShare', group: 'decor', label: 'Share of tiles, %', type: 'number', min: 0, max: 100, step: 1, value: 50, when: (s) => hasDecor(s) && s.decorWhere === 'random' },
+  { key: 'decorEmbed', group: 'decor', label: 'Sink into the tile, mm', type: 'number', min: 0, max: 20, step: 0.05, value: 0.2, when: hasDecor },
+  { key: 'decorSeed', group: 'decor', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 1, when: (s) => hasDecor(s) && (s.decorWhere === 'random' || s.decorRotMode === 'random' || s.decorJitter > 0) },
+
+  { key: 'segments', group: 'output', label: 'Segments per circle', type: 'int', min: 8, max: 128, step: 1, value: 32 },
+  { key: 'exportWhat', group: 'output', label: 'Export', type: 'select', options: [['all', 'Fabric + models'], ['fabric', 'Fabric only'], ['decor', 'Models only (for a 2nd colour)']], value: 'all' },
+];
+
+const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
+
+// Starting points; unlisted keys keep defaults.
+const PRESETS = [
+  { name: 'Space fabric (squares)', params: {} },
+  {
+    name: 'Hexagon scales',
+    params: { tiling: 'hex', edge: 15, postW: 1, hookW: 1, barW: 1, legW: 1, clearXY: 0.4, outline: 'rounded', cornerRadius: 1.5, relief: 'dome', reliefH: 1.2, width: 220, height: 200 },
+  },
+  {
+    name: 'Triangle mesh',
+    params: { tiling: 'triangle', edge: 24, relief: 'pyramid', reliefH: 1.6, pillarD: 3, width: 170, height: 150 },
+  },
+  {
+    name: 'Chainmail rings',
+    params: { tiling: 'hex', edge: 15, postW: 1, hookW: 1, barW: 1, legW: 1, clearXY: 0.4, plateStyle: 'ring', outline: 'circle', ringWidth: 4, relief: 'dome', reliefH: 1.4, plateH: 1.2, width: 220, height: 200 },
+  },
+  {
+    name: 'Octagons and squares',
+    params: { tiling: 'octagon', edge: 17, postW: 1, hookW: 1, barW: 1, legW: 1, clearXY: 0.4, relief: 'steps', reliefH: 1.4, steps: 3, shape: 'ellipse', width: 180, height: 180 },
+  },
+  {
+    name: 'Kagome stars',
+    params: { tiling: 'kagome', edge: 22, outline: 'rounded', cornerRadius: 2, relief: 'chamfer', chamfer: 0.7, decor: 'star', decorWhere: 'main', decorSize: 0.75, decorHeight: 1.6, width: 180, height: 160 },
+  },
+  {
+    name: 'Round buttons',
+    params: { tiling: 'square', edge: 16, outline: 'circle', relief: 'dome', reliefH: 2, decor: 'none' },
+  },
+  {
+    name: 'Flower tiles',
+    params: { tiling: 'hex', edge: 15, postW: 1, hookW: 1, barW: 1, legW: 1, clearXY: 0.4, outline: 'flower', points: 6, pointDepth: 0.2, relief: 'chamfer', chamfer: 0.6, decor: 'dome', decorSize: 0.35, decorHeight: 1.2, width: 220, height: 200 },
+  },
+];
+
+// ===== tilings =====
+
+// A tiling is a lattice (a1, a2) and a few CCW polygons in the unit cell.
+// cls: colour class (no two neighbours of the same polygon kind share it), kind 0 = the largest polygon.
+function tilingCell(p) {
+  const s = p.edge;
+  const r3 = Math.sqrt(3);
+  const regular = (n, R, a0, cx = 0, cy = 0) =>
+    Array.from({ length: n }, (_, k) => [cx + R * Math.cos(a0 + (k * TAU) / n), cy + R * Math.sin(a0 + (k * TAU) / n)]);
+  const mod = (a, n) => ((a % n) + n) % n;
+  switch (p.tiling) {
+    case 'hex':
+      return { a1: [1.5 * s, (r3 / 2) * s], a2: [0, r3 * s], polys: [{ pts: regular(6, s, 0), kind: 0, cls: (i, j) => mod(i + 2 * j, 3) }] };
+    case 'triangle': {
+      const h = (r3 / 2) * s;
+      return {
+        a1: [s, 0], a2: [s / 2, h],
+        polys: [
+          { pts: [[0, 0], [s, 0], [s / 2, h]], kind: 0, cls: () => 0 },
+          { pts: [[s, 0], [1.5 * s, h], [s / 2, h]], kind: 0, cls: () => 1 },
+        ],
+      };
+    }
+    case 'octagon': {
+      const w = s * (1 + Math.SQRT2);
+      const R = s / (2 * Math.sin(Math.PI / 8));
+      const hd = s / Math.SQRT2;
+      return {
+        a1: [w, 0], a2: [0, w],
+        polys: [
+          { pts: regular(8, R, Math.PI / 8), kind: 0, cls: (i, j) => (i + j) & 1 },
+          { pts: [[w / 2 + hd, w / 2], [w / 2, w / 2 + hd], [w / 2 - hd, w / 2], [w / 2, w / 2 - hd]], kind: 1, cls: () => 2 },
+        ],
+      };
+    }
+    case 'kagome':
+      return {
+        a1: [2 * s, 0], a2: [s, r3 * s],
+        polys: [
+          { pts: regular(6, s, 0), kind: 0, cls: () => 0 },
+          { pts: [[s, 0], [1.5 * s, (r3 / 2) * s], [s / 2, (r3 / 2) * s]], kind: 1, cls: () => 1 },
+          { pts: [[-s / 2, (r3 / 2) * s], [s / 2, (r3 / 2) * s], [0, r3 * s]], kind: 1, cls: () => 2 },
+        ],
+      };
+    case 'rhombus': {
+      const a = (p.shear * Math.PI) / 180;
+      const v = [s * Math.cos(a), s * Math.sin(a)];
+      return {
+        a1: [s, 0], a2: v,
+        polys: [{ pts: [[0, 0], [s, 0], [s + v[0], v[1]], [v[0], v[1]]], kind: 0, cls: (i, j) => (i + j) & 1 }],
+      };
+    }
+    default:
+      return { a1: [s, 0], a2: [0, s], polys: [{ pts: [[-s / 2, -s / 2], [s / 2, -s / 2], [s / 2, s / 2], [-s / 2, s / 2]], kind: 0, cls: (i, j) => (i + j) & 1 }] };
+  }
+}
+
+function insideOutline(p, x, y) {
+  const W = p.width / 2 + 1e-6;
+  const H = (p.shape === 'hexagon' ? p.width : p.height) / 2 + 1e-6;
+  switch (p.shape) {
+    case 'ellipse': return (x / W) ** 2 + (y / H) ** 2 <= 1 + 1e-9;
+    case 'diamond': return Math.abs(x) / W + Math.abs(y) / H <= 1 + 1e-9;
+    case 'hexagon': {
+      // flat-top hexagon, width = across corners
+      const r = W;
+      return Math.abs(y) <= (Math.sqrt(3) / 2) * r && Math.sqrt(3) * Math.abs(x) + Math.abs(y) <= Math.sqrt(3) * r;
+    }
+    default: return Math.abs(x) <= W && Math.abs(y) <= H;
+  }
+}
+
+function centroid(pts) {
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x0, y0] = pts[i];
+    const [x1, y1] = pts[(i + 1) % pts.length];
+    const c = x0 * y1 - x1 * y0;
+    a += c; cx += (x0 + x1) * c; cy += (y0 + y1) * c;
+  }
+  return [cx / (3 * a), cy / (3 * a)];
+}
+
+// Distance from c to the nearest edge line of a convex CCW polygon.
+function inradius(pts, c) {
+  let r = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const [x0, y0] = pts[i];
+    const [x1, y1] = pts[(i + 1) % pts.length];
+    const L = Math.hypot(x1 - x0, y1 - y0);
+    if (L < 1e-9) continue;
+    const nx = (y1 - y0) / L, ny = -(x1 - x0) / L;
+    r = Math.min(r, nx * (x0 - c[0]) + ny * (y0 - c[1]));
+  }
+  return r;
+}
+
+function buildTiles(p) {
+  const cell = tilingCell(p);
+  const rot = (p.rotation * Math.PI) / 180;
+  const cr = Math.cos(rot), sr = Math.sin(rot);
+  const H = p.shape === 'hexagon' ? p.width : p.height;
+  const R = 0.5 * Math.hypot(p.width, H) + 4 * p.edge;
+  const [a1x, a1y] = cell.a1, [a2x, a2y] = cell.a2;
+  const area = Math.abs(a1x * a2y - a1y * a2x);
+  const n1 = Math.ceil(R / (area / Math.hypot(a2x, a2y))) + 2;
+  const n2 = Math.ceil(R / (area / Math.hypot(a1x, a1y))) + 2;
+  // Centre a cell of the first polygon at the origin.
+  const c0 = centroid(cell.polys[0].pts);
+
+  const tiles = [];
+  for (let i = -n1; i <= n1; i++) {
+    for (let j = -n2; j <= n2; j++) {
+      const ox = i * a1x + j * a2x - c0[0], oy = i * a1y + j * a2y - c0[1];
+      if (ox * ox + oy * oy > (R + 3 * p.edge) ** 2) continue;
+      for (const poly of cell.polys) {
+        const pts = poly.pts.map(([x, y]) => {
+          const X = x + ox, Y = y + oy;
+          return [X * cr - Y * sr, X * sr + Y * cr];
+        });
+        if (!pts.every(([x, y]) => insideOutline(p, x, y))) continue;
+        tiles.push({ pts, kind: poly.kind, cls: poly.cls(i, j) });
+      }
+    }
+  }
+
+  // Shared edges: key by midpoint.
+  const key = (x, y) => `${Math.round(x * 100)},${Math.round(y * 100)}`;
+  const edgeMap = new Map();
+  tiles.forEach((t, ti) => {
+    const n = t.pts.length;
+    t.c = centroid(t.pts);
+    t.inr = inradius(t.pts, t.c);
+    t.nb = new Array(n).fill(-1);
+    t.nbEdge = new Array(n).fill(-1);
+    t.ang = t.pts.map((v, k) => {
+      const a = t.pts[(k + n - 1) % n], b = t.pts[(k + 1) % n];
+      const ux = a[0] - v[0], uy = a[1] - v[1], wx = b[0] - v[0], wy = b[1] - v[1];
+      return Math.acos(clamp((ux * wx + uy * wy) / (Math.hypot(ux, uy) * Math.hypot(wx, wy)), -1, 1));
+    });
+    for (let k = 0; k < n; k++) {
+      const [x0, y0] = t.pts[k], [x1, y1] = t.pts[(k + 1) % n];
+      const kk = key((x0 + x1) / 2, (y0 + y1) / 2);
+      const other = edgeMap.get(kk);
+      if (other) {
+        t.nb[k] = other[0]; t.nbEdge[k] = other[1];
+        tiles[other[0]].nb[other[1]] = ti; tiles[other[0]].nbEdge[other[1]] = k;
+      } else edgeMap.set(kk, [ti, k]);
+    }
+  });
+
+  // Drop loose tiles (no neighbours), they would fall out of the fabric.
+  const keep = tiles.filter((t) => t.nb.some((x) => x >= 0) || tiles.length === 1);
+  if (keep.length !== tiles.length) {
+    const remap = new Map();
+    tiles.forEach((t, i) => { if (keep.includes(t)) remap.set(i, remap.size); });
+    for (const t of keep) {
+      t.nb = t.nb.map((x) => (x >= 0 && remap.has(x) ? remap.get(x) : -1));
+      t.nbEdge = t.nbEdge.map((e, k) => (t.nb[k] >= 0 ? e : -1));
+    }
+  }
+  return keep;
+}
+
+// ===== outlines =====
+
+// Inset a convex CCW polygon by d (intersection of the shifted edge lines).
+function insetPoly(pts, d) {
+  const n = pts.length;
+  const lines = pts.map((a, i) => {
+    const b = pts[(i + 1) % n];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const nx = (b[1] - a[1]) / L, ny = -(b[0] - a[0]) / L;
+    return [nx, ny, nx * a[0] + ny * a[1] - d];
+  });
+  return pts.map((_, i) => {
+    const [ax, ay, ac] = lines[(i + n - 1) % n];
+    const [bx, by, bc] = lines[i];
+    const det = ax * by - ay * bx;
+    return [(ac * by - ay * bc) / det, (ax * bc - ac * bx) / det];
+  });
+}
+
+function scalePts(pts, c, k) {
+  return pts.map(([x, y]) => [c[0] + (x - c[0]) * k, c[1] + (y - c[1]) * k]);
+}
+
+function pointInPoly(pts, x, y) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+// Min distance from the centre to the outline (for star-shaped outlines, sampled on edges).
+function outlineInradius(pts, c) {
+  let r = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % pts.length];
+    const dx = x1 - x0, dy = y1 - y0;
+    const L2 = dx * dx + dy * dy || 1e-12;
+    const t = clamp(((c[0] - x0) * dx + (c[1] - y0) * dy) / L2, 0, 1);
+    r = Math.min(r, Math.hypot(x0 + t * dx - c[0], y0 + t * dy - c[1]));
+  }
+  return r;
+}
+
+function plateOutline(tile, p) {
+  const c = tile.c;
+  const base = insetPoly(tile.pts, p.gap / 2);
+  const rin = inradius(base, c);
+  const seg = p.segments;
+  // Angle of the first edge normal: keeps circles and stars aligned with the tile.
+  const [x0, y0] = base[0], [x1, y1] = base[1];
+  const a0 = Math.atan2(-(x1 - x0), y1 - y0);
+  let out;
+  switch (p.outline) {
+    case 'rounded': {
+      const r = Math.min(p.cornerRadius, rin * 0.98);
+      if (r < 0.01) { out = base; break; }
+      const inner = insetPoly(base, r);
+      const n = inner.length;
+      out = [];
+      for (let i = 0; i < n; i++) {
+        const prev = base[(i + n - 1) % n], cur = base[i], next = base[(i + 1) % n];
+        let s0 = Math.atan2(-(cur[0] - prev[0]), cur[1] - prev[1]);
+        let s1 = Math.atan2(-(next[0] - cur[0]), next[1] - cur[1]);
+        while (s1 < s0) s1 += TAU;
+        const m = Math.max(2, Math.ceil((seg * (s1 - s0)) / TAU));
+        for (let k = 0; k <= m; k++) {
+          const a = s0 + ((s1 - s0) * k) / m;
+          out.push([inner[i][0] + r * Math.cos(a), inner[i][1] + r * Math.sin(a)]);
+        }
+      }
+      break;
+    }
+    case 'circle':
+      out = Array.from({ length: seg }, (_, k) => {
+        const a = a0 + (k * TAU) / seg;
+        return [c[0] + rin * Math.cos(a), c[1] + rin * Math.sin(a)];
+      });
+      break;
+    case 'star': {
+      const n = p.points;
+      out = [];
+      for (let k = 0; k < 2 * n; k++) {
+        const a = a0 + (k * Math.PI) / n;
+        const r = k % 2 ? rin * (1 - p.pointDepth) : rin;
+        out.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]);
+      }
+      break;
+    }
+    case 'flower': {
+      const n = p.points;
+      const m = Math.max(n * 6, seg * 2);
+      out = Array.from({ length: m }, (_, k) => {
+        const a = a0 + (k * TAU) / m;
+        const r = rin * (1 - p.pointDepth * (1 - Math.abs(Math.cos((n * (a - a0)) / 2))));
+        return [c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)];
+      });
+      break;
+    }
+    default:
+      out = base;
+  }
+  return p.plateScale < 1 ? scalePts(out, c, p.plateScale) : out;
+}
+
+// ===== mesh =====
+
+// Triangle soup of closed solids. Each solid is checked by its signed volume and flipped if inside out.
+class Builder {
+  constructor() {
+    this.pos = [];
+    this.col = [];
+    this.rgb = [1, 1, 1];
+    this.start = 0;
+  }
+  begin() { this.start = this.pos.length; }
+  tri(a, b, c) {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    if (nx * nx + ny * ny + nz * nz < 1e-14) return;
+    const P = this.pos, C = this.col, [r, g, bl] = this.rgb;
+    P.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+    C.push(r, g, bl, r, g, bl, r, g, bl);
+  }
+  end() {
+    const P = this.pos;
+    let v = 0;
+    for (let k = this.start; k < P.length; k += 9) {
+      v += P[k] * (P[k + 4] * P[k + 8] - P[k + 5] * P[k + 7])
+        - P[k + 1] * (P[k + 3] * P[k + 8] - P[k + 5] * P[k + 6])
+        + P[k + 2] * (P[k + 3] * P[k + 7] - P[k + 4] * P[k + 6]);
+    }
+    if (v < 0) {
+      for (let k = this.start; k < P.length; k += 9) {
+        for (let d = 0; d < 3; d++) {
+          const t = P[k + 3 + d]; P[k + 3 + d] = P[k + 6 + d]; P[k + 6 + d] = t;
+        }
+      }
+    }
+  }
+  // Box with axis t (unit) of half length ht, the perpendicular half width hn, from z0 to z1.
+  box(cx, cy, tx, ty, ht, hn, z0, z1) {
+    const nx = ty, ny = -tx;
+    const q = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [cx + tx * ht * a + nx * hn * b, cy + ty * ht * a + ny * hn * b]);
+    if (this.rec) this.rec.push({ t: this.tile, poly: q, z0, z1 });
+    const v = [...q.map(([x, y]) => [x, y, z0]), ...q.map(([x, y]) => [x, y, z1])];
+    this.begin();
+    this.tri(v[0], v[2], v[1]); this.tri(v[0], v[3], v[2]);
+    this.tri(v[4], v[5], v[6]); this.tri(v[4], v[6], v[7]);
+    for (let i = 0; i < 4; i++) {
+      const a = i, b = (i + 1) % 4;
+      this.tri(v[a], v[b], v[b + 4]); this.tri(v[a], v[b + 4], v[a + 4]);
+    }
+    this.end();
+  }
+  // Loft of a star-shaped outline scaled about c along a closed (scale, z) profile loop.
+  loft(outline, c, profile) {
+    const rings = profile.map(([s, z]) => outline.map(([x, y]) => [c[0] + (x - c[0]) * s, c[1] + (y - c[1]) * s, z]));
+    const n = outline.length, K = profile.length;
+    this.begin();
+    for (let k = 0; k < K; k++) {
+      const A = rings[k], B = rings[(k + 1) % K];
+      for (let i = 0; i < n; i++) {
+        const i1 = (i + 1) % n;
+        this.tri(A[i], A[i1], B[i1]);
+        this.tri(A[i], B[i1], B[i]);
+      }
+    }
+    this.end();
+  }
+  // Explicit centre point for caps: lofting to scale 0 gives a fan, fine for star-shaped outlines.
+}
+
+const hexRGB = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
+const CLASS_RGB = [0xe8e4dc, 0xc9d4e2, 0xe2cdb9].map(hexRGB);
+const LINK_RGB = hexRGB(0x8b929c);
+const FRAME_RGB = hexRGB(0xb3b0a8);
+
+// Cross-section loop (scale, z) of a tile. Returns the loop and the z of the top at the centre.
+function plateProfile(p, R, z0, z1, ringK) {
+  const h = p.reliefH;
+  const K = Math.max(4, Math.round(p.segments / 4));
+  const chH = Math.min(p.chamfer, R * 0.45, (z1 - z0) * 0.9);
+  if (ringK == null) {
+    const prof = [[0, z0], [1, z0]];
+    let zc = z1;
+    switch (p.relief) {
+      case 'chamfer':
+        prof.push([1, z1 - chH], [1 - chH / R, z1], [0, z1]);
+        break;
+      case 'dome':
+        prof.push([1, z1]);
+        for (let k = 1; k <= K; k++) {
+          const f = (k / K) * (Math.PI / 2);
+          prof.push([Math.cos(f), z1 + h * Math.sin(f)]);
+        }
+        zc = z1 + h;
+        break;
+      case 'pyramid':
+        prof.push([1, z1], [0, z1 + h]);
+        zc = z1 + h;
+        break;
+      case 'dish': {
+        const d = Math.min(h, (z1 - z0) - 0.4);
+        const sr = 0.88;
+        prof.push([1, z1], [sr, z1]);
+        if (d > 0.01) {
+          for (let k = 1; k <= K; k++) {
+            const s = sr * (1 - k / K);
+            prof.push([s, z1 - d * (1 - (s / sr) ** 2)]);
+          }
+          zc = z1 - d;
+        } else prof.push([0, z1]);
+        break;
+      }
+      case 'steps': {
+        const n = p.steps;
+        prof.push([1, z1]);
+        for (let k = 1; k <= n; k++) {
+          const s = 1 - (k / (n + 0.6));
+          prof.push([s + 1 / (n + 0.6), z1 + (h * k) / n], [s, z1 + (h * k) / n]);
+        }
+        prof.push([0, z1 + h]);
+        zc = z1 + h;
+        break;
+      }
+      default:
+        prof.push([1, z1], [0, z1]);
+    }
+    return { prof, zc };
+  }
+  // Ring: the band between scale 1 and ringK.
+  const k = ringK, mid = (1 + k) / 2, half = (1 - k) / 2;
+  const prof = [[1, z0]];
+  switch (p.relief) {
+    case 'chamfer': {
+      const cs = Math.min(chH / R, half * 0.9);
+      prof.push([1, z1 - chH], [1 - cs, z1], [k + cs, z1], [k, z1 - chH]);
+      break;
+    }
+    case 'dome':
+    case 'dish':
+      prof.push([1, z1]);
+      for (let i = 1; i < 2 * K; i++) {
+        const f = (i / (2 * K)) * Math.PI;
+        prof.push([mid + half * Math.cos(f), z1 + (p.relief === 'dish' ? 0 : h) * Math.sin(f)]);
+      }
+      prof.push([k, z1]);
+      break;
+    case 'pyramid':
+      prof.push([1, z1], [mid, z1 + h], [k, z1]);
+      break;
+    case 'steps': {
+      const n = p.steps;
+      prof.push([1, z1]);
+      for (let i = 1; i <= n; i++) {
+        const w = half * (1 - i / (n + 1));
+        const z = z1 + (h * i) / n;
+        prof.push([mid + w + half / (n + 1), z], [mid + w, z]);
+      }
+      for (let i = n; i >= 1; i--) {
+        const w = half * (1 - i / (n + 1));
+        const z = z1 + (h * i) / n;
+        prof.push([mid - w, z], [mid - w - half / (n + 1), z]);
+      }
+      prof.push([k, z1]);
+      break;
+    }
+    default:
+      prof.push([1, z1], [k, z1]);
+  }
+  prof.push([k, z0]);
+  return { prof, zc: z1 };
+}
+
+// Link geometry along the normal of an edge (d > 0 points to the neighbour) and along the edge.
+function linkLayout(p) {
+  const c = p.clearXY;
+  const pb = Math.max(p.postW, p.barW);
+  const Dp = p.gap / 2 + p.postW / 2 + p.postInset; // hook post, inside the own tile
+  const Db = p.gap / 2 + pb / 2 + p.postInset; // bar, inside the own tile
+  const Df = Db + p.barW / 2 + c + p.legW / 2; // hook leg, inside the neighbour
+  const depth = Math.max(Df + p.legW / 2, Db + pb / 2, Dp + p.postW / 2);
+  const wH = p.hookW;
+  const barHalf = p.hookW / 2 + c + p.postW / 2; // bar post centre from the slot centre
+  const wB = 2 * barHalf + p.postW;
+  const pitch = (wB + wH) / 2 + c;
+  const n = p.links;
+  const need = (n - 0.5) * pitch + wB / 2; // half span of the slots
+  const z1 = p.barH;
+  const zb0 = z1 + p.clearZ, zb1 = zb0 + p.beamH;
+  const zp = zb1 + p.clearZ;
+  return { c, pb, Dp, Db, Df, depth, wH, wB, barHalf, pitch, need, n, z1, zb0, zb1, zp };
+}
+
+const cornerFactor = (a) => (a <= Math.PI / 2 + 1e-9 ? 1 / Math.tan(a / 2) : 1 / Math.sin(a));
+
+function buildFabric(p, record = false) {
+  const tiles = buildTiles(p);
+  const L = linkLayout(p);
+  const B = new Builder();
+  if (record) B.rec = [];
+  const zTop = L.zp + p.plateH;
+  const ov = Math.min(0.2, p.plateH / 2);
+  const info = { tiles: tiles.length, hooks: 0, tooShort: 0, minEdge: 0, pillarSkipped: 0, frames: 0, spokes: 0, tilesData: [] };
+
+  for (let ti = 0; ti < tiles.length; ti++) {
+    const t = tiles[ti];
+    const n = t.pts.length;
+    const outline = plateOutline(t, p);
+    const R = outlineInradius(outline, t.c);
+    const ring = p.plateStyle === 'ring';
+    const ringK = ring ? clamp(1 - p.ringWidth / R, 0.05, 0.95) : null;
+    const inner = ring ? scalePts(outline, t.c, ringK) : null;
+    const covered = (x, y) => pointInPoly(outline, x, y) && !(inner && pointInPoly(inner, x, y));
+
+    // --- tile
+    B.tile = ti;
+    if (B.rec && !ring) B.rec.push({ t: ti, poly: outline, z0: L.zp, z1: zTop });
+    B.rgb = CLASS_RGB[t.cls % 3];
+    const { prof, zc } = plateProfile(p, R, L.zp, zTop, ringK);
+    B.loft(outline, t.c, prof);
+    info.tilesData.push({ c: t.c, R, zc, cls: t.cls, kind: t.kind, a0: Math.atan2(t.pts[1][1] - t.pts[0][1], t.pts[1][0] - t.pts[0][0]) });
+
+    // --- links
+    B.rgb = LINK_RGB;
+    const posts = [];
+    for (let e = 0; e < n; e++) {
+      const nbi = t.nb[e];
+      if (nbi < 0 && !p.borderBars) continue;
+      const P0 = t.pts[e], P1 = t.pts[(e + 1) % n];
+      const E = Math.hypot(P1[0] - P0[0], P1[1] - P0[1]);
+      const tx = (P1[0] - P0[0]) / E, ty = (P1[1] - P0[1]) / E;
+      const nx = ty, ny = -tx; // outward
+      const Mx = (P0[0] + P1[0]) / 2, My = (P0[1] + P1[1]) / 2;
+      const at = (u, d) => [Mx + tx * u + nx * d, My + ty * u + ny * d];
+
+      // Usable half length of the edge, away from the links of the other edges.
+      let f = Math.max(cornerFactor(t.ang[e]), cornerFactor(t.ang[(e + 1) % n]));
+      if (nbi >= 0) {
+        const o = tiles[nbi], oe = t.nbEdge[e], on = o.pts.length;
+        f = Math.max(f, cornerFactor(o.ang[oe]), cornerFactor(o.ang[(oe + 1) % on]));
+      }
+      const xmin = (L.depth + L.c) * f;
+      const W = E / 2 - xmin;
+      info.minEdge = Math.max(info.minEdge, 2 * (xmin + L.need));
+      if (L.need > W + 1e-9) info.tooShort++;
+      let pitch = L.pitch;
+      const spreadPitch = (W - L.wB / 2) / (L.n - 0.5);
+      if (spreadPitch > pitch) pitch += p.spread * (spreadPitch - pitch);
+
+      for (let j = 0; j < 2 * L.n; j++) {
+        const u = (j - (2 * L.n - 1) / 2) * pitch;
+        if (j % 2 === 0) {
+          // Bar between two posts; the neighbour's hook passes over it.
+          const [bx, by] = at(u, -L.Db);
+          B.box(bx, by, tx, ty, L.barHalf, p.barW / 2, 0, L.z1);
+          for (const sgn of [-1, 1]) {
+            const [qx, qy] = at(u + sgn * L.barHalf, -L.Db);
+            B.box(qx, qy, tx, ty, p.postW / 2, L.pb / 2, 0, L.zp + ov);
+            posts.push([qx, qy, tx, ty, p.postW / 2, L.pb / 2]);
+          }
+        } else if (nbi >= 0) {
+          // Hook: post in this tile, beam across the gap over the neighbour's bar, leg down behind it.
+          info.hooks++;
+          const [qx, qy] = at(u, -L.Dp);
+          B.box(qx, qy, tx, ty, L.wH / 2, p.postW / 2, 0, L.zp + ov);
+          posts.push([qx, qy, tx, ty, L.wH / 2, p.postW / 2]);
+          const d0 = -L.Dp - p.postW / 2, d1 = L.Df + p.legW / 2;
+          const [mx, my] = at(u, (d0 + d1) / 2);
+          B.box(mx, my, tx, ty, L.wH / 2, (d1 - d0) / 2, L.zb0, L.zb1);
+          const [lx, ly] = at(u, L.Df);
+          B.box(lx, ly, tx, ty, L.wH / 2, p.legW / 2, 0, L.zb1);
+        }
+      }
+    }
+
+    // --- support frame when the tile does not cover every post
+    const uncovered = posts.some(([x, y, ax, ay, ht, hn]) =>
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].some(([a, b]) => !covered(x + ax * ht * a + ay * hn * b, y + ay * ht * a - ax * hn * b)));
+    if (uncovered) {
+      info.frames++;
+      const fOut = insetPoly(t.pts, p.gap / 2);
+      const Rf = inradius(fOut, t.c);
+      const cover = Math.max(L.Dp + p.postW / 2, L.Db + L.pb / 2) + 0.4 - p.gap / 2;
+      const kf = clamp(1 - cover / Rf, 0.05, 0.95);
+      B.rgb = FRAME_RGB;
+      B.loft(fOut, t.c, [[1, L.zp], [1, L.zp + p.plateH], [kf, L.zp + p.plateH], [kf, L.zp]]);
+      const fIn = scalePts(fOut, t.c, kf);
+      if (!outline.some(([x, y]) => !pointInPoly(fIn, x, y))) {
+        // Tile floats inside the frame: spokes to the edge midpoints.
+        info.spokes++;
+        for (let e = 0; e < n; e++) {
+          const P0 = fOut[e], P1 = fOut[(e + 1) % n];
+          const mx = (P0[0] + P1[0]) / 2 - t.c[0], my = (P0[1] + P1[1]) / 2 - t.c[1];
+          const len = Math.hypot(mx, my);
+          B.box(t.c[0] + mx / 2, t.c[1] + my / 2, mx / len, my / len, len / 2, p.postW / 2, L.zp, L.zp + p.plateH);
+        }
+      }
+    }
+
+    // --- centre pillar
+    if (!ring && p.pillar) {
+      const r = p.pillarD / 2;
+      if (r <= t.inr - L.depth - L.c && pointInPoly(outline, t.c[0], t.c[1])) {
+        B.rgb = LINK_RGB;
+        const m = Math.max(8, Math.round(p.segments / 2));
+        const circ = Array.from({ length: m }, (_, k) => [t.c[0] + r * Math.cos((k * TAU) / m), t.c[1] + r * Math.sin((k * TAU) / m)]);
+        if (B.rec) B.rec.push({ t: ti, poly: circ, z0: 0, z1: L.zp + ov });
+        B.loft(circ, t.c, [[0, 0], [1, 0], [1, L.zp + ov], [0, L.zp + ov]]);
+      } else info.pillarSkipped++;
+    }
+  }
+
+  const positions = new Float32Array(B.pos);
+  const colors = new Float32Array(B.col);
+  return { positions, colors, info, L, zTop, prisms: B.rec };
+}
+
+// ===== decoration =====
+
+// Normalised triangle soup: centred in XY on its bounding box, standing on z = 0.
+function normaliseSoup(src) {
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+  for (let k = 0; k < src.length; k += 3) {
+    const x = src[k], y = src[k + 1], z = src[k + 2];
+    if (x < x0) x0 = x; if (x > x1) x1 = x;
+    if (y < y0) y0 = y; if (y > y1) y1 = y;
+    if (z < z0) z0 = z; if (z > z1) z1 = z;
+  }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const out = new Float32Array(src.length);
+  let r = 0;
+  for (let k = 0; k < src.length; k += 3) {
+    const x = src[k] - cx, y = src[k + 1] - cy;
+    out[k] = x; out[k + 1] = y; out[k + 2] = src[k + 2] - z0;
+    r = Math.max(r, x * x + y * y);
+  }
+  return { tris: out, rxy: Math.sqrt(r) || 1, zsize: z1 - z0 || 1 };
+}
+
+function parseSTL(buf) {
+  const dv = new DataView(buf);
+  if (buf.byteLength >= 84) {
+    const n = dv.getUint32(80, true);
+    if (84 + n * 50 === buf.byteLength) {
+      const out = new Float32Array(n * 9);
+      for (let i = 0; i < n; i++) {
+        const o = 84 + i * 50 + 12;
+        for (let k = 0; k < 9; k++) out[i * 9 + k] = dv.getFloat32(o + k * 4, true);
+      }
+      return out;
+    }
+  }
+  const text = new TextDecoder().decode(buf);
+  const re = /vertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/g;
+  const v = [];
+  let m;
+  while ((m = re.exec(text))) v.push(+m[1], +m[2], +m[3]);
+  if (!v.length || v.length % 9) throw new Error('not an STL file');
+  return new Float32Array(v);
+}
+
+function reorientSoup(src, up) {
+  if (up === 'z') return src;
+  const out = new Float32Array(src.length);
+  for (let k = 0; k < src.length; k += 3) {
+    const x = src[k], y = src[k + 1], z = src[k + 2];
+    if (up === 'y') { out[k] = x; out[k + 1] = -z; out[k + 2] = y; }
+    else { out[k] = y; out[k + 1] = z; out[k + 2] = x; }
+  }
+  return out;
+}
+
+function builtinDecor(kind, seg) {
+  const B = new Builder();
+  const circle = (r, m) => Array.from({ length: m }, (_, k) => [r * Math.cos((k * TAU) / m), r * Math.sin((k * TAU) / m)]);
+  const O = [0, 0];
+  const K = Math.max(4, Math.round(seg / 4));
+  switch (kind) {
+    case 'dome': {
+      const prof = [[0, 0], [1, 0]];
+      for (let k = 1; k <= K; k++) { const f = (k / K) * (Math.PI / 2); prof.push([Math.cos(f), Math.sin(f)]); }
+      B.loft(circle(1, seg), O, prof);
+      break;
+    }
+    case 'cone': B.loft(circle(1, seg), O, [[0, 0], [1, 0], [0, 1.4]]); break;
+    case 'pyramid': B.loft(circle(1, 4).map(([x, y]) => [x * 0.7071 - y * 0.7071, x * 0.7071 + y * 0.7071]), O, [[0, 0], [1, 0], [0, 1]]); break;
+    case 'stud': B.loft(circle(1, seg), O, [[0, 0], [1, 0], [1, 0.8], [0.85, 1], [0, 1]]); break;
+    case 'star': {
+      const pts = Array.from({ length: 10 }, (_, k) => {
+        const a = Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 0.42 : 1;
+        return [r * Math.cos(a), r * Math.sin(a)];
+      });
+      B.loft(pts, O, [[0, 0], [1, 0], [1, 0.6], [0, 1]]);
+      break;
+    }
+    case 'heart': {
+      const m = Math.max(48, seg * 2);
+      const pts = Array.from({ length: m }, (_, k) => {
+        const t = (k / m) * TAU;
+        return [(16 * Math.sin(t) ** 3) / 17, (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t) + 4) / 17];
+      });
+      B.loft(pts, [0, 0.05], [[0, 0], [1, 0], [1, 0.5], [0.8, 0.85], [0, 1]]);
+      break;
+    }
+    case 'torus': {
+      const prof = [];
+      for (let k = 0; k < seg / 2; k++) {
+        const f = (k / (seg / 2)) * TAU;
+        prof.push([0.72 + 0.28 * Math.cos(f), 0.28 + 0.28 * Math.sin(f)]);
+      }
+      B.loft(circle(1, seg), O, prof);
+      break;
+    }
+    default: return null;
+  }
+  return normaliseSoup(new Float32Array(B.pos));
+}
+
+let loadedSTL = null; // { name, raw }
+let decorCache = { key: '', soup: null };
+function currentDecor(p) {
+  if (p.decor === 'none') return null;
+  const key = p.decor === 'stl' ? `stl:${loadedSTL?.name}:${p.decorUp}` : `${p.decor}:${p.segments}`;
+  if (decorCache.key === key) return decorCache.soup;
+  let soup = null;
+  if (p.decor === 'stl') soup = loadedSTL ? normaliseSoup(reorientSoup(loadedSTL.raw, p.decorUp)) : null;
+  else soup = builtinDecor(p.decor, p.segments);
+  decorCache = { key, soup };
+  return soup;
+}
+
+// One transform per decorated tile: [cx, cy, z, angle, sxy, sz].
+function decorPlacements(p, fabric, soup) {
+  if (!soup) return [];
+  const out = [];
+  fabric.info.tilesData.forEach((t, i) => {
+    const seed = p.decorSeed;
+    switch (p.decorWhere) {
+      case 'class0': if (t.cls !== 0) return; break;
+      case 'notclass0': if (t.cls === 0) return; break;
+      case 'main': if (t.kind !== 0) return; break;
+      case 'random': if (rand01(seed, i, 1) * 100 >= p.decorShare) return; break;
+    }
+    const jit = 1 - p.decorJitter * rand01(seed, i, 2);
+    const sxy = ((p.decorSize * t.R) / soup.rxy) * jit;
+    const sz = p.decorHeight > 0 ? (p.decorHeight / soup.zsize) * jit : sxy;
+    let a = (p.decorRot * Math.PI) / 180;
+    if (p.decorRotMode === 'tile') a += t.a0;
+    else if (p.decorRotMode === 'alternate') a += (t.cls % 2) * Math.PI;
+    else if (p.decorRotMode === 'random') a += rand01(seed, i, 3) * TAU;
+    out.push([t.c[0], t.c[1], t.zc - p.decorEmbed, a, sxy, sz]);
+  });
+  return out;
+}
+
+function decorTriangles(soup, places) {
+  const src = soup.tris;
+  const out = new Float32Array(src.length * places.length);
+  let o = 0;
+  for (const [cx, cy, z, a, sxy, sz] of places) {
+    const c = Math.cos(a) * sxy, s = Math.sin(a) * sxy;
+    for (let k = 0; k < src.length; k += 3) {
+      const x = src[k], y = src[k + 1];
+      out[o++] = cx + c * x - s * y;
+      out[o++] = cy + s * x + c * y;
+      out[o++] = z + src[k + 2] * sz;
+    }
+  }
+  return out;
+}
+
+// ===== stl =====
+
+function trianglesToSTL(parts, header = 'space fabric generator') {
+  const triCount = parts.reduce((n, a) => n + a.length / 9, 0);
+  const buffer = new ArrayBuffer(84 + triCount * 50);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < Math.min(80, header.length); i++) bytes[i] = header.charCodeAt(i) & 0x7f;
+  view.setUint32(80, triCount, true);
+  let o = 84;
+  for (const P of parts) {
+    for (let k = 0; k < P.length; k += 9) {
+      const ux = P[k + 3] - P[k], uy = P[k + 4] - P[k + 1], uz = P[k + 5] - P[k + 2];
+      const vx = P[k + 6] - P[k], vy = P[k + 7] - P[k + 1], vz = P[k + 8] - P[k + 2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      view.setFloat32(o, nx / len, true); view.setFloat32(o + 4, ny / len, true); view.setFloat32(o + 8, nz / len, true);
+      for (let d = 0; d < 9; d++) view.setFloat32(o + 12 + d * 4, P[k + d], true);
+      view.setUint16(o + 48, 0, true);
+      o += 50;
+    }
+  }
+  return buffer;
+}
+
+// ===== main =====
+
+const EXPORT_WARN_TRIANGLES = 8_000_000;
+
+const state = { ...DEFAULTS, ...PRESETS[0].params };
+const fromHash = readHash();
+
+const $ = (id) => document.getElementById(id);
+const controlsByKey = new Map();
+
+// ---------- form ----------
+
+function makeControl(p) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  wrap.append(title);
+
+  if (p.type === 'bool') {
+    wrap.classList.add('bool');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => update(p.key, box.checked));
+    wrap.append(box);
+    controlsByKey.set(p.key, { wrap, set: (v) => (box.checked = v) });
+  } else if (p.type === 'select') {
+    wrap.classList.add('choice');
+    const sel = document.createElement('select');
+    for (const [v, t] of p.options) sel.add(new Option(t, v));
+    sel.addEventListener('change', () => update(p.key, sel.value));
+    wrap.append(sel);
+    controlsByKey.set(p.key, { wrap, set: (v) => (sel.value = v) });
+  } else {
+    const num = document.createElement('input');
+    num.type = 'number';
+    num.min = p.min; num.max = p.max; num.step = p.step;
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = p.min; range.max = p.max; range.step = p.step;
+    const parse = (v) => {
+      let x = Number(v);
+      if (!Number.isFinite(x)) return null;
+      if (p.type === 'int') x = Math.round(x);
+      return Math.min(p.max, Math.max(p.min, x));
+    };
+    num.addEventListener('change', () => {
+      const x = parse(num.value);
+      if (x === null) { num.value = state[p.key]; return; }
+      num.value = x; range.value = x;
+      update(p.key, x);
+    });
+    range.addEventListener('input', () => {
+      const x = parse(range.value);
+      num.value = x;
+      update(p.key, x);
+    });
+    wrap.append(num, range);
+    controlsByKey.set(p.key, { wrap, set: (v) => { num.value = v; range.value = v; } });
+  }
+  return wrap;
+}
+
+const groupBodies = {};
+for (const [id, title] of Object.entries(GROUPS)) {
+  const det = document.createElement('details');
+  det.open = id !== 'output';
+  const sum = document.createElement('summary');
+  sum.textContent = title;
+  det.append(sum);
+  groupBodies[id] = det;
+  $('groups').append(det);
+}
+
+// STL loader sits at the top of its group.
+{
+  const row = document.createElement('div');
+  row.className = 'group-actions';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Load STL…';
+  btn.addEventListener('click', () => $('stl-file').click());
+  const note = document.createElement('p');
+  note.className = 'hint';
+  note.id = 'stl-name';
+  note.textContent = 'Any STL: it is centred, scaled to the tile and stood on its top face. Or pick a built-in model.';
+  row.append(btn, note);
+  groupBodies.decor.append(row);
+}
+for (const p of PARAMS) groupBodies[p.group].append(makeControl(p));
+
+$('stl-file').addEventListener('change', async () => {
+  const file = $('stl-file').files[0];
+  if (!file) return;
+  try {
+    const raw = parseSTL(await file.arrayBuffer());
+    loadedSTL = { name: file.name, raw };
+    $('stl-name').textContent = `${file.name}: ${(raw.length / 9).toLocaleString('en-US')} triangles`;
+    state.decor = 'stl';
+    $('preset').value = 'custom';
+    syncForm();
+    schedule();
+  } catch (e) {
+    $('stl-name').textContent = `Could not read ${file.name}: ${e.message}`;
+  }
+  $('stl-file').value = '';
+});
+
+PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
+$('preset').add(new Option('— custom settings —', 'custom'));
+$('preset').value = fromHash ? 'custom' : 0;
+$('preset').addEventListener('change', () => {
+  const pr = PRESETS[Number($('preset').value)];
+  if (!pr) return;
+  Object.assign(state, DEFAULTS, pr.params);
+  syncForm();
+  schedule();
+});
+
+function syncVisibility() {
+  for (const p of PARAMS) controlsByKey.get(p.key).wrap.hidden = p.when ? !p.when(state) : false;
+}
+
+function syncForm() {
+  for (const p of PARAMS) controlsByKey.get(p.key).set(state[p.key]);
+  syncVisibility();
+}
+
+function update(key, value) {
+  state[key] = value;
+  if (key !== 'segments' && key !== 'exportWhat') $('preset').value = 'custom';
+  syncVisibility();
+  schedule();
+}
+
+// ---------- scene ----------
+
+const viewport = $('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.localClippingEnabled = true;
+viewport.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 20000);
+camera.up.set(0, 0, 1);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.1);
+scene.add(hemi);
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(4096, 4096);
+scene.add(keyLight, keyLight.target);
+const rim = new THREE.DirectionalLight(0xffffff, 0.6);
+scene.add(rim);
+
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const material = new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.15, flatShading: true, vertexColors: true, side: THREE.FrontSide });
+const decorMaterial = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.1, color: 0xd98b3a, flatShading: true });
+
+function applyView() {
+  const colours = $('colors').checked;
+  material.vertexColors = colours;
+  material.color.set(colours ? 0xffffff : 0xcfcfcb);
+  material.needsUpdate = true;
+  material.wireframe = decorMaterial.wireframe = $('wire').checked;
+  const size = Math.max(state.width, state.shape === 'hexagon' ? state.width : state.height);
+  keyLight.position.set(-0.6 * size, 0.7 * size, 1.4 * size);
+  rim.position.set(size, -size, -0.6 * size);
+  keyLight.castShadow = $('shadows').checked;
+  const cam = keyLight.shadow.camera;
+  cam.left = cam.bottom = -size * 0.8;
+  cam.right = cam.top = size * 0.8;
+  cam.near = size * 0.2;
+  cam.far = size * 5;
+  cam.updateProjectionMatrix();
+  keyLight.shadow.bias = -0.0003;
+  keyLight.shadow.normalBias = (2 * size) / keyLight.shadow.mapSize.x;
+  const cut = $('cut').checked;
+  $('cutpos').hidden = !cut;
+  clipPlane.constant = -Number($('cutpos').value) * (size / 2);
+  material.clippingPlanes = decorMaterial.clippingPlanes = cut ? [clipPlane] : [];
+}
+applyView();
+for (const id of ['colors', 'wire', 'shadows', 'cut']) $(id).addEventListener('change', applyView);
+$('cutpos').addEventListener('input', applyView);
+
+let fabricMesh = null;
+let decorMesh = null;
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewport);
+
+function frameObject(fromBelow = false) {
+  const size = Math.max(state.width, state.shape === 'hexagon' ? state.width : state.height);
+  const d = size * 1.7;
+  const tilt = fromBelow ? -1.05 : 0.95;
+  camera.position.set(0, -d * Math.cos(tilt), d * Math.sin(tilt));
+  orbit.target.set(0, 0, 0);
+  camera.near = size / 400;
+  camera.far = size * 20;
+  camera.updateProjectionMatrix();
+  orbit.update();
+}
+$('reset-view').addEventListener('click', () => frameObject(false));
+$('bottom-view').addEventListener('click', () => frameObject(true));
+
+(function loop() {
+  orbit.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})();
+
+// ---------- generation ----------
+
+let timer = 0;
+let lastFrameKey = '';
+let current = null;
+function schedule() {
+  clearTimeout(timer);
+  $('busy').hidden = false;
+  timer = setTimeout(regenerate, 60);
+}
+
+function regenerate() {
+  let fabric;
+  try {
+    fabric = buildFabric(state);
+  } catch (e) {
+    $('message').textContent = `Error: ${e.message}`;
+    $('busy').hidden = true;
+    return;
+  }
+  const soup = currentDecor(state);
+  const places = decorPlacements(state, fabric, soup);
+  current = { fabric, soup, places };
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(fabric.positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(fabric.colors, 3));
+  geo.computeVertexNormals();
+  if (fabricMesh) { scene.remove(fabricMesh); fabricMesh.geometry.dispose(); }
+  fabricMesh = new THREE.Mesh(geo, material);
+  fabricMesh.castShadow = fabricMesh.receiveShadow = true;
+  scene.add(fabricMesh);
+
+  if (decorMesh) { scene.remove(decorMesh); decorMesh.dispose(); decorMesh = null; }
+  if (soup && places.length) {
+    const dg = new THREE.BufferGeometry();
+    dg.setAttribute('position', new THREE.BufferAttribute(soup.tris, 3));
+    dg.computeVertexNormals();
+    decorMesh = new THREE.InstancedMesh(dg, decorMaterial, places.length);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), z = new THREE.Vector3(0, 0, 1);
+    places.forEach(([cx, cy, cz, a, sxy, sz], i) => {
+      m.compose(new THREE.Vector3(cx, cy, cz), q.setFromAxisAngle(z, a), new THREE.Vector3(sxy, sxy, sz));
+      decorMesh.setMatrixAt(i, m);
+    });
+    decorMesh.castShadow = decorMesh.receiveShadow = true;
+    scene.add(decorMesh);
+  }
+
+  const frameKey = [state.width, state.height, state.shape].join();
+  if (frameKey !== lastFrameKey) { applyView(); frameObject(); lastFrameKey = frameKey; }
+
+  renderStats();
+  writeHash();
+  $('busy').hidden = true;
+}
+
+function exportParts() {
+  const { fabric, soup, places } = current;
+  const parts = [];
+  if (state.exportWhat !== 'decor') parts.push(fabric.positions);
+  if (state.exportWhat !== 'fabric' && soup && places.length) parts.push(decorTriangles(soup, places));
+  return parts;
+}
+
+function triangleCount() {
+  const { fabric, soup, places } = current;
+  let n = 0;
+  if (state.exportWhat !== 'decor') n += fabric.positions.length / 9;
+  if (state.exportWhat !== 'fabric' && soup) n += (soup.tris.length / 9) * places.length;
+  return n;
+}
+
+function renderStats() {
+  const { fabric, soup, places } = current;
+  const { info, L, zTop } = fabric;
+  const P = fabric.positions;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = 0;
+  for (let k = 0; k < P.length; k += 3) {
+    if (P[k] < x0) x0 = P[k]; if (P[k] > x1) x1 = P[k];
+    if (P[k + 1] < y0) y0 = P[k + 1]; if (P[k + 1] > y1) y1 = P[k + 1];
+    if (P[k + 2] > z1) z1 = P[k + 2];
+  }
+  if (soup) for (const pl of places) z1 = Math.max(z1, pl[2] + soup.zsize * pl[5]);
+  const tris = triangleCount();
+  const mb = (84 + tris * 50) / 1048576;
+  const rows = [];
+  rows.push(['Tiles', `${info.tiles}`]);
+  rows.push(['Hooks', `${info.hooks}`]);
+  if (info.tiles) rows.push(['Dimensions, mm', `${(x1 - x0).toFixed(1)} × ${(y1 - y0).toFixed(1)} × ${z1.toFixed(1)}`]);
+  rows.push(['Links layer / tile top, mm', `${L.zp.toFixed(2)} / ${zTop.toFixed(2)}`]);
+  if (soup) rows.push(['Models on tiles', `${places.length}`]);
+  rows.push(['Triangles in STL', tris.toLocaleString('en-US'), tris > EXPORT_WARN_TRIANGLES]);
+  rows.push(['File size', `${mb.toFixed(1)} MB`]);
+  if (info.tooShort) rows.push(['Links do not fit', `edge ≥ ${info.minEdge.toFixed(1)} mm`, true]);
+  if (info.pillarSkipped && state.pillar && isSolid(state)) rows.push(['Pillar too wide', `${info.pillarSkipped} tiles without`, true]);
+  if (info.frames) rows.push(['Support frames', `${info.frames} tiles${info.spokes ? ', with spokes' : ''}`]);
+  if (state.decor === 'stl' && !loadedSTL) rows.push(['Model', 'load an STL file', true]);
+  $('stats').innerHTML = '<dl style="display:contents">' + rows
+    .map(([k, v, w]) => `<dt>${k}</dt><dd${w ? ' class="warn"' : ''}>${v}</dd>`)
+    .join('') + '</dl>';
+}
+
+// ---------- export & sharing ----------
+
+$('export').addEventListener('click', () => {
+  if (!current) return;
+  const tris = triangleCount();
+  if (!tris) { $('message').textContent = 'Nothing to export.'; return; }
+  if (tris > EXPORT_WARN_TRIANGLES &&
+    !confirm(`This will produce ${tris.toLocaleString('en-US')} triangles (~${Math.round((tris * 50) / 1048576)} MB). Continue?`)) return;
+  const btn = $('export');
+  btn.disabled = true;
+  $('message').textContent = 'Building STL…';
+  setTimeout(() => {
+    try {
+      const blob = new Blob([trianglesToSTL(exportParts())], { type: 'model/stl' });
+      const suffix = state.exportWhat === 'all' ? '' : `-${state.exportWhat}`;
+      const name = `space-fabric-${state.tiling}-${current.fabric.info.tiles}${suffix}.stl`;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+      $('message').textContent = `Saved: ${name}`;
+    } catch (e) {
+      $('message').textContent = `Error: ${e.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  }, 30);
+});
+
+function writeHash() {
+  const q = new URLSearchParams();
+  for (const p of PARAMS) if (state[p.key] !== p.value) q.set(p.key, state[p.key]);
+  history.replaceState(null, '', `#${q}`);
+}
+
+function readHash() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (![...q.keys()].length) return false;
+  Object.assign(state, DEFAULTS);
+  for (const p of PARAMS) {
+    if (!q.has(p.key)) continue;
+    const raw = q.get(p.key);
+    if (p.type === 'bool') state[p.key] = raw === 'true';
+    else if (p.type === 'select') { if (p.options.some(([v]) => v === raw)) state[p.key] = raw; }
+    else if (Number.isFinite(Number(raw))) state[p.key] = Math.min(p.max, Math.max(p.min, Number(raw)));
+  }
+  return true;
+}
+
+$('share').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    $('message').textContent = 'Link with parameters copied.';
+  } catch {
+    $('message').textContent = 'Copy the page URL: the parameters are saved in it.';
+  }
+});
+
+// Test hook: lets headless checks call the generator directly.
+window.__fabric = { camera, orbit, buildFabric, state, DEFAULTS, PRESETS, linkLayout, parseSTL, trianglesToSTL, decorPlacements, currentDecor, decorTriangles };
+
+syncForm();
+resize();
+regenerate();
+  </script>
+</body>
+</html>

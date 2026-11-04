@@ -1,0 +1,2996 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDF Editor</title>
+  <style>
+:root {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --accent-text: #ffffff;
+  --view: #d9d9d6;
+  --warn: #c9582b;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615;
+    --panel: #1f1f1d;
+    --text: #ecebe6;
+    --muted: #9b9a94;
+    --line: #34332f;
+    --accent: #5b92ec;
+    --view: #2a2a28;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161615;
+  --panel: #1f1f1d;
+  --text: #ecebe6;
+  --muted: #9b9a94;
+  --line: #34332f;
+  --accent: #5b92ec;
+  --view: #2a2a28;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 100vh;
+}
+
+#panel {
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+h1 { font-size: 18px; margin: 0 0 4px; }
+h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 22px 0 8px;
+}
+h2 small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+.hint { color: var(--muted); margin: 0; font-size: 13px; }
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.field > span { font-size: 13px; }
+.field input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent); }
+.field.bool { grid-template-columns: 1fr auto; }
+.field select { grid-column: 2; }
+.field.wide { grid-template-columns: 1fr 190px; }
+.field.text { grid-template-columns: 1fr 190px; }
+
+.vec {
+  display: grid;
+  grid-template-columns: auto repeat(3, 1fr);
+  align-items: center;
+  gap: 4px 6px;
+  margin-bottom: 8px;
+}
+.vec > span { font-size: 13px; grid-column: 1 / -1; }
+.vec label { display: contents; }
+.vec label b { font-size: 11px; color: var(--muted); font-weight: 600; }
+.vec .row { display: grid; grid-template-columns: 14px 1fr; align-items: center; gap: 4px; }
+
+input[type="number"], input[type="text"], select {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  min-width: 0;
+}
+
+button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+details { margin: 4px 0 8px; border-top: 1px dashed var(--line); padding-top: 6px; }
+summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+
+/* Add-object buttons */
+.add-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+.add-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 1px 3px;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.1;
+}
+.add-grid button:hover { color: var(--accent); }
+.add-grid svg, .obj-row svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Object list */
+#objects { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; }
+.obj-row {
+  display: grid;
+  grid-template-columns: auto 22px 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+}
+.obj-row.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+.obj-row.hidden-obj .obj-name { opacity: 0.45; text-decoration: line-through; }
+.obj-row svg { width: 20px; height: 20px; color: var(--muted); }
+.obj-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.obj-op { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 18px; text-align: center; }
+.obj-row input[type="checkbox"] { margin: 0; accent-color: var(--accent); }
+.obj-row .tools { display: flex; gap: 2px; }
+.obj-row .tools button { padding: 1px 5px; font-size: 12px; line-height: 1.4; }
+.list-tools { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.list-tools button { padding: 4px 9px; font-size: 13px; }
+
+#stats {
+  margin-top: 20px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+#stats dt { color: var(--muted); }
+#stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+#stats .warn { color: var(--warn); }
+
+.actions { display: flex; gap: 8px; margin: 16px 0 8px; flex-wrap: wrap; }
+.actions .primary { flex: 1 1 100%; }
+.actions button:not(.primary) { flex: 1; }
+
+#viewport { position: relative; background: var(--view); min-height: 0; overflow: hidden; }
+#viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+#busy {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 8px 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  white-space: nowrap;
+}
+#busy button { padding: 2px 10px; border-radius: 999px; }
+
+.view-tools {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  pointer-events: none;
+}
+.view-tools > * { pointer-events: auto; }
+.view-tools .box {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.view-tools label { display: flex; gap: 4px; align-items: center; font-size: 13px; }
+.view-tools select { width: auto; }
+.view-tools button { padding: 4px 10px; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 4px 9px; font-size: 13px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+
+#help {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+  max-width: 50%;
+}
+
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; grid-template-rows: 55vh auto; height: auto; }
+  #viewport { grid-row: 1; height: 55vh; }
+  #panel { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+  #help { display: none; }
+}
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>SDF Editor</h1>
+      <p class="hint">Build a solid from primitives with boolean and smooth operations, cover it with relief texture, export to STL. Dimensions in millimetres.</p>
+    </header>
+
+    <label class="field wide" style="margin-top:16px">
+      <span>Preset</span>
+      <select id="preset"></select>
+    </label>
+
+    <section>
+      <h2>Add object</h2>
+      <div class="add-grid" id="add-grid"></div>
+      <ul id="objects"></ul>
+      <div class="list-tools">
+        <button id="undo" type="button" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button id="redo" type="button" title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
+      </div>
+    </section>
+
+    <section id="obj-section">
+      <h2>Selected object</h2>
+      <div id="obj-params"></div>
+    </section>
+
+    <section>
+      <h2>Result geometry</h2>
+      <div id="geo-params"></div>
+    </section>
+
+    <section>
+      <h2>Texture <small>(patterns from the relief generator)</small></h2>
+      <div id="tex-params"></div>
+      <div id="field-params"></div>
+      <details>
+        <summary>Pattern position</summary>
+        <div id="texpos-params"></div>
+      </details>
+      <button id="reseed" type="button">Random seed</button>
+    </section>
+
+    <section>
+      <h2>Mesh</h2>
+      <div id="mesh-params"></div>
+    </section>
+
+    <section id="stats"></section>
+
+    <div class="actions">
+      <button id="export" type="button" class="primary">Download STL</button>
+      <button id="save" type="button">Save .json</button>
+      <button id="open" type="button">Open .json</button>
+      <button id="share" type="button">Copy link</button>
+      <input id="file" type="file" accept=".json,application/json" hidden>
+    </div>
+    <p id="message" class="hint" role="status"></p>
+  </aside>
+
+  <main id="viewport">
+    <div id="help">Drag to orbit, right-drag to pan, wheel to zoom. W move · E rotate · Q hide gizmo · Del delete · Ctrl+D duplicate · F frame</div>
+    <div id="busy" hidden><span id="busy-text">Generating…</span><button id="cancel" type="button" hidden>Cancel</button></div>
+    <div class="view-tools">
+      <div class="box">
+        <span class="seg" id="gizmo-mode">
+          <button type="button" data-mode="translate" aria-pressed="true" title="Move (W)">Move</button>
+          <button type="button" data-mode="rotate" aria-pressed="false" title="Rotate (E)">Rotate</button>
+          <button type="button" data-mode="off" aria-pressed="false" title="No gizmo (Q)">Off</button>
+        </span>
+        <label title="Show the selected object when it cuts or is hidden"><input type="checkbox" id="ghost" checked> Show cutters</label>
+        <label><input type="checkbox" id="wire"> Wireframe</label>
+        <label><input type="checkbox" id="grid" checked> Bed</label>
+        <button id="reset-view" type="button">Frame</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Shared core: runs in the page and in the mesh workers. -->
+  <script type="text/plain" id="core">
+// ===== noise =====
+
+// Seeded 3D simplex noise (after Stefan Gustavson) plus fractal helpers.
+
+const GRAD3 = new Float32Array([
+  1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1, 0,
+  1, 0, 1, -1, 0, 1, 1, 0, -1, -1, 0, -1,
+  0, 1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1,
+]);
+
+const F3 = 1 / 3;
+const G3 = 1 / 6;
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// The classic kernel radius² of 0.6 leaves small jumps on the simplex faces;
+// they vanish under fbm, but ridged noise turns them into straight creases,
+// so it uses createSmoothNoise3D (radius² 0.5, continuous).
+function createSmoothNoise3D(seed) {
+  return createNoise3D(seed, 0.5, 76);
+}
+
+function createNoise3D(seed = 1, r2 = 0.6, gain = 32) {
+  const rand = mulberry32(seed);
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const t = p[i];
+    p[i] = p[j];
+    p[j] = t;
+  }
+  const perm = new Uint8Array(512);
+  const permMod12 = new Uint8Array(512);
+  for (let i = 0; i < 512; i++) {
+    perm[i] = p[i & 255];
+    permMod12[i] = perm[i] % 12;
+  }
+
+  // Returns a value in roughly [-1, 1].
+  return function noise3D(x, y, z) {
+    const s = (x + y + z) * F3;
+    const i = Math.floor(x + s);
+    const j = Math.floor(y + s);
+    const k = Math.floor(z + s);
+    const t = (i + j + k) * G3;
+    const x0 = x - (i - t);
+    const y0 = y - (j - t);
+    const z0 = z - (k - t);
+
+    let i1, j1, k1, i2, j2, k2;
+    if (x0 >= y0) {
+      if (y0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
+      else if (x0 >= z0) { i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1; }
+      else { i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1; }
+    } else {
+      if (y0 < z0) { i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1; }
+      else if (x0 < z0) { i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1; }
+      else { i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0; }
+    }
+
+    const x1 = x0 - i1 + G3, y1 = y0 - j1 + G3, z1 = z0 - k1 + G3;
+    const x2 = x0 - i2 + 2 * G3, y2 = y0 - j2 + 2 * G3, z2 = z0 - k2 + 2 * G3;
+    const x3 = x0 - 1 + 3 * G3, y3 = y0 - 1 + 3 * G3, z3 = z0 - 1 + 3 * G3;
+
+    const ii = i & 255, jj = j & 255, kk = k & 255;
+    let n = 0;
+
+    let t0 = r2 - x0 * x0 - y0 * y0 - z0 * z0;
+    if (t0 > 0) {
+      const g = permMod12[ii + perm[jj + perm[kk]]] * 3;
+      t0 *= t0;
+      n += t0 * t0 * (GRAD3[g] * x0 + GRAD3[g + 1] * y0 + GRAD3[g + 2] * z0);
+    }
+    let t1 = r2 - x1 * x1 - y1 * y1 - z1 * z1;
+    if (t1 > 0) {
+      const g = permMod12[ii + i1 + perm[jj + j1 + perm[kk + k1]]] * 3;
+      t1 *= t1;
+      n += t1 * t1 * (GRAD3[g] * x1 + GRAD3[g + 1] * y1 + GRAD3[g + 2] * z1);
+    }
+    let t2 = r2 - x2 * x2 - y2 * y2 - z2 * z2;
+    if (t2 > 0) {
+      const g = permMod12[ii + i2 + perm[jj + j2 + perm[kk + k2]]] * 3;
+      t2 *= t2;
+      n += t2 * t2 * (GRAD3[g] * x2 + GRAD3[g + 1] * y2 + GRAD3[g + 2] * z2);
+    }
+    let t3 = r2 - x3 * x3 - y3 * y3 - z3 * z3;
+    if (t3 > 0) {
+      const g = permMod12[ii + 1 + perm[jj + 1 + perm[kk + 1]]] * 3;
+      t3 *= t3;
+      n += t3 * t3 * (GRAD3[g] * x3 + GRAD3[g + 1] * y3 + GRAD3[g + 2] * z3);
+    }
+    return gain * n;
+  };
+}
+
+// Fractal Brownian motion. Normalised by the RMS of the octave amplitudes,
+// so the spread stays similar for any octave count: ~98% within [-0.9, 0.9].
+function fbm(noise, x, y, z, octaves, lacunarity = 2, gain = 0.5) {
+  let sum = 0;
+  let amp = 1;
+  let norm = 0;
+  let f = 1;
+  for (let o = 0; o < octaves; o++) {
+    sum += amp * noise(x * f, y * f, z * f);
+    norm += amp * amp;
+    amp *= gain;
+    f *= lacunarity;
+  }
+  return sum / Math.sqrt(norm);
+}
+
+// ===== patterns =====
+
+// Parametric texture fields. A field maps a point in millimetres to a
+// relief value in [0, 1]; the mesh builder turns that into height. Builders
+// also pass the unit surface normal (nx, ny, nz), +z when omitted.
+
+const TAU = Math.PI * 2;
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const smoothstep = (a, b, x) => {
+  const t = clamp01((x - a) / (b - a));
+  return t * t * (3 - 2 * t);
+};
+
+// Parameter schema used to build the UI.
+// `patterns` lists which patterns show the parameter (absent = all).
+const PATTERNS = {
+  topo: 'Topography (terraces)',
+  contours: 'Contours (walls)',
+  fibers: 'Fibres (stripes)',
+  dunes: 'Dunes (ridges)',
+  cells: 'Cells (Voronoi)',
+  rings: 'Rings (concentric)',
+  ridges: 'Mountains (ridges)',
+  spikes: 'Spikes',
+  tpms: 'Gyroid / TPMS',
+  maze: 'Labyrinth (brain coral)',
+  scales: 'Scales',
+  foam: 'Foam / bubbles',
+};
+
+// Triply periodic minimal surfaces as level functions of x, y, z (radians,
+// period 2π along every axis) and the largest |g| each one reaches.
+const TPMS = {
+  gyroid: {
+    name: 'Gyroid', max: 1.5,
+    g: (x, y, z) => Math.sin(x) * Math.cos(y) + Math.sin(y) * Math.cos(z) + Math.sin(z) * Math.cos(x),
+  },
+  schwarzP: {
+    name: 'Schwarz P', max: 3,
+    g: (x, y, z) => Math.cos(x) + Math.cos(y) + Math.cos(z),
+  },
+  diamond: {
+    name: 'Diamond (Schwarz D)', max: Math.SQRT2,
+    g: (x, y, z) => {
+      const sx = Math.sin(x), sy = Math.sin(y), sz = Math.sin(z), cx = Math.cos(x), cy = Math.cos(y), cz = Math.cos(z);
+      return sx * sy * sz + sx * cy * cz + cx * sy * cz + cx * cy * sz;
+    },
+  },
+  neovius: {
+    name: 'Neovius', max: 13,
+    g: (x, y, z) => {
+      const cx = Math.cos(x), cy = Math.cos(y), cz = Math.cos(z);
+      return 3 * (cx + cy + cz) + 4 * cx * cy * cz;
+    },
+  },
+};
+
+const FIELD_PARAMS = [
+  { key: 'pattern', label: 'Pattern', type: 'select', options: PATTERNS, value: 'topo' },
+  { key: 'seed', label: 'Seed', type: 'int', min: 0, max: 99999, step: 1, value: 7 },
+  { key: 'scale', label: 'Feature size, mm', type: 'number', min: 2, max: 500, step: 1, value: 40, labels: { spikes: 'Spike spacing, mm', tpms: 'Cell size, mm', maze: 'Stripe period, mm', scales: 'Scale spacing, mm', foam: 'Bubble spacing, mm' } },
+  { key: 'octaves', label: 'Detail (octaves)', type: 'int', min: 1, max: 8, step: 1, value: 3, patterns: Object.keys(PATTERNS).filter((k) => !['spikes', 'tpms', 'maze', 'scales', 'foam'].includes(k)) },
+  { key: 'warp', label: 'Distortion', type: 'number', min: 0, max: 3, step: 0.05, value: 0.4 },
+  { key: 'stretch', label: 'Stretch', type: 'number', min: 1, max: 8, step: 0.1, value: 1 },
+  { key: 'angle', label: 'Angle, °', type: 'number', min: 0, max: 180, step: 1, value: 0 },
+  { key: 'levels', label: 'Number of levels', type: 'int', min: 2, max: 60, step: 1, value: 12, patterns: ['topo', 'contours'] },
+  { key: 'edge', label: 'Step rounding, mm', type: 'number', min: 0.1, max: 5, step: 0.05, value: 0.6, patterns: ['topo', 'contours', 'cells', 'ridges', 'spikes', 'tpms', 'maze', 'scales', 'foam'], labels: { ridges: 'Crest rounding, mm', spikes: 'Tip rounding, mm', tpms: 'Wall rounding, mm', maze: 'Edge rounding, mm', scales: 'Edge rounding, mm', foam: 'Crease rounding, mm' }, when: (s) => (s.pattern !== 'tpms' || s.tpmsMode !== 'smooth') && (s.pattern !== 'maze' || s.mazeMode !== 'coral') },
+  { key: 'lineWidth', label: 'Line thickness, mm', type: 'number', min: 0.2, max: 10, step: 0.1, value: 1.2, patterns: ['contours', 'cells', 'tpms', 'maze'], labels: { tpms: 'Wall thickness, mm', maze: 'Wall thickness, mm' }, when: (s) => (s.pattern !== 'tpms' || s.tpmsMode === 'walls') && (s.pattern !== 'maze' || s.mazeMode === 'walls') },
+  { key: 'baseSlope', label: 'Relief under lines', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['contours'] },
+  { key: 'period', label: 'Period, mm', type: 'number', min: 1, max: 100, step: 0.5, value: 6, patterns: ['fibers', 'rings'] },
+  { key: 'profile', label: 'Profile sharpness', type: 'number', min: 0.2, max: 4, step: 0.05, value: 1, patterns: ['fibers', 'dunes', 'rings', 'ridges', 'spikes', 'tpms', 'maze', 'scales', 'foam'], labels: { spikes: 'Spike shape (1 = cone)', scales: 'Scale curve (1 = straight)', foam: 'Bubble shape (1 = sphere)' }, when: (s) => (s.pattern !== 'tpms' || s.tpmsMode === 'smooth') && (s.pattern !== 'maze' || s.mazeMode === 'coral') },
+  { key: 'roughness', label: 'Roughness', type: 'number', min: 0.2, max: 0.9, step: 0.01, value: 0.5, patterns: ['ridges'] },
+  { key: 'valley', label: 'Valley flatness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['ridges'] },
+  { key: 'spikeWidth', label: 'Base diameter, % of spacing', type: 'number', min: 20, max: 150, step: 1, value: 80, patterns: ['spikes'] },
+  { key: 'flow', label: 'Direction', type: 'select', options: { across: 'Along the panel (angle)', down: 'Down (−Z)' }, value: 'across', patterns: ['scales'] },
+  { key: 'overlap', label: 'Overlap', type: 'number', min: 0.8, max: 2, step: 0.01, value: 1.5, patterns: ['scales', 'foam'], labels: { foam: 'Bubble size' } },
+  { key: 'scaleWidth', label: 'Scale width / length', type: 'number', min: 0.5, max: 2, step: 0.01, value: 1, patterns: ['scales'] },
+  { key: 'pointed', label: 'Pointed tip', type: 'number', min: 0, max: 1, step: 0.01, value: 0, patterns: ['scales'] },
+  { key: 'squareness', label: 'Squareness', type: 'number', min: 0, max: 1, step: 0.01, value: 0, patterns: ['scales'] },
+  { key: 'scaleTexture', label: 'Scale texture', type: 'select', options: { none: 'Smooth', ribs: 'Ribs (fan)', keel: 'Keel', rings: 'Growth rings', grain: 'Grain' }, value: 'none', patterns: ['scales'] },
+  { key: 'texDepth', label: 'Texture depth', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['scales'], when: (s) => s.scaleTexture !== 'none' },
+  { key: 'texCount', label: 'Ribs / rings / grain', type: 'int', min: 2, max: 40, step: 1, value: 10, patterns: ['scales'], when: (s) => s.scaleTexture !== 'none' && s.scaleTexture !== 'keel' },
+  { key: 'equalize', label: 'Height: by size ↔ equal', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4, patterns: ['foam'] },
+  { key: 'jitter', label: 'Randomness', type: 'number', min: 0, max: 1, step: 0.01, value: 0.8, patterns: ['spikes', 'scales', 'foam'] },
+  { key: 'variation', label: 'Height variation', type: 'number', min: 0, max: 1, step: 0.01, value: 0.3, patterns: ['spikes', 'scales', 'foam'], labels: { scales: 'Size variation', foam: 'Size variation' } },
+  { key: 'tpmsType', label: 'Surface', type: 'select', options: Object.fromEntries(Object.entries(TPMS).map(([k, v]) => [k, v.name])), value: 'gyroid', patterns: ['tpms'] },
+  { key: 'tpmsMode', label: 'Relief', type: 'select', options: { walls: 'Walls (sheet)', solid: 'Channels (solid)', smooth: 'Smooth waves' }, value: 'walls', patterns: ['tpms'] },
+  { key: 'mazeMode', label: 'Relief', type: 'select', options: { stripes: 'Stripes (Turing)', coral: 'Rounded ridges (coral)', walls: 'Thin walls (maze)' }, value: 'stripes', patterns: ['maze'] },
+  { key: 'level', label: 'Level (shifts the surface)', type: 'number', min: -0.9, max: 0.9, step: 0.01, value: 0, patterns: ['tpms', 'maze'], labels: { maze: 'Balance (grooves ↔ ridges)' } },
+  { key: 'tilt', label: 'Lattice tilt, °', type: 'number', min: 0, max: 90, step: 1, value: 0, patterns: ['tpms'] },
+  { key: 'offset', label: 'Slice offset, % of cell', type: 'number', min: 0, max: 100, step: 1, value: 0, patterns: ['tpms'] },
+  { key: 'cellMode', label: 'Cell mode', type: 'select', options: { walls: 'Walls', bubbles: 'Bumps' }, value: 'walls', patterns: ['cells'] },
+  { key: 'invert', label: 'Invert', type: 'bool', value: false },
+];
+
+function defaultFieldParams() {
+  const out = {};
+  for (const p of FIELD_PARAMS) out[p.key] = p.value;
+  return out;
+}
+
+function hash3(seed, x, y, z) {
+  let h = seed ^ Math.imul(x, 0x8da6b343) ^ Math.imul(y, 0xd8163841) ^ Math.imul(z, 0xcb1ab31f);
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+// Worley noise: distances (in cell units) to the nearest and second-nearest
+// feature points, written into `out`.
+function worley(seed, x, y, z, out) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  let f1 = 1e9, f2 = 1e9;
+  for (let dz = -1; dz <= 1; dz++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const cx = xi + dx, cy = yi + dy, cz = zi + dz;
+        const h = hash3(seed, cx, cy, cz);
+        const px = cx + (h & 1023) / 1023;
+        const py = cy + ((h >>> 10) & 1023) / 1023;
+        const pz = cz + ((h >>> 20) & 1023) / 1023;
+        const ddx = px - x, ddy = py - y, ddz = pz - z;
+        const d = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
+        if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) { f2 = d; }
+      }
+    }
+  }
+  out[0] = f1;
+  out[1] = f2;
+}
+
+// Returns f(x, y, z) -> [0, 1] for coordinates in millimetres.
+// `res` is the mesh step the field will be sampled at: sharp transitions are
+// widened to at least two steps so walls and terraces don't alias on the grid.
+// Uniformly random rotation matrix (row-major) from a unit quaternion.
+function randomRotation(rand) {
+  const u1 = rand(), u2 = TAU * rand(), u3 = TAU * rand();
+  const a = Math.sqrt(1 - u1), b = Math.sqrt(u1);
+  const x = a * Math.sin(u2), y = a * Math.cos(u2), z = b * Math.sin(u3), w = b * Math.cos(u3);
+  return [
+    1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w),
+    2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+    2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y),
+  ];
+}
+
+function createField(params, res = 0) {
+  const p = { ...defaultFieldParams(), ...params };
+  const seed = p.seed | 0;
+  const noise = createNoise3D(seed);
+  const warpNoise = createNoise3D(seed + 1013);
+  const rand = mulberry32(seed + 77);
+  // Random offsets decorrelate the three warp channels.
+  const off = Array.from({ length: 9 }, () => rand() * 1000);
+
+  const a = (p.angle * Math.PI) / 180;
+  const ca = Math.cos(a), sa = Math.sin(a);
+  const scale = Math.max(p.scale, 1e-3);
+  const stretch = Math.max(p.stretch, 1);
+  const octaves = Math.max(1, p.octaves | 0);
+  const warp = p.warp;
+  const wv = new Float64Array(2);
+
+  // Rotates (u runs along the stretch direction), scales and warps a point
+  // in mm, writing the noise-space coordinates into q.
+  const q = new Float64Array(3);
+  function toNoiseSpace(x, y, z, wn = warpNoise) {
+    const u = x * ca + y * sa;
+    const v = -x * sa + y * ca;
+    let qx = u / (scale * stretch);
+    let qy = v / scale;
+    let qz = z / scale;
+    if (warp > 0) {
+      const wx = fbm(wn, qx * 0.5 + off[0], qy * 0.5 + off[1], qz * 0.5 + off[2], 2);
+      const wy = fbm(wn, qx * 0.5 + off[3], qy * 0.5 + off[4], qz * 0.5 + off[5], 2);
+      const wz = fbm(wn, qx * 0.5 + off[6], qy * 0.5 + off[7], qz * 0.5 + off[8], 2);
+      qx += warp * wx;
+      qy += warp * wy;
+      qz += warp * wz;
+    }
+    q[0] = qx; q[1] = qy; q[2] = qz;
+  }
+
+  // Smooth base height in [0, 1] with contrast stretched to use the range.
+  function baseHeight(x, y, z) {
+    toNoiseSpace(x, y, z);
+    return clamp01(fbm(noise, q[0], q[1], q[2], octaves) * 0.55 + 0.5);
+  }
+
+  // Level coordinate t = baseHeight * levels and its gradient magnitude per
+  // mm (finite differences), so distances to isolines can be measured in mm
+  // and walls get a uniform width regardless of how steep the terrain is.
+  const levels = Math.max(2, p.levels | 0);
+  const fd = Math.min(0.2, scale * 0.01);
+  const lv = new Float64Array(2);
+  function levelAndGradient(x, y, z) {
+    const t = baseHeight(x, y, z) * levels;
+    const gx = baseHeight(x + fd, y, z) * levels - t;
+    const gy = baseHeight(x, y + fd, z) * levels - t;
+    const gz = z === 0 ? 0 : baseHeight(x, y, z + fd) * levels - t;
+    lv[0] = t;
+    lv[1] = Math.max(Math.sqrt(gx * gx + gy * gy + gz * gz) / fd, 1e-6);
+  }
+
+  const edge = Math.max(p.edge, 2 * res, 0.05);
+  let field;
+  switch (p.pattern) {
+    case 'topo': {
+      field = (x, y, z) => {
+        levelAndGradient(x, y, z);
+        const t = lv[0];
+        const k = Math.floor(t);
+        // Each terrace rises to the next one over `edge` mm right before
+        // the isoline, giving flat plateaus with near-vertical steps.
+        const dist = (k + 1 - t) / lv[1];
+        return Math.min(levels, k + 1 - smoothstep(0, edge, dist)) / levels;
+      };
+      break;
+    }
+    case 'contours': {
+      const half = p.lineWidth / 2;
+      const m = clamp01(p.baseSlope);
+      field = (x, y, z) => {
+        levelAndGradient(x, y, z);
+        const t = lv[0];
+        const f = t - Math.floor(t);
+        const dist = Math.min(f, 1 - f) / lv[1];
+        const wall = 1 - smoothstep(half, half + edge, dist);
+        return clamp01((m * t) / levels + (1 - m) * wall);
+      };
+      break;
+    }
+    case 'fibers': {
+      const period = Math.max(p.period, 0.1);
+      const exp = p.profile;
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        const n = fbm(noise, q[0], q[1], q[2], octaves);
+        // Stripes run along the angle direction; warp and noise bend them.
+        const phase = ((q[1] + 0.25 * n) * scale) / period;
+        const s = 0.5 + 0.5 * Math.cos(TAU * phase);
+        return Math.pow(s, exp);
+      };
+      break;
+    }
+    case 'dunes': {
+      const exp = p.profile;
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        // Crests follow the zero set of the noise; a second, smoother layer
+        // adds the broad swell between them.
+        const n = fbm(noise, q[0], q[1], q[2], octaves);
+        const swell = fbm(noise, q[0] * 0.5 + 31.7, q[1] * 0.5, q[2] * 0.5, 2) * 0.5 + 0.5;
+        const crest = Math.pow(1 - clamp01(Math.abs(n) / 0.9), exp);
+        return clamp01(0.75 * crest + 0.25 * swell);
+      };
+      break;
+    }
+    case 'cells': {
+      const half = p.lineWidth / 2;
+      const walls = p.cellMode !== 'bubbles';
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        worley(seed, q[0], q[1], q[2], wv);
+        if (walls) {
+          // (F2 - F1) / 2 approximates the distance to the cell border.
+          const dist = ((wv[1] - wv[0]) / 2) * scale;
+          return 1 - smoothstep(half, half + edge, dist);
+        }
+        const d = clamp01(wv[0] / 0.9);
+        return Math.sqrt(Math.max(0, 1 - d * d));
+      };
+      break;
+    }
+    case 'rings': {
+      const period = Math.max(p.period, 0.1);
+      const exp = p.profile;
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        worley(seed, q[0], q[1], q[2], wv);
+        const s = 0.5 + 0.5 * Math.cos((TAU * wv[0] * scale) / period);
+        return Math.pow(s, exp);
+      };
+      break;
+    }
+    case 'ridges': {
+      // Ridged multifractal (after Musgrave): each octave is 1 - |noise|,
+      // weighted by the octave above it, so fine detail gathers on the crests
+      // and the valleys stay smoother. |noise| is softened over `width` mm, so a
+      // crest is never sharper than the mesh can show; octaves whose detail
+      // would be finer than that fade out.
+      const exp = 1 + p.profile;
+      const gain = p.roughness;
+      const curve = 1 + 2 * p.valley;
+      // Some detail reaches the valleys too, less the flatter they are.
+      const floor = 0.25 * (1 - p.valley);
+      const width = Math.max(p.edge, 2 * res, 0.05);
+      const smooth = createSmoothNoise3D(seed);
+      const smoothWarp = createSmoothNoise3D(seed + 1013);
+      // Each octave gets a random 3D rotation and offset: a plane through the
+      // simplex lattice parallel to its axes shows its grid as straight,
+      // axis-aligned crests, and aligned octaves would add them up.
+      const rotRand = mulberry32(seed + 991);
+      const rot = Array.from({ length: octaves }, () => randomRotation(rotRand));
+      const shift = Array.from({ length: octaves * 3 }, () => rotRand() * 1000);
+      // Noise change across `width` mm at each octave (slope ≈ 1.5 per unit).
+      const soft = Array.from({ length: octaves }, (_, o) => (1.5 * 2 ** o * width) / scale);
+      field = (x, y, z) => {
+        toNoiseSpace(x, y, z, smoothWarp);
+        let sum = 0, norm = 0, amp = 1, f = 1, weight = 1;
+        for (let o = 0; o < octaves; o++) {
+          const e = soft[o];
+          const fade = clamp01(2 - 2 * e);
+          if (fade <= 0) break;
+          const m = rot[o];
+          const n = smooth(
+            f * (m[0] * q[0] + m[1] * q[1] + m[2] * q[2]) + shift[o * 3],
+            f * (m[3] * q[0] + m[4] * q[1] + m[5] * q[2]) + shift[o * 3 + 1],
+            f * (m[6] * q[0] + m[7] * q[1] + m[8] * q[2]) + shift[o * 3 + 2],
+          );
+          const s = Math.pow(clamp01(1 - Math.sqrt(n * n + e * e) + e), exp) * weight;
+          sum += s * amp * fade;
+          norm += amp * fade;
+          weight = clamp01(floor + 2 * s);
+          amp *= gain;
+          f *= 2;
+        }
+        // The weighted sum already spans [0, 1]; the curve widens the valleys.
+        return Math.pow(clamp01(sum / norm), curve);
+      };
+      break;
+    }
+    case 'spikes': {
+      // Cones on jittered lattice points, one per spacing³ (a plain grid at
+      // randomness 0). The distance is measured in the tangent plane, so the
+      // tips stay sharp on any surface and the spikes stand along the normal.
+      // Points farther than half a spacing from the surface are skipped, and
+      // those near that limit shrink, so on curved shapes spikes fade in and
+      // out instead of popping up.
+      const r = p.spikeWidth / 200; // base radius, in spacings
+      const exp = p.profile;
+      const tip = Math.max(p.edge, 2 * res, 0.05) / scale;
+      const jitter = p.jitter, vary = p.variation;
+      const band = 0.03 + 0.47 * vary;
+      field = (x, y, z, nx = 0, ny = 0, nz = 1) => {
+        toNoiseSpace(x, y, z);
+        // The normal in noise space (inverse transpose of rotate + scale).
+        const nu = (nx * ca + ny * sa) * stretch, nv = -nx * sa + ny * ca;
+        const nl = Math.hypot(nu, nv, nz) || 1;
+        const mx = nu / nl, my = nv / nl, mz = nz / nl;
+        const xi = Math.round(q[0]), yi = Math.round(q[1]), zi = Math.round(q[2]);
+        let best = 0;
+        for (let dz = -1; dz <= 1; dz++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const cx = xi + dx, cy = yi + dy, cz = zi + dz;
+              const h = hash3(seed, cx, cy, cz);
+              const ddx = cx + jitter * ((h & 1023) / 1023 - 0.5) - q[0];
+              const ddy = cy + jitter * (((h >>> 10) & 1023) / 1023 - 0.5) - q[1];
+              const ddz = cz + jitter * (((h >>> 20) & 1023) / 1023 - 0.5) - q[2];
+              const dn = Math.abs(ddx * mx + ddy * my + ddz * mz);
+              if (dn >= 0.5) continue;
+              const dt = Math.sqrt(Math.max(0, ddx * ddx + ddy * ddy + ddz * ddz - dn * dn));
+              const g = 1 - (Math.sqrt(dt * dt + tip * tip) - tip) / r;
+              if (g <= 0) continue;
+              const height = (1 - vary * ((hash3(seed + 7919, cx, cy, cz) & 1023) / 1023)) * (1 - smoothstep(0.5 - band, 0.5, dn));
+              best = Math.max(best, Math.pow(g, exp) * height);
+            }
+          }
+        }
+        return best;
+      };
+      break;
+    }
+    case 'tpms': {
+      // The level function repeats every cell along all three axes, so it
+      // wraps any shape without seams. The relief follows the level set
+      // g = level: thin walls on it, raised channels on one side of it, or
+      // smooth waves. Tilt and offset choose how the lattice is cut.
+      const surf = TPMS[p.tpmsType] ?? TPMS.gyroid;
+      const L = p.level * surf.max;
+      const tl = (p.tilt * Math.PI) / 180, ct = Math.cos(tl), st = Math.sin(tl);
+      const zoff = p.offset / 100;
+      const half = p.lineWidth / 2;
+      const exp = p.profile;
+      const step = Math.min(0.05, scale * 0.002);
+      // Floor for the gradient where the level set runs almost parallel to
+      // the surface: walls there widen at most a few times.
+      const minGrad = (0.3 * surf.max * TAU) / scale;
+      const g = (x, y, z) => {
+        toNoiseSpace(x, y, z);
+        const qy = q[1] * ct - q[2] * st, qz = q[1] * st + q[2] * ct + zoff;
+        return surf.g(TAU * q[0], TAU * qy, TAU * qz) - L;
+      };
+      field = (x, y, z, nx = 0, ny = 0, nz = 1) => {
+        const g0 = g(x, y, z);
+        if (p.tpmsMode === 'smooth') return Math.pow(clamp01(0.5 + (0.5 * g0) / surf.max), exp);
+        // Gradient along the surface (finite differences on two tangents),
+        // so a wall is equally wide in mm however the level set cuts it.
+        const ax = Math.abs(nz) > 0.9 ? 1 : 0, az = 1 - ax;
+        let ux = ny * az, uy = nz * ax - nx * az, uz = -ny * ax;
+        const ul = Math.hypot(ux, uy, uz);
+        ux /= ul; uy /= ul; uz /= ul;
+        const vx = ny * uz - nz * uy, vy = nz * ux - nx * uz, vz = nx * uy - ny * ux;
+        const du = (g(x + step * ux, y + step * uy, z + step * uz) - g0) / step;
+        const dv = (g(x + step * vx, y + step * vy, z + step * vz) - g0) / step;
+        const dist = g0 / Math.max(Math.hypot(du, dv), minGrad);
+        if (p.tpmsMode === 'solid') return smoothstep(-edge / 2, edge / 2, dist);
+        return 1 - smoothstep(half, half + edge, Math.abs(dist));
+      };
+      break;
+    }
+    case 'maze': {
+      // Random plane waves of one wavelength (Berry's random wave model):
+      // their zero set meanders like a Turing pattern with an even spacing.
+      // Each wave is weighted by how flat it lies in the surface, smoothly
+      // with the normal, so on a panel only in-plane waves count (even
+      // stripes) and curved shapes stay continuous. The signed distance to
+      // the zero set (along the surface, in mm) shapes the relief.
+      const waves = 64;
+      const wr = mulberry32(seed + 5150);
+      const K = new Float64Array(waves * 4);
+      for (let i = 0; i < waves; i++) {
+        const cz = 2 * wr() - 1, phi = TAU * wr(), sz = Math.sqrt(1 - cz * cz);
+        K[i * 4] = sz * Math.cos(phi); K[i * 4 + 1] = sz * Math.sin(phi); K[i * 4 + 2] = cz;
+        K[i * 4 + 3] = TAU * wr();
+      }
+      const L = p.level;
+      const half = p.lineWidth / 2;
+      const exp = p.profile;
+      const quarter = scale / 4; // half a stripe
+      const minGrad = (0.3 * TAU) / scale;
+      field = (x, y, z, nx = 0, ny = 0, nz = 1) => {
+        // The normal in noise space (inverse transpose of rotate + scale).
+        const nu = (nx * ca + ny * sa) * stretch, nv = -nx * sa + ny * ca;
+        const nl = Math.hypot(nu, nv, nz) || 1;
+        const mx = nu / nl, my = nv / nl, mz = nz / nl;
+        toNoiseSpace(x, y, z);
+        let f = 0, gx = 0, gy = 0, gz = 0, w2 = 0;
+        for (let i = 0; i < waves * 4; i += 4) {
+          const kx = K[i], ky = K[i + 1], kz = K[i + 2];
+          const c = kx * mx + ky * my + kz * mz;
+          const t = 1 - c * c, t3 = t * t * t;
+          const w = t3 * t3; // (1 - cos²)^6: only waves near the tangent plane
+          if (w < 1e-4) continue;
+          const a = TAU * (kx * q[0] + ky * q[1] + kz * q[2]) + K[i + 3];
+          f += w * Math.cos(a);
+          const s = -w * TAU * Math.sin(a);
+          gx += s * kx; gy += s * ky; gz += s * kz;
+          w2 += w * w;
+        }
+        const rms = Math.sqrt(w2 / 2) || 1;
+        // Gradient along the surface, per mm.
+        const gn = gx * mx + gy * my + gz * mz;
+        const grad = Math.hypot(gx - gn * mx, gy - gn * my, gz - gn * mz) / rms / scale;
+        const dist = (f / rms - L) / Math.max(grad, minGrad / scale);
+        if (p.mazeMode === 'walls') return 1 - smoothstep(half, half + edge, Math.abs(dist));
+        if (p.mazeMode === 'coral') {
+          const s = 0.5 + 0.5 * Math.sin((Math.PI / 2) * Math.max(-1, Math.min(1, dist / quarter)));
+          return Math.pow(s, exp);
+        }
+        return smoothstep(-edge / 2, edge / 2, dist);
+      };
+      break;
+    }
+    case 'scales': {
+      // Overlapping scales on jittered lattice points near the surface (as
+      // for spikes, measured in the tangent plane). Each scale rises towards
+      // its free edge, which points along the flow direction projected into
+      // the surface, and drops there in a step. The scales are stacked like
+      // real ones: a scale whose centre lies further upstream lies on top.
+      // Composited bottom-up, each scale starts on whatever lies beneath its
+      // root and lifts to its own height at the free edge; the rounded rim is
+      // its coverage, so a rim steps down onto the scale below. Where the
+      // flow has no direction in the surface (the top of a box, the poles for
+      // "down") the scales round off into domes.
+      // Disc radius in spacings; random layouts and smaller scales leave
+      // holes, so it grows with them. Width / length keeps the area.
+      const R = (p.overlap / 2) * (1 + 0.3 * p.jitter + 0.2 * p.variation);
+      const sw = Math.sqrt(p.scaleWidth);
+      const Rmax = R * Math.max(sw, 1 / sw);
+      // Lattice cells to search so that no scale gets clipped.
+      const reach = Math.max(1, Math.ceil(Rmax + 0.5 + 0.5 * p.jitter) - 1);
+      const exp = p.profile;
+      const round = Math.max(p.edge, 3 * res, 0.05) / scale; // steps of at least 3 mesh steps
+      const jitter = p.jitter, vary = p.variation;
+      const pe = 2 + 6 * p.squareness; // superellipse exponent of the outline
+      const point = p.pointed;
+      const tex = p.scaleTexture, texDepth = p.texDepth, count = p.texCount;
+      const grain = createSmoothNoise3D(seed + 99);
+      // Flow direction in noise space (a tangent vector: rotate + scale).
+      const gq = p.flow === 'down' ? [0, 0, -1] : [0, -1, 0];
+      const maxCand = (2 * reach + 1) ** 3;
+      const cAlong = new Float64Array(maxCand), cShape = new Float64Array(maxCand), cDome = new Float64Array(maxCand), cAlpha = new Float64Array(maxCand);
+      const order = new Int32Array(maxCand);
+      field = (x, y, z, nx = 0, ny = 0, nz = 1) => {
+        // The normal in noise space (inverse transpose of rotate + scale).
+        const nu = (nx * ca + ny * sa) * stretch, nv = -nx * sa + ny * ca;
+        const nl = Math.hypot(nu, nv, nz) || 1;
+        const mx = nu / nl, my = nv / nl, mz = nz / nl;
+        toNoiseSpace(x, y, z);
+        const gn = gq[0] * mx + gq[1] * my + gq[2] * mz;
+        let dx = gq[0] - gn * mx, dy = gq[1] - gn * my, dz = gq[2] - gn * mz;
+        const dl = Math.hypot(dx, dy, dz);
+        const aniso = smoothstep(0.02, 0.15, dl);
+        if (dl > 1e-9) { dx /= dl; dy /= dl; dz /= dl; }
+        const sx = my * dz - mz * dy, sy = mz * dx - mx * dz, sz = mx * dy - my * dx;
+        const grainV = tex === 'grain' ? clamp01(0.5 + 0.5 * fbm(grain, q[0] * count * 0.5, q[1] * count * 0.5, q[2] * count * 0.5, 2)) : 0;
+        const xi = Math.round(q[0]), yi = Math.round(q[1]), zi = Math.round(q[2]);
+        let n = 0;
+        for (let oz = -reach; oz <= reach; oz++) {
+          for (let oy = -reach; oy <= reach; oy++) {
+            for (let ox = -reach; ox <= reach; ox++) {
+              const cx = xi + ox, cy = yi + oy, cz = zi + oz;
+              const h = hash3(seed, cx, cy, cz);
+              // Offset from the scale's centre to the point.
+              const ex = q[0] - cx - jitter * ((h & 1023) / 1023 - 0.5);
+              const ey = q[1] - cy - jitter * (((h >>> 10) & 1023) / 1023 - 0.5);
+              const ez = q[2] - cz - jitter * (((h >>> 20) & 1023) / 1023 - 0.5);
+              const dn = Math.abs(ex * mx + ey * my + ez * mz);
+              if (dn >= 0.5) continue;
+              const r2 = hash3(seed + 7919, cx, cy, cz);
+              // Scales of points near the edge of the slab shrink away (on a
+              // panel no point gets there unless the randomness is near 1).
+              const Ri = R * (1 - smoothstep(0.42, 0.5, dn)) * (1 - 0.5 * vary * ((r2 & 1023) / 1023));
+              if (Ri <= 0) continue;
+              const along = ex * dx + ey * dy + ez * dz;
+              const side = ex * sx + ey * sy + ez * sz;
+              // Local coordinates: u from -1 (root) to 1 (free edge), v across.
+              const u = along / (Ri / sw), v = side / (Ri * sw);
+              const w = u > 0 ? Math.max(1 - point * u, 1e-3) : 1; // narrows to a tip
+              const av = Math.abs(v) / w;
+              const rho = pe === 2 ? Math.hypot(u, av) : (Math.abs(u) ** pe + av ** pe) ** (1 / pe);
+              if (rho >= 1) continue;
+              const alpha = smoothstep(0, round, (1 - rho) * Ri * Math.min(sw, 1 / sw));
+              const hv = 1 - 0.3 * vary * (((r2 >>> 10) & 1023) / 1023);
+              const rise = 0.5 + 0.5 * u; // 0 at the root, 1 at the free edge
+              let tx = 1;
+              if (tex === 'ribs') {
+                const fan = Math.atan2(v, u + 1) / Math.PI + 0.5; // 0..1 across, from the root
+                tx = 1 - texDepth * smoothstep(0, 0.4, rise) * (0.5 - 0.5 * Math.cos(TAU * count * fan));
+              } else if (tex === 'keel') {
+                tx = 1 - texDepth * Math.min(1, Math.abs(v) / 0.6) ** 1.5;
+              } else if (tex === 'rings') {
+                tx = 1 - texDepth * (0.5 - 0.5 * Math.cos(TAU * count * rho));
+              } else if (tex === 'grain') {
+                tx = 1 - texDepth * grainV;
+              }
+              cAlong[n] = along;
+              cShape[n] = (1 - 0.25 * v * v) * hv * tx; // height at the free edge
+              cDome[n] = Math.sqrt(1 - rho * rho) * hv * tx * alpha;
+              cAlpha[n] = alpha * Math.pow(rise, exp);
+              n++;
+            }
+          }
+        }
+        // Bottom-up: the scale centred furthest downstream (smallest along)
+        // is at the bottom of the stack.
+        for (let i = 0; i < n; i++) {
+          let j = i;
+          while (j > 0 && cAlong[order[j - 1]] > cAlong[i]) { order[j] = order[j - 1]; j--; }
+          order[j] = i;
+        }
+        // Under all scales lies a layer at a quarter of the height, so a gap
+        // in a random layout is a shallow dip rather than a pit to the base.
+        let stacked = 0.25, domes = 0.25;
+        for (let i = 0; i < n; i++) {
+          const k = order[i];
+          stacked += (cShape[k] - stacked) * cAlpha[k];
+          domes = Math.max(domes, cDome[k]);
+        }
+        return aniso * stacked + (1 - aniso) * domes;
+      };
+      break;
+    }
+    case 'foam': {
+      // A spherical cap of radius ρ over each jittered lattice point near the
+      // surface (measured in the tangent plane, as for spikes); the relief is
+      // the highest cap. Where two caps are equally high lies the border of
+      // their power diagram, so this packs bubbles of different sizes with
+      // curved creases between them. A smooth maximum rounds the creases.
+      // Caps of points near the edge of the slab shrink away smoothly.
+      const rho = (p.overlap / 2) * (1 + 0.3 * p.jitter);
+      const spread = 1.5 * p.variation; // log-normal-ish size spread
+      const rhoMax = rho * Math.exp(spread / 2);
+      const reach = Math.max(1, Math.ceil(rhoMax + 0.5 + 0.5 * p.jitter) - 1);
+      const jitter = p.jitter, eq = p.equalize, exp = p.profile;
+      const round = Math.max(p.edge, 2 * res, 0.05); // mm, never below two mesh steps
+      // Crease rounding in height units: a cap falls by about 1 over its
+      // radius, so this fillets a crease over roughly `round` mm.
+      const k = (2 * round) / (rho * scale);
+      const foot = round / scale; // least fillet width at the foot of a cap, in spacings
+      // Smooth maximum that only rounds creases between two caps (none
+      // against the bare base), so a cap appearing changes nothing abruptly.
+      const smax = (a, b) => {
+        const h = Math.max(k - Math.abs(a - b), 0) / k;
+        return Math.max(a, b) + h * h * k * 0.25 * smoothstep(0, k, Math.min(a, b));
+      };
+      field = (x, y, z, nx = 0, ny = 0, nz = 1) => {
+        // The normal in noise space (inverse transpose of rotate + scale).
+        const nu = (nx * ca + ny * sa) * stretch, nv = -nx * sa + ny * ca;
+        const nl = Math.hypot(nu, nv, nz) || 1;
+        const mx = nu / nl, my = nv / nl, mz = nz / nl;
+        toNoiseSpace(x, y, z);
+        const xi = Math.round(q[0]), yi = Math.round(q[1]), zi = Math.round(q[2]);
+        let v = 0;
+        for (let oz = -reach; oz <= reach; oz++) {
+          for (let oy = -reach; oy <= reach; oy++) {
+            for (let ox = -reach; ox <= reach; ox++) {
+              const cx = xi + ox, cy = yi + oy, cz = zi + oz;
+              const h = hash3(seed, cx, cy, cz);
+              const ex = cx + jitter * ((h & 1023) / 1023 - 0.5) - q[0];
+              const ey = cy + jitter * (((h >>> 10) & 1023) / 1023 - 0.5) - q[1];
+              const ez = cz + jitter * (((h >>> 20) & 1023) / 1023 - 0.5) - q[2];
+              const dn = Math.abs(ex * mx + ey * my + ez * mz);
+              if (dn >= 0.5) continue;
+              const r0 = rho * Math.exp(spread * ((hash3(seed + 7919, cx, cy, cz) & 1023) / 1023 - 0.5));
+              // Near the edge of the slab the whole bubble shrinks, height
+              // included (shrinking only its footprint would leave a needle).
+              const fade = 1 - smoothstep(0.42, 0.5, dn);
+              const r = r0 * fade;
+              const d2 = ex * ex + ey * ey + ez * ez - dn * dn;
+              if (d2 >= r * r) continue;
+              // Cap height, scaled between "by size" and "all equal".
+              // A sphere meets the base in a vertical wall, which the mesh
+              // turns into a sawtooth: fillet the outer quarter of the foot.
+              const cap = Math.pow(1 - d2 / (r * r), exp / 2) * smoothstep(0, Math.max(foot, 0.25 * r), r - Math.sqrt(d2)) *
+                fade * r0 / (r0 ** eq * rhoMax ** (1 - eq));
+              v = smax(v, cap);
+            }
+          }
+        }
+        return clamp01(v);
+      };
+      break;
+    }
+    default:
+      throw new Error(`Unknown pattern: ${p.pattern}`);
+  }
+
+  return p.invert ? (x, y, z, nx, ny, nz) => 1 - field(x, y, z, nx, ny, nz) : field;
+}
+
+// ===== sdf =====
+
+// Signed distance primitives, centred at the origin, axis along +Z.
+// Every `code` returns a JS expression block that sets `e` from local x, y, z
+// and the parameters (inlined as numbers by the compiler).
+
+const PRIMITIVES = {
+  sphere: {
+    name: 'Sphere',
+    params: [{ key: 'r', label: 'Radius', min: 0.5, max: 300, step: 0.5, value: 20 }],
+    extent: (p) => [p.r, p.r, p.r],
+    code: (p) => `e = Math.sqrt(x * x + y * y + z * z) - ${p.r};`,
+  },
+  box: {
+    name: 'Box',
+    params: [
+      { key: 'sx', label: 'Size X', min: 1, max: 500, step: 0.5, value: 40 },
+      { key: 'sy', label: 'Size Y', min: 1, max: 500, step: 0.5, value: 40 },
+      { key: 'sz', label: 'Size Z', min: 1, max: 500, step: 0.5, value: 40 },
+      { key: 'round', label: 'Edge rounding', min: 0, max: 100, step: 0.1, value: 2 },
+    ],
+    extent: (p) => [p.sx / 2, p.sy / 2, p.sz / 2],
+    code: (p) => {
+      const r = Math.min(p.round, p.sx / 2, p.sy / 2, p.sz / 2);
+      return `{
+        const qx = Math.abs(x) - ${p.sx / 2 - r}, qy = Math.abs(y) - ${p.sy / 2 - r}, qz = Math.abs(z) - ${p.sz / 2 - r};
+        const mx = qx > 0 ? qx : 0, my = qy > 0 ? qy : 0, mz = qz > 0 ? qz : 0;
+        const inner = Math.max(qx, qy, qz);
+        e = Math.sqrt(mx * mx + my * my + mz * mz) + (inner < 0 ? inner : 0) - ${r};
+      }`;
+    },
+  },
+  cylinder: {
+    name: 'Cylinder',
+    params: [
+      { key: 'r', label: 'Radius', min: 0.5, max: 300, step: 0.5, value: 20 },
+      { key: 'h', label: 'Height', min: 0.5, max: 500, step: 0.5, value: 40 },
+      { key: 'round', label: 'Edge rounding', min: 0, max: 100, step: 0.1, value: 1 },
+    ],
+    extent: (p) => [p.r, p.r, p.h / 2],
+    code: (p) => {
+      const r = Math.min(p.round, p.r, p.h / 2);
+      return extrude(`Math.sqrt(x * x + y * y) - ${p.r - r}`, p.h / 2 - r, r);
+    },
+  },
+  cone: {
+    name: 'Cone',
+    params: [
+      { key: 'r1', label: 'Bottom radius', min: 0, max: 300, step: 0.5, value: 20 },
+      { key: 'r2', label: 'Top radius', min: 0, max: 300, step: 0.5, value: 0 },
+      { key: 'h', label: 'Height', min: 0.5, max: 500, step: 0.5, value: 40 },
+      { key: 'round', label: 'Edge rounding', min: 0, max: 50, step: 0.1, value: 0.5 },
+    ],
+    extent: (p) => [Math.max(p.r1, p.r2), Math.max(p.r1, p.r2), p.h / 2],
+    code: (p) => {
+      const r = Math.min(p.round, p.h / 2 - 0.01, Math.max(p.r1, p.r2));
+      const hh = p.h / 2 - r;
+      const r1 = Math.max(p.r1 - r, 0), r2 = Math.max(p.r2 - r, 0);
+      const k2x = r2 - r1, k2y = 2 * hh;
+      return `{
+        const qx = Math.sqrt(x * x + y * y), qy = z;
+        const cax = qx - Math.min(qx, qy < 0 ? ${r1} : ${r2}), cay = Math.abs(qy) - ${hh};
+        let t = ((${r2} - qx) * ${k2x} + (${hh} - qy) * ${k2y}) / ${k2x * k2x + k2y * k2y};
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const cbx = qx - ${r2} + ${k2x} * t, cby = qy - ${hh} + ${k2y} * t;
+        const s = cbx < 0 && cay < 0 ? -1 : 1;
+        e = s * Math.sqrt(Math.min(cax * cax + cay * cay, cbx * cbx + cby * cby)) - ${r};
+      }`;
+    },
+  },
+  capsule: {
+    name: 'Capsule',
+    params: [
+      { key: 'r', label: 'Radius', min: 0.5, max: 300, step: 0.5, value: 10 },
+      { key: 'h', label: 'Length (overall)', min: 1, max: 600, step: 0.5, value: 50 },
+    ],
+    extent: (p) => [p.r, p.r, Math.max(p.h / 2, p.r)],
+    code: (p) => {
+      const hh = Math.max(p.h / 2 - p.r, 0);
+      return `{
+        const qz = z - (z < ${-hh} ? ${-hh} : z > ${hh} ? ${hh} : z);
+        e = Math.sqrt(x * x + y * y + qz * qz) - ${p.r};
+      }`;
+    },
+  },
+  torus: {
+    name: 'Torus',
+    params: [
+      { key: 'R', label: 'Ring radius', min: 1, max: 300, step: 0.5, value: 20 },
+      { key: 'r', label: 'Tube radius', min: 0.5, max: 150, step: 0.5, value: 6 },
+    ],
+    extent: (p) => [p.R + p.r, p.R + p.r, p.r],
+    code: (p) => `{
+      const q = Math.sqrt(x * x + y * y) - ${p.R};
+      e = Math.sqrt(q * q + z * z) - ${p.r};
+    }`,
+  },
+  ellipsoid: {
+    name: 'Ellipsoid',
+    params: [
+      { key: 'rx', label: 'Radius X', min: 0.5, max: 300, step: 0.5, value: 25 },
+      { key: 'ry', label: 'Radius Y', min: 0.5, max: 300, step: 0.5, value: 18 },
+      { key: 'rz', label: 'Radius Z', min: 0.5, max: 300, step: 0.5, value: 14 },
+    ],
+    extent: (p) => [p.rx, p.ry, p.rz],
+    // Quilez's bound: exact on the surface, close to it nearby.
+    code: (p) => `{
+      const ax = x / ${p.rx}, ay = y / ${p.ry}, az = z / ${p.rz};
+      const bx = x / ${p.rx * p.rx}, by = y / ${p.ry * p.ry}, bz = z / ${p.rz * p.rz};
+      const k0 = Math.sqrt(ax * ax + ay * ay + az * az), k1 = Math.sqrt(bx * bx + by * by + bz * bz);
+      e = k1 > 1e-9 ? k0 * (k0 - 1) / k1 : ${-Math.min(p.rx, p.ry, p.rz)};
+    }`,
+  },
+  prism: {
+    name: 'Prism',
+    params: [
+      { key: 'sides', label: 'Sides', min: 3, max: 16, step: 1, value: 6, int: true },
+      { key: 'r', label: 'Radius (to corners)', min: 0.5, max: 300, step: 0.5, value: 20 },
+      { key: 'h', label: 'Height', min: 0.5, max: 500, step: 0.5, value: 40 },
+      { key: 'round', label: 'Edge rounding', min: 0, max: 50, step: 0.1, value: 1 },
+    ],
+    extent: (p) => [p.r, p.r, p.h / 2],
+    code: (p) => {
+      const n = Math.max(3, p.sides | 0);
+      const apo = p.r * Math.cos(Math.PI / n);
+      const r = Math.min(p.round, apo * 0.95, p.h / 2);
+      const a = apo - r;
+      const half = a * Math.tan(Math.PI / n);
+      const sector = TAU / n;
+      // A flat side faces -Y, so the prism stands on a side in the XZ view.
+      const d2 = `(() => {
+        let an = Math.atan2(y, x) + ${Math.PI / 2};
+        an -= ${sector} * Math.round(an / ${sector});
+        const rr = Math.sqrt(x * x + y * y);
+        const px = rr * Math.cos(an) - ${a}, py = Math.abs(rr * Math.sin(an)) - ${half};
+        return px < 0 ? px : Math.sqrt(px * px + (py > 0 ? py * py : 0));
+      })()`;
+      return extrude(d2, p.h / 2 - r, r);
+    },
+  },
+  pyramid: {
+    name: 'Pyramid',
+    params: [
+      { key: 'w', label: 'Base size', min: 1, max: 500, step: 0.5, value: 40 },
+      { key: 'h', label: 'Height', min: 1, max: 500, step: 0.5, value: 30 },
+    ],
+    extent: (p) => [p.w / 2, p.w / 2, p.h / 2],
+    // Quilez's exact square pyramid, base on z = -h/2.
+    code: (p) => {
+      const hh = p.h / p.w;
+      const m2 = hh * hh + 0.25;
+      return `{
+        let px = Math.abs(x) / ${p.w}, pz = Math.abs(y) / ${p.w};
+        const py = (z + ${p.h / 2}) / ${p.w};
+        if (pz > px) { const t = px; px = pz; pz = t; }
+        px -= 0.5; pz -= 0.5;
+        const qx = pz, qy = ${hh} * py - 0.5 * px, qz = ${hh} * px + 0.5 * py;
+        const s = -qx > 0 ? -qx : 0;
+        let t = (qy - 0.5 * pz) / ${m2 + 0.25};
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const a = ${m2} * (qx + s) * (qx + s) + qy * qy;
+        const b = ${m2} * (qx + 0.5 * t) * (qx + 0.5 * t) + (qy - ${m2} * t) * (qy - ${m2} * t);
+        const d2 = Math.min(qy, -qx * ${m2} - qy * 0.5) > 0 ? 0 : Math.min(a, b);
+        e = Math.sqrt((d2 + qz * qz) / ${m2}) * Math.sign(Math.max(qz, -py)) * ${p.w};
+      }`;
+    },
+  },
+  octahedron: {
+    name: 'Octahedron',
+    params: [{ key: 'r', label: 'Radius (to tips)', min: 0.5, max: 300, step: 0.5, value: 25 }],
+    extent: (p) => [p.r, p.r, p.r],
+    code: (p) => `{
+      const ax = Math.abs(x), ay = Math.abs(y), az = Math.abs(z);
+      const m = ax + ay + az - ${p.r};
+      let qx, qy, qz, done = false;
+      if (3 * ax < m) { qx = ax; qy = ay; qz = az; }
+      else if (3 * ay < m) { qx = ay; qy = az; qz = ax; }
+      else if (3 * az < m) { qx = az; qy = ax; qz = ay; }
+      else { e = m * 0.57735027; done = true; }
+      if (!done) {
+        let k = 0.5 * (qz - qy + ${p.r});
+        k = k < 0 ? 0 : k > ${p.r} ? ${p.r} : k;
+        const b = qy - ${p.r} + k, c = qz - k;
+        e = Math.sqrt(qx * qx + b * b + c * c);
+      }
+    }`,
+  },
+  link: {
+    name: 'Chain link',
+    params: [
+      { key: 'len', label: 'Straight length', min: 0, max: 300, step: 0.5, value: 16 },
+      { key: 'R', label: 'Ring radius', min: 1, max: 200, step: 0.5, value: 12 },
+      { key: 'r', label: 'Wire radius', min: 0.5, max: 100, step: 0.5, value: 4 },
+    ],
+    extent: (p) => [p.R + p.r, p.len / 2 + p.R + p.r, p.r],
+    code: (p) => `{
+      let qy = Math.abs(y) - ${p.len / 2};
+      qy = qy > 0 ? qy : 0;
+      const a = Math.sqrt(x * x + qy * qy) - ${p.R};
+      e = Math.sqrt(a * a + z * z) - ${p.r};
+    }`,
+  },
+  plane: {
+    name: 'Half-space',
+    params: [],
+    extent: null,
+    code: () => 'e = z;',
+  },
+};
+
+// 2D distance `d2` extruded to half height `hh`, rounded by `r`.
+function extrude(d2, hh, r) {
+  return `{
+    const dx = ${d2}, dz = Math.abs(z) - ${hh};
+    const ox = dx > 0 ? dx : 0, oz = dz > 0 ? dz : 0;
+    const inner = dx > dz ? dx : dz;
+    e = (inner < 0 ? inner : 0) + Math.sqrt(ox * ox + oz * oz) - ${r};
+  }`;
+}
+
+const SMOOTH_OPS = ['sunion', 'ssubtract', 'sintersect'];
+const OPS = {
+  union: 'Union',
+  subtract: 'Subtract',
+  intersect: 'Intersect',
+  sunion: 'Smooth union',
+  ssubtract: 'Smooth subtract',
+  sintersect: 'Smooth intersect',
+};
+
+// Settings common to every object. Positions are in mm, angles in degrees.
+const OBJECT_PARAMS = [
+  { key: 'blend', label: 'Blend radius', min: 0, max: 60, step: 0.1, value: 4, when: (o) => SMOOTH_OPS.includes(o.op) },
+  { key: 'shell', label: 'Shell thickness (0 = solid)', min: 0, max: 50, step: 0.1, value: 0, group: 'mod' },
+  { key: 'inflate', label: 'Inflate / shrink', min: -30, max: 30, step: 0.1, value: 0, group: 'mod' },
+  { key: 'tex', label: 'Texture strength', min: 0, max: 1, step: 0.01, value: 1, group: 'mod' },
+  { key: 'mirrorX', label: 'Mirror across X = 0', type: 'bool', value: false, group: 'rep' },
+  { key: 'mirrorY', label: 'Mirror across Y = 0', type: 'bool', value: false, group: 'rep' },
+  { key: 'mirrorZ', label: 'Mirror across Z = 0', type: 'bool', value: false, group: 'rep' },
+  { key: 'radial', label: 'Radial copies around Z', min: 1, max: 64, step: 1, value: 1, int: true, group: 'rep' },
+  { key: 'nx', label: 'Copies along X', min: 1, max: 50, step: 1, value: 1, int: true, group: 'rep' },
+  { key: 'dx', label: 'Spacing X', min: 0.5, max: 300, step: 0.5, value: 20, group: 'rep', when: (o) => o.nx > 1 },
+  { key: 'ny', label: 'Copies along Y', min: 1, max: 50, step: 1, value: 1, int: true, group: 'rep' },
+  { key: 'dy', label: 'Spacing Y', min: 0.5, max: 300, step: 0.5, value: 20, group: 'rep', when: (o) => o.ny > 1 },
+  { key: 'nz', label: 'Copies along Z', min: 1, max: 50, step: 1, value: 1, int: true, group: 'rep' },
+  { key: 'dz', label: 'Spacing Z', min: 0.5, max: 300, step: 0.5, value: 20, group: 'rep', when: (o) => o.nz > 1 },
+];
+
+function makeObject(type, extra = {}) {
+  const o = { type, name: PRIMITIVES[type].name, op: 'sunion', visible: true, pos: [0, 0, 0], rot: [0, 0, 0] };
+  for (const p of PRIMITIVES[type].params) o[p.key] = p.value;
+  for (const p of OBJECT_PARAMS) o[p.key] = p.value;
+  if (type === 'plane') o.op = 'subtract';
+  return Object.assign(o, extra);
+}
+
+// Rotation matrix (row-major) for Euler angles in degrees, order XYZ as in three.js.
+function rotationMatrix([rx, ry, rz]) {
+  const x = (rx * Math.PI) / 180, y = (ry * Math.PI) / 180, z = (rz * Math.PI) / 180;
+  const a = Math.cos(x), b = Math.sin(x), c = Math.cos(y), d = Math.sin(y), e = Math.cos(z), f = Math.sin(z);
+  const ae = a * e, af = a * f, be = b * e, bf = b * f;
+  return [
+    c * e, -c * f, d,
+    af + be * d, ae - bf * d, -b * c,
+    bf - ae * d, be + af * d, a * c,
+  ];
+}
+
+const num = (v) => (Number.isFinite(v) ? String(v) : '0');
+
+// Compiles the object list into one function sdf(x, y, z, out) that returns
+// the distance and writes the texture mask (0..1) into out[0].
+function compileObjects(objects) {
+  const parts = ['let d = 1e9, m = 0, e = 0, x = 0, y = 0, z = 0;'];
+  for (const o of objects) {
+    if (!o.visible || !PRIMITIVES[o.type]) continue;
+    const P = { ...makeObject(o.type), ...o };
+    const R = rotationMatrix(P.rot);
+    const lines = ['x = X; y = Y; z = Z;'];
+    if (P.mirrorX) lines.push('x = Math.abs(x);');
+    if (P.mirrorY) lines.push('y = Math.abs(y);');
+    if (P.mirrorZ) lines.push('z = Math.abs(z);');
+    const radial = Math.max(1, P.radial | 0);
+    if (radial > 1) {
+      // Fold the angle into the sector that holds the object's own direction.
+      const sector = TAU / radial;
+      const a0 = Math.atan2(P.pos[1], P.pos[0]);
+      lines.push(`{
+        let an = Math.atan2(y, x) - ${a0};
+        an -= ${sector} * Math.round(an / ${sector});
+        an += ${a0};
+        const rr = Math.sqrt(x * x + y * y);
+        x = rr * Math.cos(an); y = rr * Math.sin(an);
+      }`);
+    }
+    lines.push(`x -= ${num(P.pos[0])}; y -= ${num(P.pos[1])}; z -= ${num(P.pos[2])};`);
+    for (const [ax, n, s] of [['x', P.nx, P.dx], ['y', P.ny, P.dy], ['z', P.nz, P.dz]]) {
+      const c = Math.max(1, n | 0);
+      if (c < 2) continue;
+      const h = (c - 1) / 2;
+      lines.push(`{ let i = Math.round(${ax} / ${s} + ${h}); i = i < 0 ? 0 : i > ${c - 1} ? ${c - 1} : i; ${ax} -= (i - ${h}) * ${s}; }`);
+    }
+    lines.push(`{
+      const lx = ${R[0]} * x + ${R[3]} * y + ${R[6]} * z;
+      const ly = ${R[1]} * x + ${R[4]} * y + ${R[7]} * z;
+      const lz = ${R[2]} * x + ${R[5]} * y + ${R[8]} * z;
+      x = lx; y = ly; z = lz;
+    }`);
+    lines.push(PRIMITIVES[P.type].code(P));
+    if (P.inflate) lines.push(`e -= ${P.inflate};`);
+    if (P.shell > 0) lines.push(`e = Math.abs(e + ${P.shell / 2}) - ${P.shell / 2};`);
+    const mi = num(Math.max(0, Math.min(1, P.tex)));
+    const k = Math.max(P.blend, 1e-4);
+    switch (P.op) {
+      case 'union': lines.push(`if (e < d) { d = e; m = ${mi}; }`); break;
+      case 'subtract': lines.push(`if (-e > d) { d = -e; m = ${mi}; }`); break;
+      case 'intersect': lines.push(`if (e > d) { d = e; m = ${mi}; }`); break;
+      case 'sunion': lines.push(`{
+        let h = 0.5 + 0.5 * (d - e) / ${k}; h = h < 0 ? 0 : h > 1 ? 1 : h;
+        d = d + (e - d) * h - ${k} * h * (1 - h); m = m + (${mi} - m) * h;
+      }`); break;
+      case 'ssubtract': lines.push(`{
+        let h = 0.5 - 0.5 * (d + e) / ${k}; h = h < 0 ? 0 : h > 1 ? 1 : h;
+        d = d + (-e - d) * h + ${k} * h * (1 - h); m = m + (${mi} - m) * h;
+      }`); break;
+      case 'sintersect': lines.push(`{
+        let h = 0.5 - 0.5 * (e - d) / ${k}; h = h < 0 ? 0 : h > 1 ? 1 : h;
+        d = d + (e - d) * h + ${k} * h * (1 - h); m = m + (${mi} - m) * h;
+      }`); break;
+    }
+    parts.push('{', ...lines, '}');
+  }
+  parts.push('out[0] = m; return d;');
+  // eslint-disable-next-line no-new-func
+  return new Function('X', 'Y', 'Z', 'out', parts.join('\n'));
+}
+
+// Scene-wide geometry and texture settings.
+const TEX_MODES = { carve: 'Carve in (peaks on the surface)', emboss: 'Emboss out (valleys on the surface)', center: 'Centred on the surface' };
+const TEX_FACES = { all: 'All faces', noBottom: 'All except downward faces', noTop: 'All except upward faces', sides: 'Sides only (not up or down)', up: 'Upward faces only' };
+
+const GLOBAL_PARAMS = [
+  { key: 'inflate', label: 'Offset (grow / shrink)', min: -20, max: 20, step: 0.1, value: 0, section: 'geo' },
+  { key: 'twist', label: 'Twist around Z, ° per 100 mm', min: -720, max: 720, step: 1, value: 0, section: 'geo' },
+  { key: 'bend', label: 'Bend around Y, ° per 100 mm', min: -360, max: 360, step: 1, value: 0, section: 'geo' },
+  { key: 'taper', label: 'Taper along Z, % per 100 mm', min: -90, max: 200, step: 1, value: 0, section: 'geo' },
+  { key: 'hollow', label: 'Hollow (shell)', type: 'bool', value: false, section: 'geo' },
+  { key: 'wall', label: 'Wall thickness (under the relief)', min: 0.4, max: 30, step: 0.1, value: 2, section: 'geo', when: (g) => g.hollow },
+  { key: 'cut', label: 'Flat bottom (cut below Z)', type: 'bool', value: false, section: 'geo' },
+  { key: 'cutZ', label: 'Cut height Z', min: -300, max: 300, step: 0.5, value: 0, section: 'geo', when: (g) => g.cut },
+  { key: 'cutTop', label: 'Cut above Z', type: 'bool', value: false, section: 'geo' },
+  { key: 'cutTopZ', label: 'Top cut height Z', min: -300, max: 600, step: 0.5, value: 100, section: 'geo', when: (g) => g.cutTop },
+
+  { key: 'texOn', label: 'Apply texture', type: 'bool', value: true, section: 'tex' },
+  { key: 'depth', label: 'Relief depth', min: 0.1, max: 20, step: 0.05, value: 2, section: 'tex' },
+  { key: 'texMode', label: 'Placement', type: 'select', options: TEX_MODES, value: 'carve', section: 'tex' },
+  { key: 'texFaces', label: 'Where', type: 'select', options: TEX_FACES, value: 'all', section: 'tex' },
+  { key: 'texAngle', label: 'Smooth zone half-angle, °', min: 1, max: 89, step: 1, value: 35, section: 'tex', when: (g) => g.texFaces !== 'all' },
+  { key: 'texSoft', label: 'Zone softness, °', min: 0, max: 45, step: 1, value: 10, section: 'tex', when: (g) => g.texFaces !== 'all' },
+  { key: 'cutFade', label: 'Fade above the bottom cut', min: 0, max: 50, step: 0.5, value: 3, section: 'tex', when: (g) => g.cut },
+  { key: 'texX', label: 'Pattern offset X', min: -500, max: 500, step: 0.5, value: 0, section: 'texpos' },
+  { key: 'texY', label: 'Pattern offset Y', min: -500, max: 500, step: 0.5, value: 0, section: 'texpos' },
+  { key: 'texZ', label: 'Pattern offset Z', min: -500, max: 500, step: 0.5, value: 0, section: 'texpos' },
+];
+
+function defaultGlobals() {
+  const g = {};
+  for (const p of GLOBAL_PARAMS) g[p.key] = p.value;
+  Object.assign(g, defaultFieldParams());
+  return g;
+}
+
+// World-space bounding box of the visible result, before the global
+// deformations; returns null for an empty scene.
+function objectBounds(o) {
+  const P = { ...makeObject(o.type), ...o };
+  const ext = PRIMITIVES[P.type].extent?.(P);
+  if (!ext) return null;
+  const grow = Math.max(0, P.inflate) + (SMOOTH_OPS.includes(P.op) ? P.blend * 0.5 : 0);
+  const R = rotationMatrix(P.rot);
+  const half = [0, 1, 2].map((i) => Math.abs(R[i * 3]) * ext[0] + Math.abs(R[i * 3 + 1]) * ext[1] + Math.abs(R[i * 3 + 2]) * ext[2] + grow);
+  const span = [[P.nx, P.dx], [P.ny, P.dy], [P.nz, P.dz]].map(([n, s]) => ((Math.max(1, n | 0) - 1) * s) / 2);
+  let min = [0, 1, 2].map((i) => P.pos[i] - half[i] - span[i]);
+  let max = [0, 1, 2].map((i) => P.pos[i] + half[i] + span[i]);
+  if ((P.radial | 0) > 1) {
+    const r = Math.max(Math.hypot(min[0], min[1]), Math.hypot(min[0], max[1]), Math.hypot(max[0], min[1]), Math.hypot(max[0], max[1]));
+    min = [-r, -r, min[2]];
+    max = [r, r, max[2]];
+  }
+  for (const [i, on] of [[0, P.mirrorX], [1, P.mirrorY], [2, P.mirrorZ]]) {
+    if (!on) continue;
+    const r = Math.max(Math.abs(min[i]), Math.abs(max[i]));
+    min[i] = -r; max[i] = r;
+  }
+  return { min, max };
+}
+
+function sceneBounds(scene) {
+  const { objects, globals: g } = scene;
+  let min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (const o of objects) {
+    if (!o.visible || !PRIMITIVES[o.type]) continue;
+    if (!['union', 'sunion'].includes(o.op) && min[0] !== Infinity) continue;
+    const b = objectBounds(o);
+    if (!b) continue;
+    for (let i = 0; i < 3; i++) { min[i] = Math.min(min[i], b.min[i]); max[i] = Math.max(max[i], b.max[i]); }
+  }
+  if (min[0] === Infinity) return null;
+  const grow = Math.max(0, g.inflate) + (g.texOn ? g.depth : 0);
+  for (let i = 0; i < 3; i++) { min[i] -= grow; max[i] += grow; }
+  if (g.taper) {
+    const k = g.taper / 10000;
+    const s = Math.max(1 + k * min[2], 1 + k * max[2], 0.01);
+    for (let i = 0; i < 2; i++) { min[i] = Math.min(min[i], min[i] * s); max[i] = Math.max(max[i], max[i] * s); }
+  }
+  if (g.twist) {
+    const r = Math.max(Math.hypot(min[0], min[1]), Math.hypot(min[0], max[1]), Math.hypot(max[0], min[1]), Math.hypot(max[0], max[1]));
+    min[0] = min[1] = -r; max[0] = max[1] = r;
+  }
+  if (g.bend) {
+    // Points rotate about the Y axis; keep every corner's radius in XZ.
+    let r = 0;
+    for (const x of [min[0], max[0]]) for (const z of [min[2], max[2]]) r = Math.max(r, Math.hypot(x, z));
+    min[0] = Math.max(-r, -r); max[0] = r; min[2] = -r; max[2] = r;
+  }
+  if (g.cut) min[2] = Math.max(min[2], g.cutZ);
+  if (g.cutTop) max[2] = Math.min(max[2], g.cutTopZ);
+  if (min[2] >= max[2]) return null;
+  return { min, max };
+}
+
+// Builds the full field F(x, y, z) of the scene: objects, global deformation,
+// offset, relief displacement, hollowing and cuts. `res` is the grid step.
+function createSceneField(scene, res) {
+  const g = { ...defaultGlobals(), ...scene.globals };
+  const sdf = compileObjects(scene.objects);
+  const tmp = new Float64Array(1);
+  const twist = (g.twist * Math.PI) / 180 / 100;
+  const bend = (g.bend * Math.PI) / 180 / 100;
+  const taper = g.taper / 10000;
+  const inflate = g.inflate;
+  const deformed = twist || bend || taper;
+  // Distortions stretch distances; the Lipschitz factor keeps the empty-space
+  // skipping conservative.
+  const b = sceneBounds(scene);
+  const reach = b ? Math.max(...b.min.map(Math.abs), ...b.max.map(Math.abs)) : 1;
+  const lip = 1.25 * Math.hypot(1, twist * reach) * Math.hypot(1, bend * reach) * (1 + Math.abs(taper) * reach);
+
+  // Base distance (no relief) at a world point; mask in tmp[0].
+  function base(X, Y, Z) {
+    if (deformed) {
+      if (bend) {
+        const a = bend * X, c = Math.cos(a), s = Math.sin(a);
+        const x = c * X + s * Z, z = -s * X + c * Z;
+        X = x; Z = z;
+      }
+      if (twist) {
+        const a = -twist * Z, c = Math.cos(a), s = Math.sin(a);
+        const x = c * X - s * Y, y = s * X + c * Y;
+        X = x; Y = y;
+      }
+      if (taper) {
+        const s = Math.max(1 + taper * Z, 0.01);
+        X /= s; Y /= s;
+      }
+    }
+    return sdf(X, Y, Z, tmp) - inflate;
+  }
+
+  const texOn = g.texOn && g.depth > 0 && scene.objects.some((o) => o.visible && o.tex > 0);
+  const depth = g.depth;
+  const pattern = texOn ? createField(g, res) : null;
+  const mode = g.texMode;
+  // Relief sits between `lo` and `hi` relative to the base surface (outwards +).
+  const lo = mode === 'carve' ? -depth : mode === 'center' ? -depth / 2 : 0;
+  // The relief can only cross zero where lo <= d <= lo + depth; a few grid
+  // steps around that keep the interpolation right, outside it the plain
+  // distance has the right sign.
+  const bandLo = Math.min(lo, 0) - 3 * res * lip, bandHi = Math.max(lo + depth, 0) + 3 * res * lip;
+  const faces = g.texFaces;
+  const ca = Math.cos((g.texAngle * Math.PI) / 180);
+  const soft = Math.max(Math.cos((Math.max(g.texAngle - g.texSoft, 0) * Math.PI) / 180) - ca, 1e-3);
+  const wall = g.hollow ? g.wall + (texOn ? -lo : 0) : 0;
+  const cutZ = g.cut ? g.cutZ : -Infinity;
+  const cutTop = g.cutTop ? g.cutTopZ : Infinity;
+  const cutFade = g.cut ? Math.max(g.cutFade, 0) : 0;
+  const tx = g.texX, ty = g.texY, tz = g.texZ;
+  const ge = Math.max(res * 0.35, 0.02);
+
+  // 0..1 weight of the relief by the base normal's direction.
+  function facesMask(nz) {
+    if (faces === 'all') return 1;
+    const down = smoothstep(ca, ca + soft, -nz); // 1 inside the smooth zone around −Z
+    const up = smoothstep(ca, ca + soft, nz);
+    switch (faces) {
+      case 'noBottom': return 1 - down;
+      case 'noTop': return 1 - up;
+      case 'sides': return (1 - down) * (1 - up);
+      case 'up': return up;
+    }
+    return 1;
+  }
+
+  function full(X, Y, Z) {
+    const d = base(X, Y, Z);
+    let F = d;
+    if (texOn && d < bandHi && d > bandLo) {
+      let m = tmp[0];
+      if (m > 0 && cutFade > 0) m *= smoothstep(cutZ, cutZ + cutFade, Z);
+      if (m > 0) {
+        // Normal from a tetrahedral gradient of the base distance.
+        const a = base(X + ge, Y - ge, Z - ge), b2 = base(X - ge, Y - ge, Z + ge);
+        const c = base(X - ge, Y + ge, Z - ge), e = base(X + ge, Y + ge, Z + ge);
+        let nx = a - b2 - c + e, ny = -a - b2 + c + e, nz = -a + b2 - c + e;
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (len > 1e-12) {
+          nx /= len; ny /= len; nz /= len;
+          m *= facesMask(nz);
+          if (m > 0) {
+            // Sample the pattern at the projection on the base surface, so
+            // the relief is a displacement along the normal.
+            const h = pattern(X - nx * d + tx, Y - ny * d + ty, Z - nz * d + tz, nx, ny, nz);
+            F = d - m * (lo + depth * h);
+          }
+        }
+      }
+    }
+    if (wall > 0) {
+      const inner = -(d + wall);
+      if (inner > F) F = inner;
+    }
+    if (cutZ - Z > F) F = cutZ - Z;
+    if (Z - cutTop > F) F = Z - cutTop;
+    return F;
+  }
+
+  // The field without relief. Relief moves the field by at most `depth`, so
+  // the full field cannot cross zero within `r` of a point where
+  // |coarse(p)| > r * lip + margin: that's what empty-space skipping uses.
+  const margin = (texOn ? depth : 0) + 2 * res;
+  function coarse(X, Y, Z) {
+    const d = base(X, Y, Z);
+    let F = d;
+    if (wall > 0 && -(d + wall) > F) F = -(d + wall);
+    if (cutZ - Z > F) F = cutZ - Z;
+    if (Z - cutTop > F) F = Z - cutTop;
+    return F;
+  }
+
+  return { full, coarse, base, lip, margin };
+}
+
+// ===== marching cubes =====
+
+// Paul Bourke's triangle table (as in three.js): for each of the 256 corner
+// sign cases, the edges whose crossing points form the triangles, in hex.
+const TRI_TABLE = ',083,019,183981,12a,08312a,92a029,2832a8a98,3b2,0b28b0,19023b,1b219b98b,3a1ba3,0a108a8ba,3903b9ba9,98aa8b,478,430734,019847,419471731,12a847,34730412a,92a902847,2a9297273794,8473b2,b47b24204,90184723b,47b94b9b2921,3a13ba784,1ba14b1047b4,47890b9bab03,47b4b99ba,954,954083,054150,854835315,12a954,30812a495,52a542402,2a5325354348,95423b,0b208b495,05401523b,21525828b485,a3ba13954,4950818a18ba,54050b5bab03,54858aa8b,978579,930953573,078017157,153357,978957a12,a12950530573,802825857a52,2a5253357,7957893b2,95797292027b,23b018178157,b21b17715,958857a13a3b,5705097b010aba0,ba0b03a50807570,ba57b5,a65,0835a6,9015a6,1831985a6,165261,165126308,965906026,598582526328,23ba65,b08b20a65,01923b5a6,5a61929b298b,63b653513,08b0b50515b6,3b6036065059,65969bb98,5a6478,43047365a,1905a6847,a65197173794,612651478,125526304347,847905065026,739794329596269,3b2784a65,5a647242027b,01947823b5a6,9219b294b7b45a6,8473b53515b6,51b5b610b7b404b,059065036b63847,65969b4797b9,a4964a,4a649a083,a01a60640,83181686461a,149124264,308129249264,024426,832824426,a49a64b23,08228b49a4a6,3b201606461a,64161a48121b8b1,964936913b63,8b1810b61914641,3b6360064,648b68,7a678a89a,0730a709a67a,a671a7178180,a67a71173,126168189867,269291679093739,780706602,732672,23ba68a89867,20727b09767a9a7,1801781a767a23b,b21b17a61671,896867916b63136,091b67,7807063b0b60,7b6,76b,308b76,019b76,819831b76,a126b7,12a3086b7,2902a96b7,6b72a3a83a98,723627,708760620,276237019,162186198876,a76a17137,a7617a187108,03707a0a96a7,76a7a88a9,684b86,36b306046,86b846901,946963931b36,6846b82a1,12a30b06b046,4b846b0292a9,a93a32943b36463,823842462,042462,190234246438,194142246,8138618466a1,a10a06604,4634386a3039a93,a946a4,49576b,083495b76,50154076b,b76834354315,954a1276b,6b712a083495,76b54a42a402,348354325a52b76,723762549,954086062687,362376150540,628687218485158,954a16176137,16a176107870954,40a4a503a6a737a,76a7a854a48a,6956b9b89,36b063056095,0b805b01556b,6b3635531,12a95b9b8b56,0b306b09656912a,b85b56805a52025,6b36352a3a53,589528562382,956960062,158180568382628,156216,13616a386569896,a10a06950560,03856a,a56,b5a75b,b5ab75830,5b75ab190,a75ab7981831,b12b71751,08312717572b,9759279022b7,75272b592328982,25a235375,820852875a25,9015a35373a2,982921872a25752,135375,087071175,903935537,987597,5845a8ab8,5045b05abb30,01984a8aba45,ab4a45b34941314,2512852b8458,04b0b345b2b151b,0250592b5458b85,9452b3,25a352345384,5a2524420,3a235a385458019,5a2524192942,845853351,045105,845853905035,945,4b749b9ab,0834979b79ab,1ab1b414074b,3143481a474bab4,4b79b492b912,9749b791b2b1083,b74b42240,b74b42834324,29a279237749,9a7974a27870207,37a3a274a1a040a,1a2874,491417713,491417081871,403743,487,9a8ab8,30939bb9a,01a0a88ab,31ab3a,12b1b99b8,30939b1292b9,02b80b,32b,23828aa89,9a2092,23828a0181a8,1a2,138918,091,038,'.split(',').map((s) => Array.from(s, (ch) => parseInt(ch, 16)));
+
+// Polygonises cell layers k0..k1-1 of the grid. Slices are evaluated one at a
+// time (memory is O(nx·ny)), vertices are shared through edge caches.
+function polygonize(field, grid, k0, k1, wantNormals, onProgress) {
+  const { nx, ny, nz, ox, oy, oz, h } = grid;
+  const N = nx * ny;
+  const B = 4; // empty-space skipping block, in grid points
+  const bnx = Math.ceil(nx / B), bny = Math.ceil(ny / B);
+  const skipR = h * B * 0.75 * field.lip + field.margin;
+
+  let pos = new Float32Array(1 << 16), nv = 0;
+  let idx = new Uint32Array(1 << 16), ni = 0;
+  const addVertex = (x, y, z) => {
+    if (nv * 3 + 3 > pos.length) { const t = new Float32Array(pos.length * 2); t.set(pos); pos = t; }
+    pos[nv * 3] = x; pos[nv * 3 + 1] = y; pos[nv * 3 + 2] = z;
+    return nv++;
+  };
+  const addIndex = (a) => {
+    if (ni + 1 > idx.length) { const t = new Uint32Array(idx.length * 2); t.set(idx); idx = t; }
+    idx[ni++] = a;
+  };
+
+  function slice(k, out) {
+    const z = oz + k * h;
+    const edgeK = k === 0 || k === nz - 1;
+    for (let bj = 0; bj < bny; bj++) {
+      for (let bi = 0; bi < bnx; bi++) {
+        const i0 = bi * B, j0 = bj * B;
+        const i1 = Math.min(i0 + B, nx), j1 = Math.min(j0 + B, ny);
+        const c = field.coarse(ox + (i0 + (i1 - i0 - 1) / 2) * h, oy + (j0 + (j1 - j0 - 1) / 2) * h, z);
+        const skip = Math.abs(c) > skipR;
+        for (let j = j0; j < j1; j++) {
+          const y = oy + j * h;
+          for (let i = i0; i < i1; i++) {
+            let v;
+            if (edgeK || i === 0 || j === 0 || i === nx - 1 || j === ny - 1) v = h;
+            else v = skip ? c : field.full(ox + i * h, y, z);
+            out[j * nx + i] = v;
+          }
+        }
+      }
+    }
+  }
+
+  let s0 = new Float32Array(N), s1 = new Float32Array(N);
+  let xb = new Int32Array(N).fill(-1), yb = new Int32Array(N).fill(-1);
+  let xt = new Int32Array(N).fill(-1), yt = new Int32Array(N).fill(-1);
+  const zc = new Int32Array(N);
+  const cv = new Float64Array(8);
+  const ev = new Int32Array(12);
+
+  slice(k0, s0);
+  for (let k = k0; k < k1; k++) {
+    slice(k + 1, s1);
+    zc.fill(-1);
+    const z0 = oz + k * h;
+    for (let j = 0; j < ny - 1; j++) {
+      const y0 = oy + j * h;
+      for (let i = 0; i < nx - 1; i++) {
+        const a = j * nx + i, b = a + 1, c = a + nx + 1, d = a + nx;
+        cv[0] = s0[a]; cv[1] = s0[b]; cv[2] = s0[c]; cv[3] = s0[d];
+        cv[4] = s1[a]; cv[5] = s1[b]; cv[6] = s1[c]; cv[7] = s1[d];
+        let ci = 0;
+        for (let q = 0; q < 8; q++) if (cv[q] < 0) ci |= 1 << q;
+        if (ci === 0 || ci === 255) continue;
+        const tri = TRI_TABLE[ci];
+        const x0 = ox + i * h;
+        for (let t = 0; t < tri.length; t++) {
+          const e = tri[t];
+          let cache, ci2, va, vb, px, py, pz, dx = 0, dy = 0, dz = 0;
+          switch (e) {
+            case 0: cache = xb; ci2 = a; va = cv[0]; vb = cv[1]; px = x0; py = y0; pz = z0; dx = 1; break;
+            case 1: cache = yb; ci2 = b; va = cv[1]; vb = cv[2]; px = x0 + h; py = y0; pz = z0; dy = 1; break;
+            case 2: cache = xb; ci2 = d; va = cv[3]; vb = cv[2]; px = x0; py = y0 + h; pz = z0; dx = 1; break;
+            case 3: cache = yb; ci2 = a; va = cv[0]; vb = cv[3]; px = x0; py = y0; pz = z0; dy = 1; break;
+            case 4: cache = xt; ci2 = a; va = cv[4]; vb = cv[5]; px = x0; py = y0; pz = z0 + h; dx = 1; break;
+            case 5: cache = yt; ci2 = b; va = cv[5]; vb = cv[6]; px = x0 + h; py = y0; pz = z0 + h; dy = 1; break;
+            case 6: cache = xt; ci2 = d; va = cv[7]; vb = cv[6]; px = x0; py = y0 + h; pz = z0 + h; dx = 1; break;
+            case 7: cache = yt; ci2 = a; va = cv[4]; vb = cv[7]; px = x0; py = y0; pz = z0 + h; dy = 1; break;
+            case 8: cache = zc; ci2 = a; va = cv[0]; vb = cv[4]; px = x0; py = y0; pz = z0; dz = 1; break;
+            case 9: cache = zc; ci2 = b; va = cv[1]; vb = cv[5]; px = x0 + h; py = y0; pz = z0; dz = 1; break;
+            case 10: cache = zc; ci2 = c; va = cv[2]; vb = cv[6]; px = x0 + h; py = y0 + h; pz = z0; dz = 1; break;
+            default: cache = zc; ci2 = d; va = cv[3]; vb = cv[7]; px = x0; py = y0 + h; pz = z0; dz = 1; break;
+          }
+          let vi = cache[ci2];
+          if (vi < 0) {
+            const f = va / (va - vb);
+            // Kept off the corners: a corner exactly on the surface would
+            // collapse several vertices into one point (degenerate faces).
+            const s = (f < 0.002 ? 0.002 : f > 0.998 ? 0.998 : f) * h;
+            vi = cache[ci2] = addVertex(px + dx * s, py + dy * s, pz + dz * s);
+          }
+          ev[t % 3] = vi;
+          // Bourke's table winds clockwise seen from outside; flip to CCW.
+          if (t % 3 === 2) { addIndex(ev[0]); addIndex(ev[2]); addIndex(ev[1]); }
+        }
+      }
+    }
+    // The top slice becomes the bottom one.
+    let t = s0; s0 = s1; s1 = t;
+    t = xb; xb = xt; xt = t; xt.fill(-1);
+    t = yb; yb = yt; yt = t; yt.fill(-1);
+    if (onProgress) onProgress(k + 1 - k0);
+  }
+
+  const positions = pos.slice(0, nv * 3);
+  const indices = idx.slice(0, ni);
+  let normals = null;
+  if (wantNormals) {
+    normals = new Float32Array(nv * 3);
+    const e = h * 0.3;
+    for (let v = 0; v < nv; v++) {
+      const x = positions[v * 3], y = positions[v * 3 + 1], z = positions[v * 3 + 2];
+      let gx = field.full(x + e, y, z) - field.full(x - e, y, z);
+      let gy = field.full(x, y + e, z) - field.full(x, y - e, z);
+      let gz = field.full(x, y, z + e) - field.full(x, y, z - e);
+      const l = Math.sqrt(gx * gx + gy * gy + gz * gz) || 1;
+      normals[v * 3] = gx / l; normals[v * 3 + 1] = gy / l; normals[v * 3 + 2] = gz / l;
+    }
+  }
+  return { positions, indices, normals };
+}
+
+// Grid covering the scene with `pad` empty cells around it.
+function makeGrid(scene, h) {
+  const b = sceneBounds(scene);
+  if (!b) return null;
+  const pad = 2;
+  const ox = b.min[0] - pad * h, oy = b.min[1] - pad * h, oz = b.min[2] - pad * h;
+  const nx = Math.ceil((b.max[0] - b.min[0]) / h) + 2 * pad + 1;
+  const ny = Math.ceil((b.max[1] - b.min[1]) / h) + 2 * pad + 1;
+  const nz = Math.ceil((b.max[2] - b.min[2]) / h) + 2 * pad + 1;
+  return { nx, ny, nz, ox, oy, oz, h, bounds: b };
+}
+
+// ===== stl =====
+
+function meshToSTL(parts, { dropToBed = true, header = 'SDF editor' } = {}) {
+  let tri = 0, minZ = Infinity;
+  for (const p of parts) {
+    tri += p.indices.length / 3;
+    for (let i = 2; i < p.positions.length; i += 3) if (p.positions[i] < minZ) minZ = p.positions[i];
+  }
+  const dz = dropToBed && Number.isFinite(minZ) ? -minZ : 0;
+  const buffer = new ArrayBuffer(84 + tri * 50);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < Math.min(80, header.length); i++) bytes[i] = header.charCodeAt(i) & 0x7f;
+  view.setUint32(80, tri, true);
+  let o = 84;
+  for (const { positions, indices } of parts) {
+    for (let t = 0; t < indices.length; t += 3) {
+      const a = indices[t] * 3, b = indices[t + 1] * 3, c = indices[t + 2] * 3;
+      const ax = positions[a], ay = positions[a + 1], az = positions[a + 2] + dz;
+      const bx = positions[b], by = positions[b + 1], bz = positions[b + 2] + dz;
+      const cx = positions[c], cy = positions[c + 1], cz = positions[c + 2] + dz;
+      const ux = bx - ax, uy = by - ay, uz = bz - az;
+      const vx = cx - ax, vy = cy - ay, vz = cz - az;
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      view.setFloat32(o, nx / len, true); view.setFloat32(o + 4, ny / len, true); view.setFloat32(o + 8, nz / len, true);
+      view.setFloat32(o + 12, ax, true); view.setFloat32(o + 16, ay, true); view.setFloat32(o + 20, az, true);
+      view.setFloat32(o + 24, bx, true); view.setFloat32(o + 28, by, true); view.setFloat32(o + 32, bz, true);
+      view.setFloat32(o + 36, cx, true); view.setFloat32(o + 40, cy, true); view.setFloat32(o + 44, cz, true);
+      view.setUint16(o + 48, 0, true);
+      o += 50;
+    }
+  }
+  return buffer;
+}
+
+// Signed volume of a closed mesh, mm³.
+function meshVolume(parts) {
+  let v = 0;
+  for (const { positions: p, indices: ix } of parts) {
+    for (let t = 0; t < ix.length; t += 3) {
+      const a = ix[t] * 3, b = ix[t + 1] * 3, c = ix[t + 2] * 3;
+      v += p[a] * (p[b + 1] * p[c + 2] - p[b + 2] * p[c + 1])
+        - p[a + 1] * (p[b] * p[c + 2] - p[b + 2] * p[c])
+        + p[a + 2] * (p[b] * p[c + 1] - p[b + 1] * p[c]);
+    }
+  }
+  return v / 6;
+}
+
+  </script>
+
+  <script type="text/plain" id="worker">
+// Mesh worker: polygonises a range of grid layers of one scene.
+let cachedKey = null;
+let cachedField = null;
+self.onmessage = (ev) => {
+  const { job, key, scene, grid, k0, k1 } = ev.data;
+  try {
+    if (key !== cachedKey) {
+      cachedField = createSceneField(scene, grid.h);
+      cachedKey = key;
+    }
+    let last = 0;
+    const r = polygonize(cachedField, grid, k0, k1, false, (n) => {
+      if (n - last >= 4) { self.postMessage({ type: 'progress', job, n: n - last }); last = n; }
+    });
+    self.postMessage({ type: 'done', job, k0, k1, rest: (k1 - k0) - last, positions: r.positions, indices: r.indices }, [r.positions.buffer, r.indices.buffer]);
+  } catch (err) {
+    self.postMessage({ type: 'error', job, message: String(err && err.message || err) });
+  }
+};
+  </script>
+
+  <script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+
+// ===== core =====
+
+const CORE_SRC = document.getElementById('core').textContent;
+const WORKER_SRC = document.getElementById('worker').textContent;
+const core = new Function(`${CORE_SRC}
+return { PRIMITIVES, OPS, OBJECT_PARAMS, GLOBAL_PARAMS, FIELD_PARAMS, PATTERNS, makeObject, defaultGlobals,
+  createSceneField, makeGrid, sceneBounds, polygonize, meshToSTL, meshVolume };`)();
+const { PRIMITIVES, OPS, OBJECT_PARAMS, GLOBAL_PARAMS, FIELD_PARAMS, makeObject, defaultGlobals } = core;
+
+const $ = (id) => document.getElementById(id);
+const clone = (v) => JSON.parse(JSON.stringify(v));
+
+// ===== presets =====
+
+const O = (type, extra) => makeObject(type, extra);
+const PRESETS = [
+  {
+    name: 'Textured mug',
+    scene: () => ({
+      objects: [
+        O('cylinder', { name: 'Body', op: 'union', r: 38, h: 95, round: 3, pos: [0, 0, 47.5] }),
+        O('torus', { name: 'Handle', op: 'sunion', blend: 5, R: 24, r: 6, pos: [42, 0, 50], rot: [90, 0, 0], tex: 0 }),
+        O('cylinder', { name: 'Inside', op: 'ssubtract', blend: 2, r: 34, h: 100, round: 6, pos: [0, 0, 55], tex: 0 }),
+      ],
+      globals: { depth: 1.6, pattern: 'maze', mazeMode: 'coral', scale: 7, profile: 0.8, level: 0.1, warp: 0.15, seed: 7, texFaces: 'sides', texAngle: 40, cut: true, cutZ: 0, edge: 0.4 },
+    }),
+  },
+  {
+    name: 'Foam pebble',
+    scene: () => ({
+      objects: [
+        O('ellipsoid', { name: 'Pebble', op: 'union', rx: 45, ry: 32, rz: 22, pos: [0, 0, 14] }),
+        O('sphere', { name: 'Bump', op: 'sunion', blend: 14, r: 18, pos: [24, 10, 22] }),
+        O('sphere', { name: 'Dent', op: 'ssubtract', blend: 8, r: 14, pos: [-22, -8, 40] }),
+      ],
+      globals: { depth: 2.5, pattern: 'foam', scale: 6, overlap: 1.3, jitter: 1, variation: 0.7, equalize: 0.3, profile: 1, edge: 0.4, warp: 0, seed: 3, texFaces: 'noBottom', texAngle: 45, cut: true, cutZ: 0, cutFade: 4 },
+    }),
+  },
+  {
+    name: 'Gyroid cube',
+    scene: () => ({
+      objects: [O('box', { name: 'Cube', op: 'union', sx: 50, sy: 50, sz: 50, round: 6, pos: [0, 0, 25] })],
+      globals: { depth: 2, pattern: 'tpms', tpmsType: 'gyroid', tpmsMode: 'walls', scale: 14, lineWidth: 1.4, edge: 0.4, warp: 0, texFaces: 'noBottom', texAngle: 30 },
+    }),
+  },
+  {
+    name: 'Dragon egg',
+    scene: () => ({
+      objects: [O('ellipsoid', { name: 'Egg', op: 'union', rx: 30, ry: 30, rz: 42, pos: [0, 0, 38] })],
+      globals: { depth: 2.5, pattern: 'scales', flow: 'down', scale: 8, overlap: 1.5, jitter: 0.6, variation: 0.3, profile: 1.5, edge: 0.4, pointed: 0.6, scaleWidth: 0.85, scaleTexture: 'keel', texDepth: 0.35, warp: 0.2, seed: 8, cut: true, cutZ: 0, cutFade: 3 },
+    }),
+  },
+  {
+    name: 'Twisted column',
+    scene: () => ({
+      objects: [
+        O('prism', { name: 'Shaft', op: 'union', sides: 6, r: 22, h: 120, round: 3, pos: [0, 0, 60] }),
+        O('cylinder', { name: 'Base', op: 'sunion', blend: 6, r: 30, h: 10, round: 2, pos: [0, 0, 5], tex: 0 }),
+      ],
+      globals: { twist: 150, depth: 1.5, pattern: 'topo', scale: 35, levels: 9, octaves: 2, edge: 0.4, warp: 0.35, seed: 12, texFaces: 'sides', texAngle: 45 },
+    }),
+  },
+  {
+    name: 'Crown ring',
+    scene: () => ({
+      objects: [
+        O('torus', { name: 'Ring', op: 'union', R: 40, r: 7, pos: [0, 0, 7] }),
+        O('cone', { name: 'Spike', op: 'sunion', blend: 5, r1: 9, r2: 1, h: 26, round: 0.8, pos: [40, 0, 18], radial: 9 }),
+        O('sphere', { name: 'Gem', op: 'sunion', blend: 3, r: 4, pos: [40, 0, 31], radial: 9 }),
+      ],
+      globals: { depth: 1.2, pattern: 'ridges', scale: 25, octaves: 4, roughness: 0.5, valley: 0.3, profile: 1, edge: 0.3, warp: 0.3, seed: 5, cut: true, cutZ: 0 },
+    }),
+  },
+  {
+    name: 'Spiky ball',
+    scene: () => ({
+      objects: [
+        O('sphere', { name: 'Ball', op: 'union', r: 30, pos: [0, 0, 30] }),
+        O('plane', { name: 'Flat bottom', op: 'ssubtract', blend: 2, pos: [0, 0, 6], tex: 0 }),
+      ],
+      globals: { depth: 5, pattern: 'spikes', scale: 9, spikeWidth: 80, jitter: 0.8, variation: 0.3, profile: 1.3, edge: 0.4, texMode: 'emboss', texFaces: 'noBottom', texAngle: 30 },
+    }),
+  },
+  {
+    name: 'Blank',
+    scene: () => ({
+      objects: [O('sphere', { name: 'Sphere', op: 'union', r: 20, pos: [0, 0, 20] })],
+      globals: { texOn: false },
+    }),
+  },
+];
+
+// ===== state =====
+
+let doc = null; // { objects, globals }
+let selected = 0;
+
+function normaliseScene(s) {
+  const objects = (Array.isArray(s?.objects) ? s.objects : [])
+    .filter((o) => o && PRIMITIVES[o.type])
+    .map((o) => ({ ...makeObject(o.type), ...o, pos: vec3(o.pos), rot: vec3(o.rot) }));
+  return { objects, globals: { ...defaultGlobals(), ...(s?.globals || {}) } };
+}
+function vec3(v) {
+  return Array.isArray(v) && v.length === 3 ? v.map((x) => (Number.isFinite(+x) ? +x : 0)) : [0, 0, 0];
+}
+
+// Mesh settings live outside the scene undo history.
+const MESH_PARAMS = [
+  { key: 'detail', label: 'Preview detail, cells across', min: 40, max: 320, step: 4, value: 140, int: true },
+  { key: 'cell', label: 'Export cell size, mm', min: 0.05, max: 3, step: 0.01, value: 0.35 },
+  { key: 'drop', label: 'Put on the bed (min Z = 0)', type: 'bool', value: true },
+];
+const meshState = Object.fromEntries(MESH_PARAMS.map((p) => [p.key, p.value]));
+try {
+  Object.assign(meshState, JSON.parse(localStorage.getItem('sdf-editor-mesh') || '{}'));
+} catch { /* storage unavailable */ }
+
+// ---------- undo ----------
+
+const undoStack = [];
+const redoStack = [];
+let lastSnapshot = null;
+let commitTimer = 0;
+
+function snapshot() { return JSON.stringify(doc); }
+
+// Records the state before a burst of changes as one undo step.
+function markChange() {
+  if (lastSnapshot === null) lastSnapshot = snapshot();
+  clearTimeout(commitTimer);
+  commitTimer = setTimeout(commit, 450);
+}
+function commit() {
+  clearTimeout(commitTimer);
+  if (lastSnapshot !== null) {
+    const now = snapshot();
+    if (now !== lastSnapshot) {
+      undoStack.push(lastSnapshot);
+      if (undoStack.length > 200) undoStack.shift();
+      redoStack.length = 0;
+    }
+    lastSnapshot = null;
+  }
+  saveLocal();
+  updateUndoButtons();
+}
+function undo() {
+  commit();
+  if (!undoStack.length) return;
+  redoStack.push(snapshot());
+  doc = JSON.parse(undoStack.pop());
+  selected = Math.min(selected, doc.objects.length - 1);
+  afterLoad();
+}
+function redo() {
+  commit();
+  if (!redoStack.length) return;
+  undoStack.push(snapshot());
+  doc = JSON.parse(redoStack.pop());
+  selected = Math.min(selected, doc.objects.length - 1);
+  afterLoad();
+}
+function updateUndoButtons() {
+  $('undo').disabled = !undoStack.length;
+  $('redo').disabled = !redoStack.length;
+}
+
+// ---------- persistence ----------
+
+function encodeScene() {
+  const bytes = new TextEncoder().encode(JSON.stringify(doc));
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function decodeScene(str) {
+  const b = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(b, (c) => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+let hashTimer = 0;
+function saveLocal() {
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(() => {
+    try { localStorage.setItem('sdf-editor-scene', snapshot()); } catch { /* ignore */ }
+    try { history.replaceState(null, '', `#s=${encodeScene()}`); } catch { /* ignore */ }
+  }, 300);
+}
+function loadInitial() {
+  const m = location.hash.match(/s=([\w-]+)/);
+  if (m) {
+    try { return normaliseScene(decodeScene(m[1])); } catch { /* fall through */ }
+  }
+  try {
+    const s = localStorage.getItem('sdf-editor-scene');
+    if (s) return normaliseScene(JSON.parse(s));
+  } catch { /* ignore */ }
+  return null;
+}
+
+// ===== form =====
+
+const ICONS = {
+  sphere: '<circle cx="16" cy="16" r="11"/><ellipse cx="16" cy="16" rx="11" ry="3.5"/>',
+  box: '<path d="M16 5l10 5v12l-10 5-10-5V10z"/><path d="M6 10l10 5 10-5M16 15v12"/>',
+  cylinder: '<ellipse cx="16" cy="8" rx="9" ry="3"/><path d="M7 8v16c0 1.7 4 3 9 3s9-1.3 9-3V8"/>',
+  cone: '<path d="M16 4L7 24M16 4l9 20"/><ellipse cx="16" cy="24" rx="9" ry="3"/>',
+  capsule: '<rect x="10" y="3" width="12" height="26" rx="6"/>',
+  torus: '<ellipse cx="16" cy="16" rx="12" ry="6.5"/><path d="M10 15.5c2.5 2 9.5 2 12 0M11.5 17c2-1.2 7-1.2 9 0"/>',
+  ellipsoid: '<ellipse cx="16" cy="16" rx="13" ry="8"/><ellipse cx="16" cy="16" rx="13" ry="2.5"/>',
+  prism: '<path d="M9 6h14l4 3-4 3H9L5 9z"/><path d="M5 9v14l4 3h14l4-3V9M9 12v14M23 12v14"/>',
+  pyramid: '<path d="M16 4L5 24l11 4 11-4z"/><path d="M16 4v24"/>',
+  octahedron: '<path d="M16 3l10 13-10 13L6 16z"/><path d="M6 16l10 4 10-4M16 3v17"/>',
+  link: '<rect x="8" y="4" width="16" height="24" rx="8"/><rect x="12.5" y="9" width="7" height="14" rx="3.5"/>',
+  plane: '<path d="M4 20l8-8h16l-8 8z"/><path d="M16 16v-11M13 8l3-3 3 3"/>',
+};
+const icon = (type) => `<svg viewBox="0 0 32 32" aria-hidden="true">${ICONS[type] || ''}</svg>`;
+const OP_SYMBOL = { union: '∪', subtract: '−', intersect: '∩', sunion: '∪~', ssubtract: '−~', sintersect: '∩~' };
+
+// A labelled number with a slider, or a checkbox / select. `get` and `set`
+// read and write the value; returns { el, sync(target) }.
+function makeControl(p, get, set) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field';
+  const title = document.createElement('span');
+  title.textContent = p.label;
+  wrap.append(title);
+  let refresh;
+  if (p.type === 'select') {
+    wrap.classList.add('wide');
+    const sel = document.createElement('select');
+    for (const [value, text] of Object.entries(p.options)) sel.add(new Option(text, value));
+    sel.addEventListener('change', () => set(sel.value));
+    wrap.append(sel);
+    refresh = () => { sel.value = get(); };
+  } else if (p.type === 'bool') {
+    wrap.classList.add('bool');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => set(box.checked));
+    wrap.append(box);
+    refresh = () => { box.checked = !!get(); };
+  } else {
+    const numEl = document.createElement('input');
+    numEl.type = 'number';
+    numEl.step = p.step;
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.min = p.min; range.max = p.max; range.step = p.step;
+    const isInt = p.int || p.type === 'int';
+    const parse = (v, clampIt) => {
+      let x = Number(v);
+      if (!Number.isFinite(x)) return null;
+      if (isInt) x = Math.round(x);
+      // Typed values may go beyond the slider, sliders stay in range.
+      return clampIt ? Math.min(p.max, Math.max(p.min, x)) : x;
+    };
+    numEl.addEventListener('change', () => {
+      const x = parse(numEl.value, !p.free);
+      if (x === null) { refresh(); return; }
+      numEl.value = x; range.value = x;
+      set(x);
+    });
+    range.addEventListener('input', () => {
+      const x = parse(range.value, true);
+      numEl.value = x;
+      set(x);
+    });
+    wrap.append(numEl, range);
+    refresh = () => { const v = get(); numEl.value = v; range.value = v; };
+  }
+  return { el: wrap, title, refresh, p };
+}
+
+// A vector of three numbers with one slider each.
+function makeVec(label, get, set, { min, max, step }) {
+  const wrap = document.createElement('div');
+  wrap.className = 'field-group';
+  const head = document.createElement('div');
+  head.className = 'hint';
+  head.style.margin = '4px 0 4px';
+  head.textContent = label;
+  wrap.append(head);
+  const ctrls = ['X', 'Y', 'Z'].map((axis, i) => makeControl({ label: axis, min, max, step, free: true }, () => get()[i], (v) => {
+    const a = get().slice(); a[i] = v; set(a);
+  }));
+  for (const c of ctrls) wrap.append(c.el);
+  return { el: wrap, refresh: () => ctrls.forEach((c) => c.refresh()) };
+}
+
+// ---------- add buttons ----------
+
+for (const [type, def] of Object.entries(PRIMITIVES)) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.title = `Add ${def.name.toLowerCase()}`;
+  b.innerHTML = `${icon(type)}<span>${def.name}</span>`;
+  b.addEventListener('click', () => addObject(type));
+  $('add-grid').append(b);
+}
+
+function addObject(type) {
+  markChange();
+  const o = makeObject(type);
+  // Drop the new object on the bed next to the current scene's centre.
+  const ext = PRIMITIVES[type].extent?.(o);
+  const b = core.sceneBounds({ objects: doc.objects, globals: { ...doc.globals, texOn: false } });
+  const cx = b ? (b.min[0] + b.max[0]) / 2 : 0, cy = b ? (b.min[1] + b.max[1]) / 2 : 0;
+  o.pos = [Math.round(cx), Math.round(cy), ext ? ext[2] : 0];
+  if (!doc.objects.length) o.op = 'union';
+  const n = doc.objects.filter((x) => x.type === type).length;
+  if (n) o.name = `${o.name} ${n + 1}`;
+  doc.objects.push(o);
+  selected = doc.objects.length - 1;
+  changed({ list: true, props: true });
+}
+
+// ---------- object list ----------
+
+function renderList() {
+  const ul = $('objects');
+  ul.textContent = '';
+  doc.objects.forEach((o, i) => {
+    const li = document.createElement('li');
+    li.className = 'obj-row' + (i === selected ? ' selected' : '') + (o.visible ? '' : ' hidden-obj');
+    li.title = `${PRIMITIVES[o.type].name} · ${OPS[o.op]}`;
+    const vis = document.createElement('input');
+    vis.type = 'checkbox';
+    vis.checked = o.visible;
+    vis.title = 'Visible';
+    vis.addEventListener('click', (e) => e.stopPropagation());
+    vis.addEventListener('change', () => { markChange(); o.visible = vis.checked; changed({ list: true }); });
+    const ic = document.createElement('span');
+    ic.innerHTML = icon(o.type);
+    const name = document.createElement('span');
+    name.className = 'obj-name';
+    name.textContent = o.name;
+    const op = document.createElement('span');
+    op.className = 'obj-op';
+    op.textContent = i === 0 ? '' : OP_SYMBOL[o.op];
+    const tools = document.createElement('span');
+    tools.className = 'tools';
+    const tool = (txt, title, fn, disabled) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = txt; b.title = title; b.disabled = !!disabled;
+      b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+      tools.append(b);
+    };
+    tool('↑', 'Move up (earlier in the order)', () => moveObject(i, -1), i === 0);
+    tool('↓', 'Move down', () => moveObject(i, 1), i === doc.objects.length - 1);
+    tool('⧉', 'Duplicate (Ctrl+D)', () => duplicateObject(i));
+    tool('✕', 'Delete (Del)', () => deleteObject(i));
+    li.append(vis, ic, name, op, tools);
+    li.addEventListener('click', () => select(i));
+    ul.append(li);
+  });
+}
+
+function select(i) {
+  commit();
+  selected = i;
+  renderList();
+  renderProps();
+  updateGizmo();
+  updateGhost();
+}
+function moveObject(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= doc.objects.length) return;
+  markChange();
+  [doc.objects[i], doc.objects[j]] = [doc.objects[j], doc.objects[i]];
+  if (selected === i) selected = j; else if (selected === j) selected = i;
+  changed({ list: true, props: true });
+}
+function duplicateObject(i) {
+  const src = doc.objects[i];
+  if (!src) return;
+  markChange();
+  const o = clone(src);
+  o.name = `${src.name} copy`;
+  o.pos = [o.pos[0] + 10, o.pos[1] + 10, o.pos[2]];
+  doc.objects.splice(i + 1, 0, o);
+  selected = i + 1;
+  changed({ list: true, props: true });
+}
+function deleteObject(i) {
+  if (!doc.objects[i]) return;
+  markChange();
+  doc.objects.splice(i, 1);
+  selected = Math.min(selected, doc.objects.length - 1);
+  changed({ list: true, props: true });
+}
+
+// ---------- selected object ----------
+
+let propControls = [];
+function renderProps() {
+  const box = $('obj-params');
+  box.textContent = '';
+  propControls = [];
+  const o = doc.objects[selected];
+  $('obj-section').hidden = !o;
+  if (!o) return;
+  const def = PRIMITIVES[o.type];
+  const setKey = (k) => (v) => { markChange(); o[k] = v; changed({ list: k === 'op', visibility: true }); };
+
+  const nameWrap = document.createElement('label');
+  nameWrap.className = 'field text';
+  nameWrap.innerHTML = `<span>Name <span class="hint">· ${def.name}</span></span>`;
+  const nameIn = document.createElement('input');
+  nameIn.type = 'text';
+  nameIn.value = o.name;
+  nameIn.addEventListener('input', () => { markChange(); o.name = nameIn.value; renderListSoon(); });
+  nameWrap.append(nameIn);
+  box.append(nameWrap);
+
+  const add = (c, parent = box) => { propControls.push(c); parent.append(c.el); return c; };
+  add(makeControl({ key: 'op', label: 'Operation', type: 'select', options: OPS }, () => o.op, setKey('op')));
+  for (const p of OBJECT_PARAMS.filter((q) => !q.group)) add(makeControl(p, () => o[p.key], setKey(p.key)));
+  for (const p of def.params) add(makeControl(p, () => o[p.key], setKey(p.key)));
+  add(makeVec('Position, mm', () => o.pos, (v) => { markChange(); o.pos = v; changed({ gizmo: true }); }, { min: -300, max: 300, step: 0.5 }));
+  add(makeVec('Rotation, °', () => o.rot, (v) => { markChange(); o.rot = v; changed({ gizmo: true }); }, { min: -180, max: 180, step: 1 }));
+
+  const groups = { mod: 'Shell, offset and texture', rep: 'Symmetry and arrays' };
+  for (const [g, title] of Object.entries(groups)) {
+    const det = document.createElement('details');
+    det.open = sessionOpen.has(g);
+    det.addEventListener('toggle', () => (det.open ? sessionOpen.add(g) : sessionOpen.delete(g)));
+    const sum = document.createElement('summary');
+    sum.textContent = title;
+    det.append(sum);
+    for (const p of OBJECT_PARAMS.filter((q) => q.group === g)) add(makeControl(p, () => o[p.key], setKey(p.key)), det);
+    box.append(det);
+  }
+  syncProps();
+}
+const sessionOpen = new Set();
+function syncProps() {
+  const o = doc.objects[selected];
+  if (!o) return;
+  for (const c of propControls) {
+    c.refresh();
+    if (c.p) c.el.hidden = !!(c.p.when && !c.p.when(o));
+  }
+}
+let listTimer = 0;
+function renderListSoon() { clearTimeout(listTimer); listTimer = setTimeout(renderList, 150); }
+
+// ---------- global settings ----------
+
+const globalControls = [];
+function addGlobal(p, parent) {
+  const c = makeControl(p, () => doc.globals[p.key], (v) => {
+    markChange();
+    doc.globals[p.key] = v;
+    changed({ globals: true });
+  });
+  globalControls.push(c);
+  parent.append(c.el);
+}
+for (const p of GLOBAL_PARAMS) addGlobal(p, $({ geo: 'geo-params', tex: 'tex-params', texpos: 'texpos-params' }[p.section]));
+for (const p of FIELD_PARAMS) addGlobal({ ...p, int: p.type === 'int', section: 'field' }, $('field-params'));
+
+function syncGlobals() {
+  const g = doc.globals;
+  for (const c of globalControls) {
+    const p = c.p;
+    c.refresh();
+    c.title.textContent = p.labels?.[g.pattern] ?? p.label;
+    let visible = !p.when || p.when(g);
+    if (p.section === 'field') visible = visible && g.texOn && (!p.patterns || p.patterns.includes(g.pattern));
+    if (p.section === 'tex' && p.key !== 'texOn') visible = visible && g.texOn;
+    c.el.hidden = !visible;
+  }
+  $('reseed').hidden = !g.texOn;
+}
+
+$('reseed').addEventListener('click', () => {
+  markChange();
+  doc.globals.seed = Math.floor(Math.random() * 100000);
+  changed({ globals: true });
+});
+
+const meshControls = MESH_PARAMS.map((p) => {
+  const c = makeControl(p, () => meshState[p.key], (v) => {
+    meshState[p.key] = v;
+    try { localStorage.setItem('sdf-editor-mesh', JSON.stringify(meshState)); } catch { /* ignore */ }
+    if (p.key === 'detail') requestRebuild();
+    renderStats();
+  });
+  $('mesh-params').append(c.el);
+  return c;
+});
+
+// ---------- presets ----------
+
+PRESETS.forEach((pr, i) => $('preset').add(new Option(pr.name, i)));
+$('preset').add(new Option('— custom —', 'custom'));
+$('preset').addEventListener('change', () => {
+  const pr = PRESETS[Number($('preset').value)];
+  if (!pr) return;
+  markChange();
+  doc = normaliseScene(pr.scene());
+  selected = 0;
+  commit();
+  afterLoad(true);
+});
+
+// Everything that follows a change of `doc`.
+function changed({ list, props, gizmo, globals } = {}) {
+  if (list) renderList();
+  if (props) renderProps(); else syncProps();
+  if (globals) syncGlobals();
+  $('preset').value = 'custom';
+  if (gizmo || props || list) updateGizmo();
+  updateGhost();
+  requestRebuild();
+}
+
+function afterLoad(frame = false) {
+  renderList();
+  renderProps();
+  syncGlobals();
+  updateGizmo();
+  updateGhost();
+  updateUndoButtons();
+  saveLocal();
+  pendingFrame = frame;
+  requestRebuild();
+}
+
+// ===== viewport =====
+
+const viewport = $('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+viewport.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 20000);
+camera.up.set(0, 0, 1);
+camera.position.set(-160, -220, 170);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.target.set(0, 0, 25);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a8a, 1.3));
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+keyLight.position.set(-1, -0.6, 1.4);
+scene.add(keyLight);
+const rim = new THREE.DirectionalLight(0xffffff, 0.6);
+rim.position.set(1, 1, 0.3);
+scene.add(rim);
+
+const bed = new THREE.Group();
+scene.add(bed);
+function rebuildBed(size) {
+  bed.clear();
+  const s = Math.max(100, Math.ceil(size / 50) * 50);
+  const g = new THREE.GridHelper(s, s / 10, 0x8c8c86, 0xb5b5b0);
+  g.rotation.x = Math.PI / 2;
+  g.material.transparent = true;
+  g.material.opacity = 0.55;
+  bed.add(g);
+  const axes = new THREE.AxesHelper(Math.min(30, s / 4));
+  axes.position.z = 0.05;
+  bed.add(axes);
+  bed.userData.size = s;
+}
+rebuildBed(200);
+
+const material = new THREE.MeshStandardMaterial({ color: 0xf2f1ee, roughness: 0.6, metalness: 0, side: THREE.DoubleSide });
+let mesh = null;
+let lastParts = null;
+let lastGrid = null;
+let pendingFrame = true;
+
+const ghostMat = new THREE.MeshBasicMaterial({ color: 0x2f6fd6, transparent: true, opacity: 0.14, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+const ghostWire = new THREE.MeshBasicMaterial({ color: 0x2f6fd6, wireframe: true, transparent: true, opacity: 0.25, depthTest: false, depthWrite: false });
+const ghost = new THREE.Group();
+ghost.renderOrder = 10;
+scene.add(ghost);
+
+const pivot = new THREE.Object3D();
+scene.add(pivot);
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setSize(0.8);
+scene.add(gizmo.getHelper());
+let gizmoMode = 'translate';
+gizmo.addEventListener('dragging-changed', (e) => {
+  orbit.enabled = !e.value;
+  if (!e.value) commit();
+});
+gizmo.addEventListener('objectChange', () => {
+  const o = doc.objects[selected];
+  if (!o) return;
+  markChange();
+  const r = (v) => Math.round(v * 100) / 100;
+  o.pos = [r(pivot.position.x), r(pivot.position.y), r(pivot.position.z)];
+  const d = 180 / Math.PI;
+  o.rot = [r(pivot.rotation.x * d), r(pivot.rotation.y * d), r(pivot.rotation.z * d)];
+  syncProps();
+  updateGhost();
+  requestRebuild();
+});
+
+function updateGizmo() {
+  const o = doc.objects[selected];
+  if (!o || gizmoMode === 'off') { gizmo.detach(); return; }
+  pivot.position.set(...o.pos);
+  pivot.rotation.set(...o.rot.map((v) => (v * Math.PI) / 180), 'XYZ');
+  gizmo.setMode(gizmoMode);
+  gizmo.setSpace(gizmoMode === 'rotate' ? 'local' : 'world');
+  if (gizmo.object !== pivot) gizmo.attach(pivot);
+}
+for (const b of $('gizmo-mode').querySelectorAll('button')) {
+  b.addEventListener('click', () => setGizmoMode(b.dataset.mode));
+}
+function setGizmoMode(m) {
+  gizmoMode = m;
+  for (const b of $('gizmo-mode').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.mode === m));
+  updateGizmo();
+}
+
+// Translucent outline of the selected object alone, meshed coarsely here.
+let ghostFrame = 0;
+function updateGhost() {
+  if (ghostFrame) return;
+  ghostFrame = requestAnimationFrame(() => {
+    ghostFrame = 0;
+    for (const c of ghost.children) c.geometry.dispose();
+    ghost.clear();
+    const o = doc.objects[selected];
+    // Added parts show on the mesh itself; outline cutters and hidden ones.
+    if (!o || !$('ghost').checked || (o.visible && (o.op === 'union' || o.op === 'sunion'))) return;
+    if (o.type === 'plane') {
+      const s = Math.max(60, (bed.userData.size || 200) * 0.6);
+      const g = new THREE.PlaneGeometry(s, s);
+      const m = new THREE.Mesh(g, ghostMat);
+      m.position.set(...o.pos);
+      m.rotation.set(...o.rot.map((v) => (v * Math.PI) / 180), 'XYZ');
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(g), ghostWire);
+      m.add(edges);
+      ghost.add(m);
+      return;
+    }
+    const g = doc.globals;
+    const s = { objects: [{ ...o, op: 'union', visible: true }], globals: { ...defaultGlobals(), twist: g.twist, bend: g.bend, taper: g.taper, texOn: false } };
+    const b = core.sceneBounds(s);
+    if (!b) return;
+    const size = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+    const grid = core.makeGrid(s, Math.max(size / 36, 0.2));
+    if (grid.nx * grid.ny * grid.nz > 400000) return;
+    const field = core.createSceneField(s, grid.h);
+    const part = core.polygonize(field, grid, 0, grid.nz - 1, false);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(part.positions, 3));
+    geo.setIndex(new THREE.BufferAttribute(part.indices, 1));
+    const m = new THREE.Mesh(geo, ghostMat);
+    m.renderOrder = 10;
+    ghost.add(m);
+  });
+}
+$('ghost').addEventListener('change', updateGhost);
+
+$('wire').addEventListener('change', () => { material.wireframe = $('wire').checked; });
+$('grid').addEventListener('change', () => { bed.visible = $('grid').checked; });
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = viewport;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h, 1);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(viewport);
+resize();
+
+function frameObject() {
+  const b = lastGrid?.bounds ?? core.sceneBounds(doc);
+  if (!b) return;
+  const c = new THREE.Vector3((b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2);
+  const r = Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]) / 2;
+  const dist = r / Math.sin((camera.fov * Math.PI) / 360) * 1.15;
+  const dir = new THREE.Vector3(-0.55, -0.75, 0.55).normalize();
+  orbit.target.copy(c);
+  camera.position.copy(c).addScaledVector(dir, dist);
+  camera.near = Math.max(dist / 200, 0.05);
+  camera.far = dist * 50;
+  camera.updateProjectionMatrix();
+  orbit.update();
+}
+$('reset-view').addEventListener('click', frameObject);
+
+(function loop() {
+  requestAnimationFrame(loop);
+  orbit.update();
+  renderer.render(scene, camera);
+})();
+
+// ===== meshing =====
+
+// A pool of workers sharing the core; each job is split into slabs of grid
+// layers. Falls back to the main thread if workers can't start.
+const pool = (() => {
+  const n = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 4) - 1));
+  let workers = [];
+  let jobSeq = 0;
+  let current = null;
+  const src = `${CORE_SRC}\n${WORKER_SRC}`;
+  const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+
+  function spawn() {
+    try {
+      workers = Array.from({ length: n }, () => {
+        const w = new Worker(url);
+        w.busy = false;
+        w.onmessage = (ev) => onMessage(w, ev.data);
+        w.onerror = (ev) => { ev.preventDefault?.(); fail(new Error(ev.message || 'Worker error')); };
+        return w;
+      });
+    } catch {
+      workers = [];
+    }
+  }
+  spawn();
+
+  function fail(err) {
+    if (!current) return;
+    const c = current;
+    current = null;
+    for (const w of workers) w.busy = false;
+    c.reject(err);
+  }
+
+  function onMessage(w, msg) {
+    if (msg.type === 'progress') {
+      if (current && msg.job === current.id) { current.done += msg.n; current.onProgress?.(current.done / current.total); }
+      return;
+    }
+    w.busy = false;
+    if (!current || msg.job !== current.id) { dispatch(); return; }
+    if (msg.type === 'error') { fail(new Error(msg.message)); return; }
+    current.done += msg.rest;
+    current.onProgress?.(current.done / current.total);
+    current.parts.push({ k0: msg.k0, positions: msg.positions, indices: msg.indices });
+    current.left--;
+    if (current.left === 0) {
+      const c = current;
+      current = null;
+      c.parts.sort((a, b) => a.k0 - b.k0);
+      c.resolve(c.parts);
+    }
+    dispatch();
+  }
+
+  function dispatch() {
+    if (!current) return;
+    for (const w of workers) {
+      if (w.busy || !current.queue.length) continue;
+      const [k0, k1] = current.queue.shift();
+      w.busy = true;
+      w.postMessage({ job: current.id, key: current.key, scene: current.scene, grid: current.grid, k0, k1 });
+    }
+  }
+
+  async function runInline(c) {
+    const field = core.createSceneField(c.scene, c.grid.h);
+    while (c.queue.length) {
+      if (current !== c) return;
+      const [k0, k1] = c.queue.shift();
+      const r = core.polygonize(field, c.grid, k0, k1, false);
+      c.parts.push({ k0, positions: r.positions, indices: r.indices });
+      c.done += k1 - k0;
+      c.onProgress?.(c.done / c.total);
+      await new Promise((res) => setTimeout(res, 0));
+    }
+    if (current === c) { current = null; c.resolve(c.parts); }
+  }
+
+  return {
+    run(sceneData, grid, { onProgress, chunksPerWorker = 3 } = {}) {
+      if (current) current.reject(Object.assign(new Error('cancelled'), { cancelled: true }));
+      const layers = grid.nz - 1;
+      const chunks = Math.max(1, Math.min(layers, Math.max(workers.length, 1) * chunksPerWorker));
+      const queue = [];
+      for (let i = 0; i < chunks; i++) {
+        const k0 = Math.floor((i * layers) / chunks), k1 = Math.floor(((i + 1) * layers) / chunks);
+        if (k1 > k0) queue.push([k0, k1]);
+      }
+      return new Promise((resolve, reject) => {
+        const id = ++jobSeq;
+        current = { id, key: `${id}`, scene: sceneData, grid, queue, parts: [], left: queue.length, total: layers, done: 0, onProgress, resolve, reject };
+        if (workers.length) dispatch(); else runInline(current);
+      });
+    },
+    // Stops everything now; running workers are replaced.
+    cancel() {
+      if (current) { const c = current; current = null; c.reject(Object.assign(new Error('cancelled'), { cancelled: true })); }
+      for (const w of workers) w.terminate();
+      spawn();
+    },
+    get threads() { return workers.length || 1; },
+  };
+})();
+
+// Merges slabs into one geometry, welding the vertices the slabs share on
+// their boundary planes so normals are smooth across them.
+function partsToGeometry(parts, grid) {
+  let nv = 0, ni = 0;
+  for (const p of parts) { nv += p.positions.length / 3; ni += p.indices.length; }
+  const positions = new Float32Array(nv * 3);
+  const indices = new Uint32Array(ni);
+  let vo = 0, io = 0;
+  let prevTop = null;
+  let used = 0;
+  for (const p of parts) {
+    const count = p.positions.length / 3;
+    const zPlane = Math.fround(grid.oz + p.k0 * grid.h);
+    const remap = new Int32Array(count);
+    for (let v = 0; v < count; v++) {
+      const x = p.positions[v * 3], y = p.positions[v * 3 + 1], z = p.positions[v * 3 + 2];
+      let target = -1;
+      if (prevTop && z === zPlane) {
+        const t = prevTop.get(`${x},${y}`);
+        if (t !== undefined) target = t;
+      }
+      if (target < 0) {
+        target = used++;
+        positions[target * 3] = x; positions[target * 3 + 1] = y; positions[target * 3 + 2] = z;
+      }
+      remap[v] = target;
+    }
+    for (let i = 0; i < p.indices.length; i++) indices[io++] = remap[p.indices[i]];
+    // Vertices on this slab's top plane, for the next slab.
+    const next = parts[parts.indexOf(p) + 1];
+    prevTop = null;
+    if (next) {
+      const zTop = Math.fround(grid.oz + next.k0 * grid.h);
+      prevTop = new Map();
+      for (let v = 0; v < count; v++) {
+        if (p.positions[v * 3 + 2] === zTop) prevTop.set(`${p.positions[v * 3]},${p.positions[v * 3 + 1]}`, remap[v]);
+      }
+    }
+    vo += count;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions.slice(0, used * 3), 3));
+  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function sceneForMeshing() {
+  return { objects: doc.objects, globals: doc.globals };
+}
+
+function previewCell(sceneData, cells) {
+  const b = core.sceneBounds(sceneData);
+  if (!b) return null;
+  const size = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+  return Math.max(size / cells, 0.05);
+}
+
+let rebuildDirty = false;
+let rebuilding = false;
+let exporting = false;
+let lastQuality = 'fine';
+let lastFineMs = 0;
+let lastInfo = null;
+
+function requestRebuild() {
+  rebuildDirty = true;
+  if (!rebuilding && !exporting) runRebuild();
+}
+
+async function runRebuild() {
+  let quality;
+  if (rebuildDirty) {
+    rebuildDirty = false;
+    // A quick coarse pass first when a full one is slow.
+    quality = lastFineMs > 220 && meshState.detail > 70 ? 'coarse' : 'fine';
+  } else if (lastQuality === 'coarse') {
+    quality = 'fine';
+  } else {
+    return;
+  }
+  const sceneData = clone(sceneForMeshing());
+  const cells = quality === 'coarse' ? Math.min(64, meshState.detail) : meshState.detail;
+  const h = previewCell(sceneData, cells);
+  rebuilding = true;
+  if (h === null) {
+    showMesh(null, null, sceneData);
+    rebuilding = false;
+    lastQuality = 'fine';
+    if (rebuildDirty) runRebuild();
+    return;
+  }
+  const grid = core.makeGrid(sceneData, h);
+  const t0 = performance.now();
+  const busyTimer = setTimeout(() => showBusy('Generating…'), 150);
+  try {
+    const parts = await pool.run(sceneData, grid);
+    const ms = performance.now() - t0;
+    if (quality === 'fine') lastFineMs = ms;
+    lastQuality = quality;
+    showMesh(parts, grid, sceneData, { ms, quality });
+    $('message').textContent = '';
+  } catch (err) {
+    if (!err.cancelled) {
+      $('message').textContent = `Error: ${err.message}`;
+      console.error(err);
+    }
+    lastQuality = 'fine';
+  } finally {
+    clearTimeout(busyTimer);
+    rebuilding = false;
+    if (!exporting) hideBusy();
+  }
+  if (!exporting) runRebuild();
+}
+
+function showMesh(parts, grid, sceneData, info = {}) {
+  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
+  lastParts = parts;
+  lastGrid = grid;
+  lastInfo = info;
+  if (parts) {
+    const geo = partsToGeometry(parts, grid);
+    mesh = new THREE.Mesh(geo, material);
+    scene.add(mesh);
+    const b = grid.bounds;
+    const size = Math.max(Math.abs(b.min[0]), Math.abs(b.max[0]), Math.abs(b.min[1]), Math.abs(b.max[1])) * 2 + 20;
+    if (size > bed.userData.size || size < bed.userData.size / 2.5) rebuildBed(size);
+  }
+  if (pendingFrame && parts) { pendingFrame = false; frameObject(); }
+  renderStats();
+}
+
+function showBusy(text, cancellable = false) {
+  $('busy').hidden = false;
+  $('busy-text').textContent = text;
+  $('cancel').hidden = !cancellable;
+}
+function hideBusy() { $('busy').hidden = true; }
+
+function renderStats() {
+  const el = $('stats');
+  const rows = [];
+  const fmt = (v, d = 1) => v.toLocaleString('en-US', { maximumFractionDigits: d });
+  const parts = lastParts;
+  if (!parts) {
+    el.innerHTML = '<dt>Scene</dt><dd>empty</dd>';
+    return;
+  }
+  const tri = parts.reduce((s, p) => s + p.indices.length / 3, 0);
+  const b = lastGrid.bounds;
+  let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  for (const p of parts) {
+    const a = p.positions;
+    for (let i = 0; i < a.length; i += 3) {
+      for (let k = 0; k < 3; k++) { const v = a[i + k]; if (v < mn[k]) mn[k] = v; if (v > mx[k]) mx[k] = v; }
+    }
+  }
+  const vol = core.meshVolume(parts);
+  rows.push(['Size, mm', tri ? `${fmt(mx[0] - mn[0])} × ${fmt(mx[1] - mn[1])} × ${fmt(mx[2] - mn[2])}` : '—']);
+  rows.push(['Volume', `${fmt(vol / 1000, 2)} cm³`]);
+  rows.push(['Preview', `${fmt(tri, 0)} triangles, cell ${fmt(lastGrid.h, 2)} mm${lastInfo?.quality === 'coarse' ? ' (coarse)' : ''}`]);
+  if (lastInfo?.ms) rows.push(['Built in', `${fmt(lastInfo.ms, 0)} ms on ${pool.threads} threads`]);
+  const ratio = lastGrid.h / meshState.cell;
+  const est = tri * ratio * ratio;
+  const gx = Math.ceil((b.max[0] - b.min[0]) / meshState.cell), gy = Math.ceil((b.max[1] - b.min[1]) / meshState.cell), gz = Math.ceil((b.max[2] - b.min[2]) / meshState.cell);
+  rows.push(['Export grid', `${gx} × ${gy} × ${gz}`]);
+  const warn = est > 8e6;
+  rows.push(['Export', `<span class="${warn ? 'warn' : ''}">≈ ${fmt(est / 1e6, 1)} M triangles, ${fmt((est * 50) / 1048576, 0)} MB</span>`]);
+  el.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+
+// ===== export =====
+
+$('export').addEventListener('click', async () => {
+  commit();
+  const sceneData = clone(sceneForMeshing());
+  const grid = core.makeGrid(sceneData, meshState.cell);
+  if (!grid) { $('message').textContent = 'Nothing to export: the scene is empty.'; return; }
+  if (lastParts && lastGrid) {
+    const tri = lastParts.reduce((s, p) => s + p.indices.length / 3, 0);
+    const est = tri * (lastGrid.h / meshState.cell) ** 2;
+    if (est > 12e6 && !confirm(`About ${(est / 1e6).toFixed(1)} M triangles (${Math.round((est * 50) / 1048576)} MB). This may take a while and use a lot of memory. Continue?`)) return;
+  }
+  exporting = true;
+  $('export').disabled = true;
+  const t0 = performance.now();
+  showBusy('Exporting… 0%', true);
+  try {
+    const parts = await pool.run(sceneData, grid, {
+      chunksPerWorker: 8,
+      onProgress: (f) => { $('busy-text').textContent = `Exporting… ${Math.round(f * 100)}%`; },
+    });
+    $('busy-text').textContent = 'Writing STL…';
+    await new Promise((r) => setTimeout(r, 0));
+    const buf = core.meshToSTL(parts, { dropToBed: meshState.drop, header: 'SDF editor, parametric-3d-stuff-generators-warehouse' });
+    const tri = parts.reduce((s, p) => s + p.indices.length / 3, 0);
+    const name = (doc.objects[0]?.name || 'model').replace(/[^\w-]+/g, '_').toLowerCase();
+    download(new Blob([buf], { type: 'model/stl' }), `sdf-${name}.stl`);
+    $('message').textContent = `Exported ${tri.toLocaleString('en-US')} triangles in ${((performance.now() - t0) / 1000).toFixed(1)} s.`;
+  } catch (err) {
+    $('message').textContent = err.cancelled ? 'Export cancelled.' : `Export failed: ${err.message}`;
+  } finally {
+    exporting = false;
+    $('export').disabled = false;
+    hideBusy();
+    requestRebuild();
+  }
+});
+$('cancel').addEventListener('click', () => pool.cancel());
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+$('save').addEventListener('click', () => {
+  commit();
+  download(new Blob([JSON.stringify({ format: 'sdf-editor', version: 1, ...doc }, null, 1)], { type: 'application/json' }), 'sdf-scene.json');
+});
+$('open').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', async () => {
+  const f = $('file').files[0];
+  $('file').value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    markChange();
+    doc = normaliseScene(data);
+    selected = 0;
+    commit();
+    $('preset').value = 'custom';
+    afterLoad(true);
+    $('message').textContent = `Opened ${f.name}.`;
+  } catch (err) {
+    $('message').textContent = `Could not open the file: ${err.message}`;
+  }
+});
+$('share').addEventListener('click', async () => {
+  commit();
+  const url = `${location.href.split('#')[0]}#s=${encodeScene()}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    $('message').textContent = 'Link copied.';
+  } catch {
+    history.replaceState(null, '', url);
+    $('message').textContent = 'Link is in the address bar.';
+  }
+});
+$('undo').addEventListener('click', undo);
+$('redo').addEventListener('click', redo);
+
+addEventListener('keydown', (e) => {
+  const t = e.target;
+  const typing = t instanceof HTMLInputElement && t.type !== 'checkbox' && t.type !== 'range' || t instanceof HTMLSelectElement || t instanceof HTMLTextAreaElement;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); redo(); return; }
+  if (typing) return;
+  if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateObject(selected); return; }
+  if (mod || e.altKey) return;
+  switch (e.key) {
+    case 'Delete': deleteObject(selected); break;
+    case 'w': case 'W': setGizmoMode('translate'); break;
+    case 'e': case 'E': setGizmoMode('rotate'); break;
+    case 'q': case 'Q': setGizmoMode('off'); break;
+    case 'f': case 'F': frameObject(); break;
+    default: return;
+  }
+  e.preventDefault();
+});
+
+// ===== start =====
+
+for (const c of meshControls) c.refresh();
+const initial = loadInitial();
+if (initial) {
+  doc = initial;
+  $('preset').value = 'custom';
+} else {
+  doc = normaliseScene(PRESETS[0].scene());
+  $('preset').value = 0;
+}
+afterLoad(true);
+
+  </script>
+</body>
+</html>

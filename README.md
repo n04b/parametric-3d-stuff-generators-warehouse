@@ -7,6 +7,7 @@ Some parametric generators of relief 3D textures and printable models, all with 
 | Folder | What it does |
 | --- | --- |
 | [`relief/`](relief/) | Noise patterns: topography (terraces), contour lines, fibres, dunes, Voronoi cells, rings, mountains (ridges), spikes, gyroid and other TPMS, labyrinth (Turing patterns, brain coral), scales, foam / bubbles. Rectangular, round or polygon panel, cylinder, tube/vase, cube/box, sphere, torus. |
+| [`sdf/`](sdf/) | SDF solid editor: sphere, box, cylinder, cone, capsule, torus, ellipsoid, prism, pyramid, octahedron, chain link, half-space cutter. Union, subtraction, intersection and their smooth versions, mirrors and arrays, twist / bend / taper, hollowing, flat cuts. Any relief pattern from `relief/` applied as displacement over the result. Marching cubes mesh, STL export. |
 | [`waves/`](waves/) | Interference of circular waves from several sources (moiré effect). |
 | [`tiles/`](tiles/) | Modular wall installations made of separate pieces: pyramids, spikes, tilted blocks, cylinders, drops. Rectangular, radial and hexagonal grids. Export the whole installation, each piece, or per printer bed, plus a 1:1 assembly map. |
 | [`ornament/`](ornament/) | Relief decorative tiles: square, hexagon, octagon, circle. The ornament is built from motif layers (rosettes, scrolls, leaves, stars, girih, frames, fluting, facets). Tile arrays with rotations and relief fade towards the edges. Export a single tile, the whole array, or every tile in a ZIP. |
@@ -16,6 +17,7 @@ Some parametric generators of relief 3D textures and printable models, all with 
 | [`layers/`](layers/) | Overlapping wavy plates: stripes, rings or contours bent by noise. Shingles or terraces, rounded edges, shadow gap, lip, pinch-out, fibres and fine lines. |
 | [`stones/`](stones/) | Faceted stones: irregular stones of mixed size with rounded edges, separated by joints. Tops carved with facets, V-folds (chevrons) and scoops. From plaster wall panels to cut pebbles and flagstones. |
 | [`khrushchyovka/`](khrushchyovka/) | Soviet five-storey blocks of flats as printable models: large-panel, large-block or brick walls, entrances with canopies, stairwell windows, balconies or loggias, flat, gable or hip roof, lived-in details. Self-supporting overhangs, hollow shell with windows cut through for lighting, split into parts with pin holes. |
+| [`fabric/`](fabric/) | Print-in-place space fabric (after NASA's 4D-printed chainmail): tiles linked underneath by hooks and bars. Squares, rhombi, hexagons, triangles, octagons + squares, hexagons + triangles; solid tiles or rings, polygon / rounded / circle / star / flower outlines, flat, chamfered, domed, pyramid, dish or stepped tops. Any STL placed on the top face of the tiles. |
 | [`motion/`](motion/) | Abstract solids sculpted by moving a phone: shake, tilt and spin it, touch the screen, make noise (accelerometer, gyroscope, microphone). The gesture is frozen into a vase (time runs upwards), a spiky blob or a ring. Live mode, mobile-first UI, the take is saved in the link. |
 
 See the README in each folder for details.
