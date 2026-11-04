@@ -188,7 +188,7 @@ button:disabled { opacity: 0.5; cursor: progress; }
   <aside id="panel">
     <header>
       <h1>Space Fabric</h1>
-      <p class="hint">Print-in-place chainmail of tiles linked underneath, like NASA's 4D-printed space fabric. Dimensions in millimetres, export to STL.</p>
+      <p class="hint">Print-in-place chainmail of tiles, like NASA's 4D-printed space fabric. Printed face up without supports: rings, free links, hooks, rod hinges or flexible strips join the tiles. Dimensions in millimetres, export to STL.</p>
     </header>
 
     <label class="field">
@@ -244,7 +244,8 @@ const GROUPS = {
   fabric: 'Fabric',
   tiles: 'Tiles',
   top: 'Top face',
-  links: 'Links under the tiles',
+  links: 'Joints between tiles',
+  print: 'Printing: layers and clearances',
   decor: 'Model on the top face',
   output: 'Output',
 };
@@ -258,8 +259,19 @@ const TILINGS = [
   ['rhombus', 'Rhombi (sheared squares)'],
 ];
 
+// Joint types. "Under" joints hang below raised tiles, the others join tiles lying on the bed.
+const LINK_TYPES = [
+  ['ring', 'Ring around a bar'],
+  ['free', 'Free link between two bars'],
+  ['hook', 'Hook over a bar'],
+  ['hinge', 'Hinge on a rod (tiles on the bed)'],
+  ['flex', 'Flexible strips (one piece)'],
+];
+
 const isSolid = (s) => s.plateStyle === 'solid';
 const hasDecor = (s) => s.decor !== 'none';
+const isType = (...types) => (s) => types.includes(s.linkType);
+const isUnder = isType('ring', 'free', 'hook');
 
 const PARAMS = [
   { key: 'tiling', group: 'fabric', label: 'Tiling', type: 'select', options: TILINGS, value: 'square' },
@@ -279,26 +291,42 @@ const PARAMS = [
   { key: 'ringWidth', group: 'tiles', label: 'Ring width, mm', type: 'number', min: 0.5, max: 50, step: 0.1, value: 3.5, when: (s) => s.plateStyle === 'ring' },
   { key: 'gap', group: 'tiles', label: 'Gap between tiles, mm', type: 'number', min: 0.2, max: 20, step: 0.05, value: 0.8 },
   { key: 'plateH', group: 'tiles', label: 'Tile thickness, mm', type: 'number', min: 0.4, max: 20, step: 0.1, value: 1.4 },
-  { key: 'pillar', group: 'tiles', label: 'Centre pillar (shorter bridges)', type: 'bool', value: true, when: isSolid },
-  { key: 'pillarD', group: 'tiles', label: 'Pillar diameter, mm', type: 'number', min: 0.8, max: 60, step: 0.1, value: 4, when: (s) => isSolid(s) && s.pillar },
+  { key: 'bevel', group: 'tiles', label: 'Bevel under the tile edges, mm', type: 'number', min: 0, max: 5, step: 0.05, value: 0.6 },
+  { key: 'pillar', group: 'tiles', label: 'Centre pillar (shorter bridges)', type: 'bool', value: true, when: (s) => isSolid(s) && isUnder(s) },
+  { key: 'pillarD', group: 'tiles', label: 'Pillar diameter, mm', type: 'number', min: 0.8, max: 60, step: 0.1, value: 3, when: (s) => isSolid(s) && isUnder(s) && s.pillar },
+  { key: 'pillarFlare', group: 'tiles', label: 'Pillar flare under the tile, mm', type: 'number', min: 0, max: 20, step: 0.1, value: 1, when: (s) => isSolid(s) && isUnder(s) && s.pillar },
 
   { key: 'relief', group: 'top', label: 'Top relief', type: 'select', options: [['flat', 'Flat'], ['chamfer', 'Chamfered edge'], ['dome', 'Dome / rounded'], ['pyramid', 'Pyramid / ridge'], ['dish', 'Dish (concave)'], ['steps', 'Stepped (ziggurat)']], value: 'chamfer' },
   { key: 'reliefH', group: 'top', label: 'Relief height, mm', type: 'number', min: 0.1, max: 40, step: 0.1, value: 1.5, when: (s) => !['flat', 'chamfer'].includes(s.relief) },
   { key: 'steps', group: 'top', label: 'Steps', type: 'int', min: 2, max: 8, step: 1, value: 3, when: (s) => s.relief === 'steps' },
   { key: 'chamfer', group: 'top', label: 'Chamfer, mm', type: 'number', min: 0.1, max: 10, step: 0.05, value: 0.5, when: (s) => s.relief === 'chamfer' },
 
-  { key: 'links', group: 'links', label: 'Links per edge (pairs)', type: 'int', min: 1, max: 5, step: 1, value: 1 },
-  { key: 'spread', group: 'links', label: 'Spread along the edge', type: 'number', min: 0, max: 1, step: 0.01, value: 0.4 },
-  { key: 'clearXY', group: 'links', label: 'Clearance (sideways), mm', type: 'number', min: 0.1, max: 3, step: 0.05, value: 0.45 },
-  { key: 'clearZ', group: 'links', label: 'Clearance (vertical), mm', type: 'number', min: 0.1, max: 3, step: 0.05, value: 0.4 },
-  { key: 'postW', group: 'links', label: 'Post width, mm', type: 'number', min: 0.4, max: 10, step: 0.05, value: 1.2 },
-  { key: 'hookW', group: 'links', label: 'Hook width, mm', type: 'number', min: 0.4, max: 10, step: 0.05, value: 1.2 },
-  { key: 'barW', group: 'links', label: 'Bar width, mm', type: 'number', min: 0.4, max: 10, step: 0.05, value: 1.2 },
-  { key: 'legW', group: 'links', label: 'Hook leg width, mm', type: 'number', min: 0.4, max: 10, step: 0.05, value: 1.2 },
-  { key: 'barH', group: 'links', label: 'Bar thickness, mm', type: 'number', min: 0.2, max: 10, step: 0.05, value: 1 },
-  { key: 'beamH', group: 'links', label: 'Hook thickness, mm', type: 'number', min: 0.2, max: 10, step: 0.05, value: 1 },
-  { key: 'postInset', group: 'links', label: 'Post inset from tile edge, mm', type: 'number', min: 0, max: 20, step: 0.05, value: 0.2 },
-  { key: 'borderBars', group: 'links', label: 'Bars on the outer edges', type: 'bool', value: false },
+  { key: 'linkType', group: 'links', label: 'Joint type', type: 'select', options: LINK_TYPES, value: 'ring' },
+  { key: 'direction', group: 'links', label: 'Direction on each edge', type: 'select', options: [['edge', 'One way, all tiles alike'], ['class', 'One way, by tile colour'], ['alternate', 'Alternating (stiff)']], value: 'edge', when: isType('ring', 'hook', 'hinge') },
+  { key: 'links', group: 'links', label: 'Joints per edge', type: 'int', min: 1, max: 6, step: 1, value: 1, when: isType('ring', 'free', 'hook', 'flex') },
+  { key: 'knuckles', group: 'links', label: 'Knuckles per edge', type: 'int', min: 3, max: 11, step: 2, value: 3, when: isType('hinge') },
+  { key: 'spread', group: 'links', label: 'Spread along the edge', type: 'number', min: 0, max: 1, step: 0.01, value: 0.5, when: isType('ring', 'free', 'hook', 'flex') },
+  { key: 'slack', group: 'links', label: 'Extra play when pulled, mm', type: 'number', min: 0, max: 5, step: 0.05, value: 1.2, when: isUnder },
+  { key: 'linkW', group: 'links', label: 'Ring / hook width, mm', type: 'number', min: 0.6, max: 10, step: 0.05, value: 1.4, when: isUnder },
+  { key: 'wire', group: 'links', label: 'Ring wire, mm', type: 'number', min: 0.5, max: 5, step: 0.05, value: 0.9, when: isType('ring', 'free') },
+  { key: 'barW', group: 'links', label: 'Bar width, mm', type: 'number', min: 0.5, max: 8, step: 0.05, value: 1.2, when: isUnder },
+  { key: 'barH', group: 'links', label: 'Bar thickness, mm', type: 'number', min: 0.3, max: 8, step: 0.05, value: 0.8, when: isUnder },
+  { key: 'postW', group: 'links', label: 'Post width, mm', type: 'number', min: 0.6, max: 10, step: 0.05, value: 1.4, when: isUnder },
+  { key: 'postInset', group: 'links', label: 'Post inset from tile edge, mm', type: 'number', min: 0, max: 20, step: 0.05, value: 0.2, when: isUnder },
+  { key: 'legW', group: 'links', label: 'Hook leg width, mm', type: 'number', min: 0.5, max: 8, step: 0.05, value: 1.2, when: isType('hook') },
+  { key: 'beamH', group: 'links', label: 'Hook thickness, mm', type: 'number', min: 0.3, max: 8, step: 0.05, value: 1, when: isType('hook') },
+  { key: 'rodD', group: 'links', label: 'Rod diameter, mm', type: 'number', min: 0.6, max: 6, step: 0.05, value: 1.2, when: isType('hinge') },
+  { key: 'stripH', group: 'links', label: 'Strip thickness, mm', type: 'number', min: 0.1, max: 3, step: 0.05, value: 0.4, when: isType('flex') },
+  { key: 'stripW', group: 'links', label: 'Strip width, mm', type: 'number', min: 0.4, max: 40, step: 0.1, value: 3, when: isType('flex') },
+  { key: 'borderBars', group: 'links', label: 'Loops on the outer edges', type: 'bool', value: false, when: isUnder },
+
+  { key: 'layerH', group: 'print', label: 'Layer height, mm', type: 'number', min: 0.04, max: 0.6, step: 0.01, value: 0.2 },
+  { key: 'firstLayer', group: 'print', label: 'First layer height, mm', type: 'number', min: 0.04, max: 0.8, step: 0.01, value: 0.2 },
+  { key: 'snap', group: 'print', label: 'Snap heights to whole layers', type: 'bool', value: true },
+  { key: 'clearXY', group: 'print', label: 'Clearance sideways, mm', type: 'number', min: 0.1, max: 2, step: 0.01, value: 0.4 },
+  { key: 'clearZ', group: 'print', label: 'Clearance under bridges, mm', type: 'number', min: 0.1, max: 2, step: 0.01, value: 0.6 },
+  { key: 'footChamfer', group: 'print', label: 'First layer chamfer, mm', type: 'number', min: 0, max: 1, step: 0.01, value: 0.2 },
+  { key: 'lineW', group: 'print', label: 'Line width (for checks), mm', type: 'number', min: 0.2, max: 1.2, step: 0.01, value: 0.42 },
 
   { key: 'decor', group: 'decor', label: 'Model', type: 'select', options: [['none', 'None'], ['stl', 'Loaded STL'], ['dome', 'Hemisphere'], ['cone', 'Cone'], ['pyramid', 'Pyramid'], ['stud', 'Cylinder stud'], ['star', 'Star'], ['heart', 'Heart'], ['torus', 'Ring']], value: 'none' },
   { key: 'decorUp', group: 'decor', label: 'STL up axis', type: 'select', options: [['z', 'Z up'], ['y', 'Y up'], ['x', 'X up']], value: 'z', when: (s) => s.decor === 'stl' },
@@ -320,34 +348,46 @@ const DEFAULTS = Object.fromEntries(PARAMS.map((p) => [p.key, p.value]));
 
 // Starting points; unlisted keys keep defaults.
 const PRESETS = [
-  { name: 'Space fabric (squares)', params: {} },
+  { name: 'Space fabric: rings around bars', params: {} },
   {
-    name: 'Hexagon scales',
-    params: { tiling: 'hex', edge: 15, postW: 1, hookW: 1, barW: 1, legW: 1, clearXY: 0.4, outline: 'rounded', cornerRadius: 1.5, relief: 'dome', reliefH: 1.2, width: 220, height: 200 },
+    name: 'Chain: free links, hexagons',
+    params: { tiling: 'hex', edge: 15, linkType: 'free', outline: 'rounded', cornerRadius: 1.5, relief: 'dome', reliefH: 1.2, width: 220, height: 200 },
   },
   {
-    name: 'Triangle mesh',
-    params: { tiling: 'triangle', edge: 24, relief: 'pyramid', reliefH: 1.6, pillarD: 3, width: 170, height: 150 },
+    name: 'Hinged plates (squares, no bridges)',
+    params: { tiling: 'square', edge: 16, linkType: 'hinge', plateH: 3.6, gap: 0.8, bevel: 0.3, relief: 'chamfer', chamfer: 0.8, knuckles: 3 },
+  },
+  {
+    name: 'Hinged triangles',
+    params: { tiling: 'triangle', edge: 26, linkType: 'hinge', plateH: 3.6, bevel: 0.3, relief: 'pyramid', reliefH: 1.2, knuckles: 3, width: 170, height: 150 },
   },
   {
     name: 'Chainmail rings',
-    params: { tiling: 'hex', edge: 15, postW: 1, hookW: 1, barW: 1, legW: 1, clearXY: 0.4, plateStyle: 'ring', outline: 'circle', ringWidth: 4, relief: 'dome', reliefH: 1.4, plateH: 1.2, width: 220, height: 200 },
+    params: { tiling: 'hex', edge: 15, linkType: 'free', plateStyle: 'ring', outline: 'circle', ringWidth: 4, relief: 'dome', reliefH: 1.4, plateH: 1.2, width: 220, height: 200 },
   },
   {
     name: 'Octagons and squares',
-    params: { tiling: 'octagon', edge: 17, postW: 1, hookW: 1, barW: 1, legW: 1, clearXY: 0.4, relief: 'steps', reliefH: 1.4, steps: 3, shape: 'ellipse', width: 180, height: 180 },
+    params: { tiling: 'octagon', edge: 17, relief: 'steps', reliefH: 1.4, steps: 3, shape: 'ellipse', width: 180, height: 180 },
   },
   {
     name: 'Kagome stars',
     params: { tiling: 'kagome', edge: 22, outline: 'rounded', cornerRadius: 2, relief: 'chamfer', chamfer: 0.7, decor: 'star', decorWhere: 'main', decorSize: 0.75, decorHeight: 1.6, width: 180, height: 160 },
   },
   {
+    name: 'Compact hooks (thinner)',
+    params: { tiling: 'square', edge: 14, linkType: 'hook', barH: 1, slack: 0.6, linkW: 1.3, postW: 1.2, clearZ: 0.4 },
+  },
+  {
+    name: 'Flexible sheet (TPU / PETG)',
+    params: { tiling: 'hex', edge: 12, linkType: 'flex', gap: 1.6, plateH: 1.6, bevel: 0, relief: 'chamfer', chamfer: 0.6, links: 1, stripW: 3, stripH: 0.4, width: 160, height: 160 },
+  },
+  {
     name: 'Round buttons',
-    params: { tiling: 'square', edge: 16, outline: 'circle', relief: 'dome', reliefH: 2, decor: 'none' },
+    params: { tiling: 'square', edge: 16, outline: 'circle', relief: 'dome', reliefH: 2, linkType: 'free' },
   },
   {
     name: 'Flower tiles',
-    params: { tiling: 'hex', edge: 15, postW: 1, hookW: 1, barW: 1, legW: 1, clearXY: 0.4, outline: 'flower', points: 6, pointDepth: 0.2, relief: 'chamfer', chamfer: 0.6, decor: 'dome', decorSize: 0.35, decorHeight: 1.2, width: 220, height: 200 },
+    params: { tiling: 'hex', edge: 16, outline: 'flower', points: 6, pointDepth: 0.2, relief: 'chamfer', chamfer: 0.6, decor: 'dome', decorSize: 0.35, decorHeight: 1.2, width: 220, height: 200 },
   },
 ];
 
@@ -517,14 +557,14 @@ function buildTiles(p) {
 
 // ===== outlines =====
 
-// Inset a convex CCW polygon by d (intersection of the shifted edge lines).
+// Inset a convex CCW polygon by d, a number or one value per edge (intersection of the shifted edge lines).
 function insetPoly(pts, d) {
   const n = pts.length;
   const lines = pts.map((a, i) => {
     const b = pts[(i + 1) % n];
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const nx = (b[1] - a[1]) / L, ny = -(b[0] - a[0]) / L;
-    return [nx, ny, nx * a[0] + ny * a[1] - d];
+    return [nx, ny, nx * a[0] + ny * a[1] - (Array.isArray(d) ? d[i] : d)];
   });
   return pts.map((_, i) => {
     const [ax, ay, ac] = lines[(i + n - 1) % n];
@@ -560,9 +600,10 @@ function outlineInradius(pts, c) {
   return r;
 }
 
-function plateOutline(tile, p) {
+// Tile outline inside its cell; inset: distance of each cell edge to the tile edge.
+function plateOutline(tile, p, inset = p.gap / 2) {
   const c = tile.c;
-  const base = insetPoly(tile.pts, p.gap / 2);
+  const base = insetPoly(tile.pts, inset);
   const rin = inradius(base, c);
   const seg = p.segments;
   // Angle of the first edge normal: keeps circles and stars aligned with the tile.
@@ -621,6 +662,516 @@ function plateOutline(tile, p) {
   return p.plateScale < 1 ? scalePts(out, c, p.plateScale) : out;
 }
 
+// ===== links =====
+
+// Heights on whole layers: level(z) is the nearest layer top, up(z, t) is the level about t above z, at least one layer up.
+function layerGrid(p) {
+  const l = p.layerH, l0 = p.firstLayer, on = p.snap;
+  const r6 = (x) => Math.round(x * 1e6) / 1e6;
+  const level = (z) => {
+    if (!on) return r6(z);
+    if (z <= 1e-9) return 0;
+    if (z < l0) return z < l0 / 2 ? 0 : l0;
+    return r6(l0 + Math.round((z - l0) / l) * l);
+  };
+  const up = (z, t) => (on ? Math.max(level(z + t), level(z < l0 - 1e-9 ? l0 : z + l)) : r6(z + t));
+  return { level, up };
+}
+
+const rectDZ = (d0, d1, z0, z1) => [[d0, z0], [d1, z0], [d1, z1], [d0, z1]];
+const mirrorDZ = (P) => P.map(([d, z]) => [-d, z]).reverse();
+
+// Rectangle with 45° chamfered corners (an octagonal bar section).
+function chamRect(d0, d1, z0, z1, k) {
+  k = Math.min(k, (d1 - d0) / 2 - 1e-4, (z1 - z0) / 2 - 1e-4);
+  if (k <= 1e-4) return rectDZ(d0, d1, z0, z1);
+  return [[d0 + k, z0], [d1 - k, z0], [d1, z0 + k], [d1, z1 - k], [d1 - k, z1], [d0 + k, z1], [d0, z1 - k], [d0, z0 + k]];
+}
+
+// Regular octagon with flats facing the axes: inradius r, centre (cx, cz), CCW from the bottom flat.
+function octagon(cx, cz, r) {
+  const R = r / Math.cos(Math.PI / 8);
+  return Array.from({ length: 8 }, (_, k) => {
+    const a = -Math.PI / 2 - Math.PI / 8 + (k * Math.PI) / 4;
+    return [cx + R * Math.cos(a), cz + R * Math.sin(a)];
+  });
+}
+
+// Keep the part of a convex polygon where a*x + b*y <= c.
+function clipHalf(P, a, b, c) {
+  const out = [];
+  const push = (q) => { const l = out[out.length - 1]; if (!l || Math.hypot(l[0] - q[0], l[1] - q[1]) > 1e-9) out.push(q); };
+  for (let i = 0; i < P.length; i++) {
+    const A = P[i], B = P[(i + 1) % P.length];
+    const fa = a * A[0] + b * A[1] - c, fb = a * B[0] + b * B[1] - c;
+    if (fa <= 1e-12) push(A);
+    if ((fa < -1e-12 && fb > 1e-12) || (fa > 1e-12 && fb < -1e-12)) {
+      const t = fa / (fa - fb);
+      push([A[0] + t * (B[0] - A[0]), A[1] + t * (B[1] - A[1])]);
+    }
+  }
+  if (out.length > 1 && Math.hypot(out[0][0] - out[out.length - 1][0], out[0][1] - out[out.length - 1][1]) < 1e-9) out.pop();
+  return out;
+}
+
+// A closed loop (convex outline minus a rectangular window) as four convex pieces.
+function loopPieces(outer, dw0, dw1, zw0, zw1) {
+  const mid = clipHalf(clipHalf(outer, 0, -1, -zw0), 0, 1, zw1);
+  return [
+    clipHalf(outer, 0, 1, zw0),
+    clipHalf(outer, 0, -1, -zw1),
+    clipHalf(mid, 1, 0, dw0),
+    clipHalf(mid, -1, 0, -dw1),
+  ].filter((q) => q.length >= 3);
+}
+
+function polyArea(P) {
+  let a = 0;
+  for (let i = 0; i < P.length; i++) { const [x0, y0] = P[i], [x1, y1] = P[(i + 1) % P.length]; a += x0 * y1 - x1 * y0; }
+  return a / 2;
+}
+
+// A joint part in the frame of an edge: u along the edge, d across it (d < 0 under tile F, d > 0 under tile M), z up.
+// kind 'box': prism of the rectangle sec along u (prints like a post, bottom chamfered on the bed);
+// 'prism': convex section sec along u; 'tube': section sec with the hole q.hole.
+// owner: 'F' / 'M' (the two tiles), 'L' (a free link), 'J' (a strip that joins both tiles).
+const part = (owner, kind, u0, u1, sec, extra = {}) => ({ owner, kind, u0, u1, sec, ...extra });
+
+// Geometry of the chosen joint: layer stack, the parts of one joint (a slot), checks.
+function linkSpec(p) {
+  const { up } = layerGrid(p);
+  const c = p.clearXY, g2 = p.gap / 2, cz = p.clearZ;
+  const S = { type: p.linkType, under: isUnder(p), c, g2, notes: [], thin: [], bridges: [], levels: [] };
+  const ov = Math.min(0.2, p.plateH / 2);
+  // A post that is e inside the tile edge reaches into the bevel under that edge.
+  const postTop = (zp, e) => zp + Math.max(ov, Math.min(p.bevel, p.plateH * 0.6) - e);
+  const pw = p.postW, bw = p.barW, wl = p.linkW, w = p.wire;
+  const pb = Math.max(pw, bw);
+  const Db = g2 + p.postInset + pb / 2; // bar and its posts, under their own tile
+  const hb = wl / 2 + c + pw / 2; // posts of a bar either side of the ring / hook passing between them
+  const staple = (who, sgn, zb0, zb1, top, raised) => {
+    const bars = raised
+      ? [part(who, 'prism', -hb, hb, chamRect(-Db - bw / 2, -Db + bw / 2, zb0, zb1, 0.3 * Math.min(bw, zb1 - zb0)))]
+      : [part(who, 'box', -hb, hb, rectDZ(-Db - bw / 2, -Db + bw / 2, 0, zb1))];
+    const posts = [-1, 1].map((k) => part(who, 'box', k * hb - pw / 2, k * hb + pw / 2, rectDZ(-Db - pb / 2, -Db + pb / 2, 0, top), { post: true }));
+    const all = [...bars, ...posts];
+    if (sgn > 0) for (const q of all) q.sec = mirrorDZ(q.sec);
+    return all;
+  };
+  S.plateH = p.plateH;
+
+  switch (p.linkType) {
+    case 'hook': {
+      const lw = p.legW;
+      const Dp = g2 + p.postInset + pw / 2;
+      const Df = Db + bw / 2 + c + p.slack + lw / 2;
+      const zb1 = up(0, p.barH), zk0 = up(zb1, cz), zk1 = up(zk0, p.beamH), zp = up(zk1, cz);
+      const kc = 0.6 * Math.min(lw, zk1 - zk0);
+      const dFar = -(Df + lw / 2);
+      const top = postTop(zp, p.postInset);
+      S.zp = zp;
+      S.levels = [['bar', zb1], ['hook', zk1], ['tile underside', zp]];
+      S.pivot = [-Db, zb1 / 2];
+      S.slot = [
+        ...staple('F', -1, 0, zb1, top, false),
+        part('M', 'box', -wl / 2, wl / 2, rectDZ(Dp - pw / 2, Dp + pw / 2, 0, top), { post: true }),
+        part('M', 'prism', -wl / 2, wl / 2, [[dFar, zk0], [Dp + pw / 2, zk0], [Dp + pw / 2, zk1], [dFar + kc, zk1], [dFar, zk1 - kc]]),
+        part('M', 'box', -wl / 2, wl / 2, rectDZ(dFar, dFar + lw, 0, zk1 - kc)),
+      ];
+      S.border = staple('F', -1, 0, zb1, top, false);
+      S.thin = [['post', pw], ['bar', bw], ['hook', wl], ['hook leg', lw]]; // widths in plan, heights are whole layers
+      S.bridges = [['hook over the bar', Dp - pw / 2 + Df - lw / 2], ['tile over the hook', 2 * hb - pw]];
+      break;
+    }
+    case 'ring':
+    case 'free': {
+      const zw0 = up(0, w), zb0 = up(zw0, cz), zb1 = up(zb0, p.barH), zw1 = up(zb1, cz), zr1 = up(zw1, w), zp = up(zr1, cz);
+      const top = postTop(zp, p.postInset);
+      S.zp = zp;
+      S.levels = [['ring bottom', zw0], ['bars', zb1], ['ring top', zr1], ['tile underside', zp]];
+      const kOut = (1 - Math.SQRT1_2) * 2 * w; // corner chamfer that keeps the wire thickness at the corners
+      if (p.linkType === 'ring') {
+        const dw0 = -Db - bw / 2 - c - p.slack, dw1 = -Db + bw / 2 + c;
+        const mp0 = g2 + p.postInset, mp1 = mp0 + pw;
+        const d0 = dw0 - w, d1 = Math.max(dw1 + w, mp0 + Math.min(0.3, pw / 2));
+        const k = Math.min(kOut, w, (zr1 - zw1) * 1.5);
+        const kf = Math.min(kOut, d1 - dw1 - 0.05);
+        const outer = [[d0 + k, 0], [d1, 0], [d1, zr1 - kf], [d1 - kf, zr1], [d0 + k, zr1], [d0, zr1 - k], [d0, k]];
+        S.pivot = [-Db, (zb0 + zb1) / 2];
+        S.slot = [
+          ...staple('F', -1, zb0, zb1, top, true),
+          part('M', 'box', -wl / 2, wl / 2, rectDZ(mp0, mp1, 0, top), { post: true }),
+          ...loopPieces(outer, dw0, dw1, zw0, zw1).map((q) => part('M', 'prism', -wl / 2, wl / 2, q)),
+        ];
+        S.bridges = [['bar over the ring', 2 * hb - pw], ['ring over the bar', dw1 - dw0], ['tile over the ring', 2 * hb - pw]];
+      } else {
+        const Lh = Db + bw / 2 + c + p.slack / 2, W = Lh + w;
+        const k = Math.min(kOut, w);
+        const outer = [[-W + k, 0], [W - k, 0], [W, k], [W, zr1 - k], [W - k, zr1], [-W + k, zr1], [-W, zr1 - k], [-W, k]];
+        S.pivot = [0, zr1 / 2];
+        S.slot = [
+          ...staple('F', -1, zb0, zb1, top, true),
+          ...staple('M', 1, zb0, zb1, top, true),
+          ...loopPieces(outer, -Lh, Lh, zw0, zw1).map((q) => part('L', 'prism', -wl / 2, wl / 2, q)),
+        ];
+        S.bridges = [['bars over the link', 2 * hb - pw], ['link over the bars', 2 * Lh], ['tile over the link', 2 * hb - pw]];
+      }
+      S.border = staple('F', -1, zb0, zb1, top, true);
+      S.thin = [['post', pw], ['bar', bw], ['ring wire', Math.min(w, wl)]];
+      break;
+    }
+    case 'hinge': {
+      const rr = p.rodD / 2, Rr = rr / Math.cos(Math.PI / 8);
+      const rh = Rr + c; // the rod turns freely in the hole
+      const eb = Math.max(0, cz - c); // the rod is a bridge: more room below it
+      const wall = Math.max(0.6, 1.5 * p.lineW);
+      const need = 2 * (rh + eb + wall);
+      const t = up(0, Math.max(p.plateH, need));
+      if (t > p.plateH + 1e-6) S.notes.push(['Tile thickness', `${t.toFixed(2)} mm for the hinge`]);
+      S.zp = 0;
+      S.plateH = t;
+      S.rho = t / 2; S.zh = t / 2; S.rr = rr; S.rh = rh; S.eb = eb;
+      S.inset = S.rho + c; // tile edge away from the hinge axis
+      S.pivot = [0, S.zh];
+      S.levels = [['hinge axis', S.zh], ['tile top', t]];
+      S.thin = [['rod', p.rodD], ['knuckle wall', S.rho - rh - eb]];
+      S.ov = ov;
+      break;
+    }
+    case 'flex': {
+      const st = up(0, p.stripH);
+      const t = up(0, Math.max(p.plateH, st + 2 * p.layerH));
+      S.zp = 0;
+      S.plateH = t;
+      S.inset = g2;
+      S.st = st;
+      const anchor = Math.max(1.2, Math.min(p.bevel, t * 0.6) + 0.8);
+      S.slot = [part('J', 'box', -p.stripW / 2, p.stripW / 2, rectDZ(-(g2 + anchor), g2 + anchor, 0, st))];
+      S.pivot = [0, st / 2];
+      S.levels = [['strip', st], ['tile top', t]];
+      S.thin = [['strip', p.stripW]];
+      break;
+    }
+  }
+  return S;
+}
+
+// Hinge parts between u = ua and ub: K knuckles (rod owner M at both ends) and the rod through them.
+function hingeParts(S, ua, ub, K) {
+  const c = S.c, L = (ub - ua - (K - 1) * c) / K;
+  const knuck = octagon(0, S.zh, S.rho);
+  const hole = octagon(0, S.zh, S.rh).map(([d, z]) => [d, z < S.zh - 1e-9 ? z - S.eb : z]);
+  const out = [];
+  for (let i = 0; i < K; i++) {
+    const u0 = ua + i * (L + c), u1 = u0 + L;
+    if (i % 2 === 0) {
+      out.push(part('M', 'prism', u0, u1, knuck));
+      out.push(part('M', 'box', u0, u1, rectDZ(S.rho - 0.25, S.inset + S.ov, 0, S.plateH)));
+    } else {
+      out.push(part('F', 'tube', u0, u1, knuck, { hole }));
+      out.push(part('F', 'box', u0, u1, rectDZ(-(S.inset + S.ov), -(S.rho - 0.25), 0, S.plateH)));
+    }
+  }
+  out.push(part('M', 'prism', ua, ub, octagon(0, S.zh, S.rr), { rod: true }));
+  return { parts: out, len: L };
+}
+
+// The same slot seen with the roles swapped (for alternating joints).
+const swapSlot = (parts) => parts.map((q) => ({ ...q, owner: q.owner === 'F' ? 'M' : q.owner === 'M' ? 'F' : q.owner, sec: mirrorDZ(q.sec), u0: -q.u1, u1: -q.u0, hole: q.hole && mirrorDZ(q.hole) }));
+
+// Plan rectangles of a slot seen from one tile: along the edge [a, b], depth into that tile [d0, d1], own part or not.
+function slotPlan(parts, side) {
+  return parts.map((q) => {
+    let d0 = Infinity, d1 = -Infinity;
+    for (const [d] of q.sec) { d0 = Math.min(d0, d); d1 = Math.max(d1, d); }
+    if (side === 'F') [d0, d1] = [-d1, -d0];
+    return { a: q.u0, b: q.u1, d0, d1, own: q.owner === side || q.owner === 'J' };
+  });
+}
+
+// Convex polygons closer than c?
+function tooClose(P, Q, c) {
+  for (const S of [P, Q]) {
+    for (let i = 0; i < S.length; i++) {
+      const [x0, y0] = S[i], [x1, y1] = S[(i + 1) % S.length];
+      let ax = -(y1 - y0), ay = x1 - x0;
+      const L = Math.hypot(ax, ay);
+      if (L < 1e-12) continue;
+      ax /= L; ay /= L;
+      let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+      for (const [x, y] of P) { const v = x * ax + y * ay; if (v < a0) a0 = v; if (v > a1) a1 = v; }
+      for (const [x, y] of Q) { const v = x * ax + y * ay; if (v < b0) b0 = v; if (v > b1) b1 = v; }
+      if (b0 - a1 >= c - 1e-9 || a0 - b1 >= c - 1e-9) return false;
+    }
+  }
+  return true;
+}
+
+// Smallest distance of the nearest joint centre from a tile corner (interior angle ang) so that the joints of
+// the two edges meeting there keep the clearance; roles 'F' / 'M' / 'A' (alternating) / '-' (no joint).
+function cornerReach(S, ang, roleA, roleB, plans) {
+  const list = (r) => (r === '-' ? [] : r === 'A' ? [...plans.F, ...plans.M] : plans[r]);
+  const A = list(roleA), B = list(roleB);
+  if (!A.length && !B.length) return 0;
+  const hw = Math.max(0, ...A.map((r) => Math.max(-r.a, r.b)), ...B.map((r) => Math.max(-r.a, r.b)));
+  if (!A.length || !B.length) return hw;
+  const t2 = [Math.cos(ang), Math.sin(ang)], n2 = [Math.sin(ang), -Math.cos(ang)];
+  const quad = (r, x, t, n) => [[r.a, r.d0], [r.b, r.d0], [r.b, r.d1], [r.a, r.d1]].map(([s, d]) => [(x + s) * t[0] + d * n[0], (x + s) * t[1] + d * n[1]]);
+  const clash = (x) => {
+    for (const r of A) {
+      const P = quad(r, x, [1, 0], [0, 1]);
+      for (const q of B) if (!(r.own && q.own) && tooClose(P, quad(q, x, t2, n2), S.c)) return true;
+    }
+    return false;
+  };
+  let x = hw;
+  while (x < 200 && clash(x)) x += 0.05;
+  return x;
+}
+
+// Smallest distance between centres of neighbouring joints on one edge.
+function slotPitch(S, a, b) {
+  let need = 0;
+  for (const q of a) {
+    const [qd0, qd1] = q.sec.reduce(([m, M], [d]) => [Math.min(m, d), Math.max(M, d)], [Infinity, -Infinity]);
+    for (const r of b) {
+      if (q.owner === r.owner && q.owner !== 'L') continue;
+      const [rd0, rd1] = r.sec.reduce(([m, M], [d]) => [Math.min(m, d), Math.max(M, d)], [Infinity, -Infinity]);
+      if (qd1 + S.c <= rd0 || rd1 + S.c <= qd0) continue;
+      need = Math.max(need, q.u1 - r.u0 + S.c);
+    }
+  }
+  return need;
+}
+
+// Roles of each tile on each edge: 'F' (holds bars), 'M' (holds rings / hooks / the hinge rod),
+// 'A' (alternating), 'B' (outer edge with bars only), '-' (nothing).
+function assignRoles(tiles, p, S) {
+  for (const t of tiles) t.role = t.pts.map(() => '-');
+  tiles.forEach((t, ti) => {
+    const n = t.pts.length;
+    for (let e = 0; e < n; e++) {
+      const nb = t.nb[e];
+      if (nb < 0) { t.role[e] = S.under && p.borderBars ? 'B' : '-'; continue; }
+      if (nb < ti) continue;
+      const o = tiles[nb], oe = t.nbEdge[e];
+      let mine;
+      if (p.linkType === 'free' || p.linkType === 'flex') mine = 'F';
+      else if (p.direction === 'alternate' && p.linkType !== 'hinge') mine = 'A';
+      else {
+        const [x0, y0] = t.pts[e], [x1, y1] = t.pts[(e + 1) % n];
+        const nx = y1 - y0, ny = -(x1 - x0);
+        let male = nx > 1e-7 * Math.hypot(nx, ny) || (Math.abs(nx) <= 1e-7 * Math.hypot(nx, ny) && ny > 0);
+        if (p.direction === 'class' && t.cls !== o.cls) male = t.cls < o.cls;
+        mine = male ? 'M' : 'F';
+      }
+      t.role[e] = mine;
+      o.role[oe] = mine === 'A' ? 'A' : mine === 'M' ? 'F' : p.linkType === 'free' || p.linkType === 'flex' ? 'F' : 'M';
+    }
+  });
+}
+
+// ----- bending: 2D section across an edge, tile M turns about the edge -----
+
+function convexHull(P) {
+  P = P.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], hi = [];
+  for (const q of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 1e-12) lo.pop(); lo.push(q); }
+  for (let i = P.length - 1; i >= 0; i--) { const q = P[i]; while (hi.length >= 2 && cr(hi[hi.length - 2], hi[hi.length - 1], q) <= 1e-12) hi.pop(); hi.push(q); }
+  return lo.slice(0, -1).concat(hi.slice(0, -1));
+}
+
+// Translations of B that overlap A: the Minkowski difference A - B, kept as half-planes.
+function minkObstacle(A, B) {
+  const pts = [];
+  for (const a of A) for (const b of B) pts.push([a[0] - b[0], a[1] - b[1]]);
+  const H = convexHull(pts);
+  const lines = H.map((q, i) => {
+    const r = H[(i + 1) % H.length];
+    let nx = r[1] - q[1], ny = -(r[0] - q[0]);
+    const L = Math.hypot(nx, ny) || 1;
+    nx /= L; ny /= L;
+    return [nx, ny, nx * q[0] + ny * q[1]];
+  });
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [x, y] of H) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return { lines, bb: [x0, y0, x1, y1] };
+}
+
+const rotDZ = (P, th, piv) => {
+  const c = Math.cos(th), s = Math.sin(th);
+  return P.map(([x, y]) => { const X = x - piv[0], Y = y - piv[1]; return [piv[0] + c * X - s * Y, piv[1] + s * X + c * Y]; });
+};
+
+function blockedAt(obs, x, y) {
+  for (const o of obs) {
+    if (x <= o.bb[0] || x >= o.bb[2] || y <= o.bb[1] || y >= o.bb[3]) continue;
+    let inside = true;
+    for (const [nx, ny, c] of o.lines) if (nx * x + ny * y >= c - 1e-9) { inside = false; break; }
+    if (inside) return true;
+  }
+  return false;
+}
+
+// Follows the free region of translations from the rest position while the angle grows; returns the last angle.
+// okAt(th) builds a test (x, y) => free?. Stops when nothing is left or the region leaves the window (the joint came apart).
+function trackTurn(okAt, dir, { step = 0.03, dth = 1, maxDeg = 180, win = 5 } = {}) {
+  const key = (i, j) => i * 100003 + j;
+  let ok = okAt(0);
+  let comp = [];
+  let escaped = false;
+  const grow = (test, seeds) => {
+    const seen = new Set(), out = [], st = [];
+    for (const [i, j] of seeds) { const k = key(i, j); if (!seen.has(k)) { seen.add(k); if (test(i * step, j * step)) { st.push([i, j]); out.push([i, j]); } } }
+    const lim = Math.round(win / step);
+    while (st.length) {
+      const [i, j] = st.pop();
+      for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const I = i + a, J = j + b;
+        if (Math.abs(I) > lim || Math.abs(J) > lim) { escaped = true; continue; }
+        const k = key(I, J);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        if (test(I * step, J * step)) { st.push([I, J]); out.push([I, J]); }
+      }
+      if (out.length > 60000) { escaped = true; break; }
+    }
+    return out;
+  };
+  comp = grow(ok, [[0, 0]]);
+  if (!comp.length) return { deg: 0, escaped: false, comp };
+  if (escaped) return { deg: 0, escaped: true, comp };
+  let deg = 0;
+  while (deg < maxDeg) {
+    const next = grow(okAt((dir * (deg + dth) * Math.PI) / 180), comp);
+    if (!next.length) break;
+    deg += dth;
+    comp = next;
+    if (escaped) break;
+  }
+  return { deg, escaped, comp };
+}
+
+function bandsOf(parts, tileF, tileM) {
+  const cuts = [...new Set(parts.flatMap((q) => [q.u0, q.u1]))].sort((a, b) => a - b);
+  const secs = (q) => (q.kind === 'tube' ? q.sec.map((v, i) => [v, q.sec[(i + 1) % q.sec.length], q.hole[(i + 1) % q.hole.length], q.hole[i]]) : [q.sec]);
+  const T = (t) => (t ? [t] : []);
+  const bands = [{ A: T(tileF), B: T(tileM) }];
+  const seen = new Set();
+  for (let i = 0; i + 1 < cuts.length; i++) {
+    const um = (cuts[i] + cuts[i + 1]) / 2;
+    const inside = parts.filter((q) => q.u0 < um && um < q.u1);
+    const key = inside.map((q) => parts.indexOf(q)).join();
+    if (!inside.length || seen.has(key)) continue;
+    seen.add(key);
+    bands.push({
+      A: [...T(tileF), ...inside.filter((q) => q.owner === 'F').flatMap(secs)],
+      B: [...T(tileM), ...inside.filter((q) => q.owner === 'M').flatMap(secs)],
+    });
+  }
+  return bands;
+}
+
+// Section of tile F across its edge (d < 0), from its plate profile; R is the tile inradius.
+function tileSection(p, S, R) {
+  const inset = S.inset ?? S.g2;
+  const { prof } = plateProfile(p, R, S.zp, S.zp + S.plateH, null);
+  return convexHull(prof.map(([s, z]) => [-(inset + (1 - s) * R), z]));
+}
+
+const foldCache = new Map();
+
+// Bending limits of one joint: tiles out (convex, "mountain") and tiles in (concave, "valley"), in degrees,
+// whether the joint can come apart, and the play when pulled / pushed.
+function foldLimits(p, S, R) {
+  const keys = ['linkType', 'direction', 'gap', 'plateH', 'bevel', 'relief', 'reliefH', 'steps', 'chamfer', 'slack', 'linkW', 'wire', 'barW', 'barH', 'postW', 'postInset', 'legW', 'beamH', 'rodD', 'stripH', 'stripW', 'layerH', 'firstLayer', 'snap', 'clearXY', 'clearZ', 'edge', 'tiling'];
+  const key = keys.map((k) => p[k]).join('|') + '|' + R.toFixed(2);
+  if (foldCache.has(key)) return foldCache.get(key);
+  const res = computeFold(p, S, R);
+  if (foldCache.size > 50) foldCache.clear();
+  foldCache.set(key, res);
+  return res;
+}
+
+function computeFold(p, S, R) {
+  const tileF = tileSection(p, S, R), tileM = mirrorDZ(tileF);
+  const piv = S.pivot;
+  const turn = (bands, dir) => trackTurn((th) => {
+    const obs = [];
+    for (const b of bands) { const Bs = b.B.map((q) => rotDZ(q, th, piv)); for (const a of b.A) for (const q of Bs) obs.push(minkObstacle(a, q)); }
+    return (x, y) => !blockedAt(obs, x, y);
+  }, dir);
+  const playOf = (bands) => {
+    const obs = [];
+    for (const b of bands) for (const a of b.A) for (const q of b.B) obs.push(minkObstacle(a, q));
+    const go = (ax, az) => { let t = 0; while (t < 6 && !blockedAt(obs, ax * (t + 0.01), az * (t + 0.01))) t += 0.01; return t; };
+    return { pull: go(1, 0), push: go(-1, 0) };
+  };
+  if (S.type === 'flex') {
+    // Strips bend in place: turn about the strip until the tiles touch.
+    const free = (th) => { const m = rotDZ(tileM, th, piv); return !tooClose(tileF, m, 1e-6); };
+    const lim = (dir) => { let d = 0; while (d < 180 && free((dir * (d + 1) * Math.PI) / 180)) d++; return d; };
+    return { valley: lim(1), mountain: lim(-1), escV: false, escM: false, play: { pull: 0, push: 0 } };
+  }
+  if (S.type === 'free') return foldFree(S, tileF, piv);
+  let parts;
+  if (S.type === 'hinge') parts = hingeParts(S, -4.5, 4.5, 3).parts;
+  else if (p.direction === 'alternate') {
+    const pitch = slotPitch(S, S.slot, swapSlot(S.slot)) + 0.5;
+    parts = [...S.slot.map((q) => ({ ...q, u0: q.u0 - pitch / 2, u1: q.u1 - pitch / 2 })), ...swapSlot(S.slot).map((q) => ({ ...q, u0: q.u0 + pitch / 2, u1: q.u1 + pitch / 2 }))];
+  } else parts = S.slot;
+  const bands = bandsOf(parts, tileF, tileM);
+  const v = turn(bands, 1), m = turn(bands, -1);
+  return { valley: v.deg, mountain: m.deg, escV: v.escaped, escM: m.escaped, play: playOf(bands) };
+}
+
+// Free link: symmetric bend, the link turns by half the angle against each tile and tile M is the mirror image
+// of tile F about the link's middle plane. Mirroring moves F's image along the plane normal only, so tile against
+// tile is a set of forbidden offsets along that normal.
+function foldFree(S, tileF, piv) {
+  const own = S.slot.filter((q) => q.owner === 'F');
+  const link = S.slot.filter((q) => q.owner === 'L').map((q) => ({ ...q, owner: 'M' }));
+  const bands = bandsOf([...own, ...link], tileF, null);
+  const A = [tileF, ...own.map((q) => q.sec)];
+  const forbidden = (ph) => {
+    const nx = Math.cos(ph), ny = Math.sin(ph);
+    const k = 2 * (piv[0] * nx + piv[1] * ny);
+    // mirror about the line through piv with normal n, then shift by t*n
+    const img = A.map((P) => P.map(([u, v]) => { const s2 = 2 * (u * nx + v * ny) - k; return [u - s2 * nx, v - s2 * ny]; }));
+    const out = [];
+    for (const a of A) for (const b of img) {
+      const o = minkObstacle(a, b);
+      let t0 = -Infinity, t1 = Infinity;
+      for (const [lx, ly, c] of o.lines) {
+        const dn = lx * nx + ly * ny;
+        if (Math.abs(dn) < 1e-12) { if (c <= 1e-9) { t0 = 1; t1 = 0; } continue; }
+        if (dn > 0) t1 = Math.min(t1, c / dn); else t0 = Math.max(t0, c / dn);
+      }
+      if (t1 - t0 > 1e-9) out.push([t0, t1]);
+    }
+    return { nx, ny, out };
+  };
+  const half = (dir) => trackTurn((ph) => {
+    const obs = [];
+    for (const b of bands) { const Ls = b.B.map((q) => rotDZ(q, ph, piv)); for (const a of b.A) for (const q of Ls) obs.push(minkObstacle(a, q)); }
+    const F = forbidden(ph);
+    return (x, y) => {
+      if (blockedAt(obs, x, y)) return false;
+      const t = 2 * (x * F.nx + y * F.ny);
+      for (const [t0, t1] of F.out) if (t > t0 + 1e-9 && t < t1 - 1e-9) return false;
+      return true;
+    };
+  }, dir, { dth: 0.5, maxDeg: 90, step: 0.04 });
+  const v = half(1), m = half(-1);
+  const obs = [];
+  for (const b of bands) for (const a of b.A) for (const q of b.B) obs.push(minkObstacle(a, q));
+  const go = (ax) => { let t = 0; while (t < 6 && !blockedAt(obs, ax * (t + 0.01), 0)) t += 0.01; return t; };
+  const F0 = forbidden(0);
+  const pushTiles = Math.min(...F0.out.map(([t0, t1]) => (t1 > 0 && t0 < 0 ? 0 : t1 <= 0 ? -t1 : Infinity)), 6);
+  return { valley: 2 * v.deg, mountain: 2 * m.deg, escV: v.escaped, escM: m.escaped, play: { pull: 2 * go(1), push: Math.min(2 * go(-1), pushTiles) } };
+}
+
 // ===== mesh =====
 
 // Triangle soup of closed solids. Each solid is checked by its signed volume and flipped if inside out.
@@ -643,6 +1194,7 @@ class Builder {
   }
   end() {
     const P = this.pos;
+    if (this.solids) this.solids.push([this.start, P.length, this.owner]);
     let v = 0;
     for (let k = this.start; k < P.length; k += 9) {
       v += P[k] * (P[k + 4] * P[k + 8] - P[k + 5] * P[k + 7])
@@ -687,21 +1239,97 @@ class Builder {
     }
     this.end();
   }
-  // Explicit centre point for caps: lofting to scale 0 gives a fan, fine for star-shaped outlines.
+  // Closed solid through a chain of rings with the same vertex count; open chains get fan caps at both ends.
+  rings(R, closed = false) {
+    const n = R[0].length, K = R.length;
+    this.begin();
+    for (let k = 0; k < (closed ? K : K - 1); k++) {
+      const A = R[k], C = R[(k + 1) % K];
+      for (let i = 0; i < n; i++) {
+        const i1 = (i + 1) % n;
+        this.tri(A[i], A[i1], C[i1]);
+        this.tri(A[i], C[i1], C[i]);
+      }
+    }
+    if (!closed) {
+      const mid = (ring) => [0, 1, 2].map((d) => ring.reduce((a, v) => a + v[d], 0) / n);
+      const a = mid(R[0]), b = mid(R[K - 1]);
+      for (let i = 0; i < n; i++) {
+        const i1 = (i + 1) % n;
+        this.tri(a, R[0][i1], R[0][i]);
+        this.tri(b, R[K - 1][i], R[K - 1][i1]);
+      }
+    }
+    this.end();
+  }
+  // A joint part (see part()) in the edge frame fr; foot: chamfer of the edges on the bed.
+  partSolid(fr, q, foot = 0) {
+    const P = (u, d, z) => [fr.x + fr.tx * u + fr.nx * d, fr.y + fr.ty * u + fr.ny * d, z];
+    const ring = (u, sec) => sec.map(([d, z]) => P(u, d, z));
+    let zmin = Infinity;
+    for (const v of q.sec) zmin = Math.min(zmin, v[1]);
+    const len = q.u1 - q.u0;
+    if (q.kind === 'box') {
+      let d0 = Infinity, d1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (const [d, z] of q.sec) { d0 = Math.min(d0, d); d1 = Math.max(d1, d); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+      const e = z0 <= 1e-9 ? Math.min(foot, len / 3, (d1 - d0) / 3, (z1 - z0) / 2) : 0;
+      const quad = (a, z) => [[q.u0 + a, d0 + a], [q.u1 - a, d0 + a], [q.u1 - a, d1 - a], [q.u0 + a, d1 - a]].map(([u, d]) => P(u, d, z));
+      const R = e > 0.005 ? [quad(e, 0), quad(0, e), quad(0, z1)] : [quad(0, z0), quad(0, z1)];
+      this.rings(R);
+      if (this.rec) this.rec.push({ owner: this.owner, pts: R.flat() });
+      return;
+    }
+    const e = zmin <= 1e-9 ? Math.min(foot, len / 3) : 0;
+    const lifted = e > 0.005 ? raiseBottom(q.sec, e) : null;
+    const outer = lifted ? [ring(q.u0, lifted), ring(q.u0 + e, q.sec), ring(q.u1 - e, q.sec), ring(q.u1, lifted)] : [ring(q.u0, q.sec), ring(q.u1, q.sec)];
+    if (q.kind === 'tube') {
+      this.rings([...outer, ring(q.u1, q.hole), ring(q.u0, q.hole)], true);
+      if (this.rec) {
+        const m = q.sec.length;
+        for (let i = 0; i < m; i++) {
+          const pc = [q.sec[i], q.sec[(i + 1) % m], q.hole[(i + 1) % m], q.hole[i]];
+          this.rec.push({ owner: this.owner, pts: [...ring(q.u0, pc), ...ring(q.u1, pc)] });
+        }
+      }
+      return;
+    }
+    this.rings(outer);
+    if (this.rec) this.rec.push({ owner: this.owner, pts: outer.flat(), rod: !!q.rod });
+  }
+}
+
+// Lift the vertices of a convex section lying below z = e up along their rising edge (a 45° foot chamfer at the part ends).
+function raiseBottom(sec, e) {
+  const n = sec.length;
+  return sec.map((v, i) => {
+    if (v[1] >= e - 1e-12) return v;
+    for (const j of [(i + n - 1) % n, (i + 1) % n]) {
+      const w = sec[j];
+      if (w[1] >= e - 1e-12) {
+        const t = (e - v[1]) / (w[1] - v[1]);
+        return [v[0] + t * (w[0] - v[0]), e];
+      }
+    }
+    return [v[0], e];
+  });
 }
 
 const hexRGB = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
 const CLASS_RGB = [0xe8e4dc, 0xc9d4e2, 0xe2cdb9].map(hexRGB);
 const LINK_RGB = hexRGB(0x8b929c);
+const FREE_RGB = hexRGB(0xc39a62);
 const FRAME_RGB = hexRGB(0xb3b0a8);
 
 // Cross-section loop (scale, z) of a tile. Returns the loop and the z of the top at the centre.
 function plateProfile(p, R, z0, z1, ringK) {
   const h = p.reliefH;
   const K = Math.max(4, Math.round(p.segments / 4));
-  const chH = Math.min(p.chamfer, R * 0.45, (z1 - z0) * 0.9);
+  // Bevel under the outer edge: a 45° overhang that leaves room for the joints when the fabric bends.
+  const bv = Math.min(p.bevel, (z1 - z0) * 0.6, R * 0.3);
+  const chH = Math.min(p.chamfer, R * 0.45, (z1 - z0 - Math.max(bv, 0)) * 0.9);
+  const base = bv > 0.01 ? [[1 - bv / R, z0], [1, z0 + bv]] : [[1, z0]];
   if (ringK == null) {
-    const prof = [[0, z0], [1, z0]];
+    const prof = [[0, z0], ...base];
     let zc = z1;
     switch (p.relief) {
       case 'chamfer':
@@ -750,7 +1378,7 @@ function plateProfile(p, R, z0, z1, ringK) {
   }
   // Ring: the band between scale 1 and ringK.
   const k = ringK, mid = (1 + k) / 2, half = (1 - k) / 2;
-  const prof = [[1, z0]];
+  const prof = bv > 0.01 && bv / R < half * 0.8 ? base : [[1, z0]];
   switch (p.relief) {
     case 'chamfer': {
       const cs = Math.min(chH / R, half * 0.9);
@@ -792,148 +1420,210 @@ function plateProfile(p, R, z0, z1, ringK) {
   return { prof, zc: z1 };
 }
 
-// Link geometry along the normal of an edge (d > 0 points to the neighbour) and along the edge.
-function linkLayout(p) {
-  const c = p.clearXY;
-  const pb = Math.max(p.postW, p.barW);
-  const Dp = p.gap / 2 + p.postW / 2 + p.postInset; // hook post, inside the own tile
-  const Db = p.gap / 2 + pb / 2 + p.postInset; // bar, inside the own tile
-  const Df = Db + p.barW / 2 + c + p.legW / 2; // hook leg, inside the neighbour
-  const depth = Math.max(Df + p.legW / 2, Db + pb / 2, Dp + p.postW / 2);
-  const wH = p.hookW;
-  const barHalf = p.hookW / 2 + c + p.postW / 2; // bar post centre from the slot centre
-  const wB = 2 * barHalf + p.postW;
-  const pitch = (wB + wH) / 2 + c;
-  const n = p.links;
-  const need = (n - 0.5) * pitch + wB / 2; // half span of the slots
-  const z1 = p.barH;
-  const zb0 = z1 + p.clearZ, zb1 = zb0 + p.beamH;
-  const zp = zb1 + p.clearZ;
-  return { c, pb, Dp, Db, Df, depth, wH, wB, barHalf, pitch, need, n, z1, zb0, zb1, zp };
+// Edge frame: u along the edge from its middle, d along the outward normal of the tile that owns the edge.
+function edgeFrame(P0, P1) {
+  const E = Math.hypot(P1[0] - P0[0], P1[1] - P0[1]);
+  const tx = (P1[0] - P0[0]) / E, ty = (P1[1] - P0[1]) / E;
+  return { E, tx, ty, nx: ty, ny: -tx, x: (P0[0] + P1[0]) / 2, y: (P0[1] + P1[1]) / 2 };
 }
 
 const cornerFactor = (a) => (a <= Math.PI / 2 + 1e-9 ? 1 / Math.tan(a / 2) : 1 / Math.sin(a));
 
 function buildFabric(p, record = false) {
   const tiles = buildTiles(p);
-  const L = linkLayout(p);
+  const S = linkSpec(p);
+  assignRoles(tiles, p, S);
   const B = new Builder();
-  if (record) B.rec = [];
-  const zTop = L.zp + p.plateH;
-  const ov = Math.min(0.2, p.plateH / 2);
-  const info = { tiles: tiles.length, hooks: 0, tooShort: 0, minEdge: 0, pillarSkipped: 0, frames: 0, spokes: 0, tilesData: [] };
+  if (record) { B.rec = []; B.solids = []; }
+  const z0 = S.zp, zTop = S.zp + S.plateH;
+  const ov = Math.min(0.2, S.plateH / 2);
+  const info = { tiles: tiles.length, joints: 0, links: 0, tooShort: 0, minEdge: 0, pillarSkipped: 0, frames: 0, spokes: 0, tilesData: [], shortKnuckle: Infinity };
+  const posts = tiles.map(() => []);
+  const deep = new Array(tiles.length).fill(0); // how far parts of other bodies reach under each tile
+  const plans = S.slot ? { F: slotPlan(S.slot, 'F'), M: slotPlan(S.slot, 'M') } : null;
+  const alt = S.under && p.direction === 'alternate' && S.type !== 'free';
+  const pitch = !S.under ? (S.type === 'flex' ? p.stripW + S.c : 0)
+    : alt ? Math.max(slotPitch(S, S.slot, swapSlot(S.slot)), slotPitch(S, swapSlot(S.slot), S.slot)) : slotPitch(S, S.slot, S.slot);
+  const reachCache = new Map();
+  // Distance of the nearest joint centre from a corner of a tile (interior angle ang, roles of its two edges there).
+  const reach = (ang, ra, rb) => {
+    const k = `${ang.toFixed(4)}|${ra}|${rb}`;
+    if (reachCache.has(k)) return reachCache.get(k);
+    let x;
+    if (S.type === 'hinge') {
+      const h = S.inset + ov + S.c / 2, b = Math.min(ang, Math.PI - ang);
+      x = ra === '-' || rb === '-' ? h : (h * (1 + Math.abs(Math.cos(b)))) / Math.sin(b);
+    } else if (S.type === 'flex') x = p.stripW / 2 + S.g2 * cornerFactor(ang);
+    else {
+      const r = (q) => (q === 'B' ? 'F' : q === 'A' ? 'A' : q);
+      x = cornerReach(S, ang, r(ra), r(rb), plans);
+    }
+    reachCache.set(k, x);
+    return x;
+  };
+
+  const emit = (fr, q, du, owner, ownerTile, sideTiles) => {
+    const qq = { ...q, u0: q.u0 + du, u1: q.u1 + du };
+    B.owner = owner;
+    B.rgb = q.owner === 'L' ? FREE_RGB : LINK_RGB;
+    B.partSolid(fr, qq, p.footChamfer);
+    if (q.post && ownerTile >= 0) {
+      let d0 = Infinity, d1 = -Infinity;
+      for (const [d] of q.sec) { d0 = Math.min(d0, d); d1 = Math.max(d1, d); }
+      posts[ownerTile].push([[qq.u0, d0], [qq.u1, d0], [qq.u1, d1], [qq.u0, d1]].map(([u, d]) => [fr.x + fr.tx * u + fr.nx * d, fr.y + fr.ty * u + fr.ny * d]));
+    }
+    // reach under the tiles of the joint: d < 0 is under sideTiles[0], d > 0 under sideTiles[1]
+    let dmin = Infinity, dmax = -Infinity;
+    for (const [d] of q.sec) { dmin = Math.min(dmin, d); dmax = Math.max(dmax, d); }
+    if (sideTiles[0] >= 0 && owner !== sideTiles[0] && q.owner !== 'J') deep[sideTiles[0]] = Math.max(deep[sideTiles[0]], -dmin);
+    if (sideTiles[1] >= 0 && owner !== sideTiles[1] && q.owner !== 'J') deep[sideTiles[1]] = Math.max(deep[sideTiles[1]], dmax);
+  };
 
   for (let ti = 0; ti < tiles.length; ti++) {
     const t = tiles[ti];
     const n = t.pts.length;
-    const outline = plateOutline(t, p);
+    for (let e = 0; e < n; e++) {
+      const nbi = t.nb[e];
+      const role = t.role[e];
+      if (role === '-' || (nbi >= 0 && nbi < ti)) continue;
+      const P0 = t.pts[e], P1 = t.pts[(e + 1) % n];
+      const frT = edgeFrame(P0, P1);
+      const E = frT.E;
+      // reach at both ends, from the corners of both tiles
+      let x0 = reach(t.ang[e], t.role[(e + n - 1) % n], role), x1 = reach(t.ang[(e + 1) % n], role, t.role[(e + 1) % n]);
+      let frO = null;
+      const o = nbi >= 0 ? tiles[nbi] : null;
+      if (o) {
+        const oe = t.nbEdge[e], on = o.pts.length;
+        frO = edgeFrame(o.pts[oe], o.pts[(oe + 1) % on]);
+        x1 = Math.max(x1, reach(o.ang[oe], o.role[(oe + on - 1) % on], o.role[oe]));
+        x0 = Math.max(x0, reach(o.ang[(oe + 1) % on], o.role[oe], o.role[(oe + 1) % on]));
+      }
+      const xe = Math.max(x0, x1);
+
+      if (S.type === 'hinge') {
+        const ua = -E / 2 + xe, ub = E / 2 - xe;
+        const K = p.knuckles;
+        const { parts, len } = hingeParts(S, ua, ub, K);
+        const needLen = Math.max(1.2, 3 * p.lineW);
+        info.minEdge = Math.max(info.minEdge, 2 * xe + K * needLen + (K - 1) * S.c);
+        if (len < needLen) info.tooShort++;
+        info.shortKnuckle = Math.min(info.shortKnuckle, len);
+        // the rod owner is M; parts are drawn in the frame of F
+        const tIsM = role === 'M';
+        const Fi = tIsM ? nbi : ti, Mi = tIsM ? ti : nbi;
+        const fr = tIsM ? frO : frT;
+        const sgn = tIsM ? -1 : 1;
+        for (const q of parts) {
+          const qq = sgn > 0 ? q : { ...q, u0: -q.u1, u1: -q.u0 };
+          emit(fr, qq, 0, q.owner === 'F' ? Fi : Mi, q.owner === 'F' ? Fi : Mi, [Fi, Mi]);
+        }
+        info.joints++;
+        continue;
+      }
+
+      // joints spread along the edge
+      const count = role === 'B' ? p.links : alt ? 2 * p.links : p.links;
+      const W = E / 2 - xe;
+      let pp = pitch;
+      if (count > 1) {
+        const pmax = (2 * W) / (count - 1);
+        if (pmax > pitch) pp = pitch + p.spread * (pmax - pitch);
+      }
+      const need = 2 * (xe + ((count - 1) / 2) * pitch);
+      info.minEdge = Math.max(info.minEdge, need);
+      if (need > E + 1e-6) info.tooShort++;
+      for (let j = 0; j < count; j++) {
+        const u = (j - (count - 1) / 2) * pp;
+        let tIsF = role !== 'M';
+        if (role === 'A') tIsF = j % 2 === 0;
+        if (role === 'B') {
+          for (const q of S.border) emit(frT, q, u, ti, ti, [ti, -1]);
+          continue;
+        }
+        const Fi = tIsF ? ti : nbi, Mi = tIsF ? nbi : ti;
+        const fr = tIsF ? frT : frO;
+        const du = tIsF ? u : -u;
+        const lid = `L${info.links}`;
+        let hasLink = false;
+        for (const q of S.slot) {
+          const owner = q.owner === 'F' ? Fi : q.owner === 'M' ? Mi : q.owner === 'L' ? lid : 'J';
+          if (q.owner === 'L') hasLink = true;
+          emit(fr, q, du, owner, q.owner === 'F' ? Fi : q.owner === 'M' ? Mi : -1, [Fi, Mi]);
+        }
+        if (hasLink) info.links++;
+        info.joints++;
+      }
+    }
+  }
+
+  // tiles
+  let Rfold = Infinity;
+  for (let ti = 0; ti < tiles.length; ti++) {
+    const t = tiles[ti];
+    const n = t.pts.length;
+    const inset = S.type === 'hinge' ? t.nb.map((nb) => (nb >= 0 ? S.inset : S.g2)) : S.g2;
+    const outline = plateOutline(t, p, inset);
     const R = outlineInradius(outline, t.c);
+    if (t.kind === 0) Rfold = Math.min(Rfold, R);
     const ring = p.plateStyle === 'ring';
     const ringK = ring ? clamp(1 - p.ringWidth / R, 0.05, 0.95) : null;
     const inner = ring ? scalePts(outline, t.c, ringK) : null;
     const covered = (x, y) => pointInPoly(outline, x, y) && !(inner && pointInPoly(inner, x, y));
 
-    // --- tile
-    B.tile = ti;
-    if (B.rec && !ring) B.rec.push({ t: ti, poly: outline, z0: L.zp, z1: zTop });
+    B.owner = ti;
     B.rgb = CLASS_RGB[t.cls % 3];
-    const { prof, zc } = plateProfile(p, R, L.zp, zTop, ringK);
+    const { prof, zc } = plateProfile(p, R, z0, zTop, ringK);
     B.loft(outline, t.c, prof);
+    if (B.rec) B.rec.push({ owner: ti, plate: true, pts: [...outline.map(([x, y]) => [x, y, z0]), ...outline.map(([x, y]) => [x, y, zc + 1e-3])] });
     info.tilesData.push({ c: t.c, R, zc, cls: t.cls, kind: t.kind, a0: Math.atan2(t.pts[1][1] - t.pts[0][1], t.pts[1][0] - t.pts[0][0]) });
 
-    // --- links
-    B.rgb = LINK_RGB;
-    const posts = [];
-    for (let e = 0; e < n; e++) {
-      const nbi = t.nb[e];
-      if (nbi < 0 && !p.borderBars) continue;
-      const P0 = t.pts[e], P1 = t.pts[(e + 1) % n];
-      const E = Math.hypot(P1[0] - P0[0], P1[1] - P0[1]);
-      const tx = (P1[0] - P0[0]) / E, ty = (P1[1] - P0[1]) / E;
-      const nx = ty, ny = -tx; // outward
-      const Mx = (P0[0] + P1[0]) / 2, My = (P0[1] + P1[1]) / 2;
-      const at = (u, d) => [Mx + tx * u + nx * d, My + ty * u + ny * d];
-
-      // Usable half length of the edge, away from the links of the other edges.
-      let f = Math.max(cornerFactor(t.ang[e]), cornerFactor(t.ang[(e + 1) % n]));
-      if (nbi >= 0) {
-        const o = tiles[nbi], oe = t.nbEdge[e], on = o.pts.length;
-        f = Math.max(f, cornerFactor(o.ang[oe]), cornerFactor(o.ang[(oe + 1) % on]));
-      }
-      const xmin = (L.depth + L.c) * f;
-      const W = E / 2 - xmin;
-      info.minEdge = Math.max(info.minEdge, 2 * (xmin + L.need));
-      if (L.need > W + 1e-9) info.tooShort++;
-      let pitch = L.pitch;
-      const spreadPitch = (W - L.wB / 2) / (L.n - 0.5);
-      if (spreadPitch > pitch) pitch += p.spread * (spreadPitch - pitch);
-
-      for (let j = 0; j < 2 * L.n; j++) {
-        const u = (j - (2 * L.n - 1) / 2) * pitch;
-        if (j % 2 === 0) {
-          // Bar between two posts; the neighbour's hook passes over it.
-          const [bx, by] = at(u, -L.Db);
-          B.box(bx, by, tx, ty, L.barHalf, p.barW / 2, 0, L.z1);
-          for (const sgn of [-1, 1]) {
-            const [qx, qy] = at(u + sgn * L.barHalf, -L.Db);
-            B.box(qx, qy, tx, ty, p.postW / 2, L.pb / 2, 0, L.zp + ov);
-            posts.push([qx, qy, tx, ty, p.postW / 2, L.pb / 2]);
-          }
-        } else if (nbi >= 0) {
-          // Hook: post in this tile, beam across the gap over the neighbour's bar, leg down behind it.
-          info.hooks++;
-          const [qx, qy] = at(u, -L.Dp);
-          B.box(qx, qy, tx, ty, L.wH / 2, p.postW / 2, 0, L.zp + ov);
-          posts.push([qx, qy, tx, ty, L.wH / 2, p.postW / 2]);
-          const d0 = -L.Dp - p.postW / 2, d1 = L.Df + p.legW / 2;
-          const [mx, my] = at(u, (d0 + d1) / 2);
-          B.box(mx, my, tx, ty, L.wH / 2, (d1 - d0) / 2, L.zb0, L.zb1);
-          const [lx, ly] = at(u, L.Df);
-          B.box(lx, ly, tx, ty, L.wH / 2, p.legW / 2, 0, L.zb1);
-        }
-      }
-    }
-
-    // --- support frame when the tile does not cover every post
-    const uncovered = posts.some(([x, y, ax, ay, ht, hn]) =>
-      [[-1, -1], [1, -1], [1, 1], [-1, 1]].some(([a, b]) => !covered(x + ax * ht * a + ay * hn * b, y + ay * ht * a - ax * hn * b)));
-    if (uncovered) {
+    // Support frame when the tile does not cover its own posts (circle, star, ring outlines, small tiles).
+    const uncovered = posts[ti].some((quad) => quad.some(([x, y]) => !covered(x, y)));
+    const inPlaneOpen = !S.under && (ring || p.outline !== 'polygon' && p.outline !== 'rounded' || p.plateScale < 1);
+    if (uncovered || inPlaneOpen) {
       info.frames++;
-      const fOut = insetPoly(t.pts, p.gap / 2);
+      const fOut = insetPoly(t.pts, inset);
       const Rf = inradius(fOut, t.c);
-      const cover = Math.max(L.Dp + p.postW / 2, L.Db + L.pb / 2) + 0.4 - p.gap / 2;
+      const own = plans ? Math.max(0, ...plans.F.concat(plans.M).filter((r) => r.own).map((r) => r.d1)) : 0;
+      const cover = S.under ? own + 0.4 - S.g2 : ov + 1.0;
       const kf = clamp(1 - cover / Rf, 0.05, 0.95);
       B.rgb = FRAME_RGB;
-      B.loft(fOut, t.c, [[1, L.zp], [1, L.zp + p.plateH], [kf, L.zp + p.plateH], [kf, L.zp]]);
+      B.loft(fOut, t.c, [[1, z0], [1, zTop], [kf, zTop], [kf, z0]]);
       const fIn = scalePts(fOut, t.c, kf);
       if (!outline.some(([x, y]) => !pointInPoly(fIn, x, y))) {
-        // Tile floats inside the frame: spokes to the edge midpoints.
         info.spokes++;
         for (let e = 0; e < n; e++) {
-          const P0 = fOut[e], P1 = fOut[(e + 1) % n];
-          const mx = (P0[0] + P1[0]) / 2 - t.c[0], my = (P0[1] + P1[1]) / 2 - t.c[1];
+          const Q0 = fOut[e], Q1 = fOut[(e + 1) % n];
+          const mx = (Q0[0] + Q1[0]) / 2 - t.c[0], my = (Q0[1] + Q1[1]) / 2 - t.c[1];
           const len = Math.hypot(mx, my);
-          B.box(t.c[0] + mx / 2, t.c[1] + my / 2, mx / len, my / len, len / 2, p.postW / 2, L.zp, L.zp + p.plateH);
+          B.box(t.c[0] + mx / 2, t.c[1] + my / 2, mx / len, my / len, len / 2, Math.max(0.6, p.postW / 2), z0, zTop);
         }
       }
     }
 
-    // --- centre pillar
-    if (!ring && p.pillar) {
+    // Centre pillar with a 45° flare: shortens the bridges of the tile's first layer.
+    if (S.under && !ring && p.pillar) {
       const r = p.pillarD / 2;
-      if (r <= t.inr - L.depth - L.c && pointInPoly(outline, t.c[0], t.c[1])) {
+      const room = t.inr - deep[ti] - S.c;
+      const fl = Math.max(0, Math.min(p.pillarFlare, room - r, z0 * 0.8));
+      if (r <= room && pointInPoly(outline, t.c[0], t.c[1])) {
         B.rgb = LINK_RGB;
         const m = Math.max(8, Math.round(p.segments / 2));
         const circ = Array.from({ length: m }, (_, k) => [t.c[0] + r * Math.cos((k * TAU) / m), t.c[1] + r * Math.sin((k * TAU) / m)]);
-        if (B.rec) B.rec.push({ t: ti, poly: circ, z0: 0, z1: L.zp + ov });
-        B.loft(circ, t.c, [[0, 0], [1, 0], [1, L.zp + ov], [0, L.zp + ov]]);
+        const e = Math.min(p.footChamfer, r / 3);
+        const prof = [[0, 0], ...(e > 0.005 ? [[1 - e / r, 0], [1, e]] : [[1, 0]]), [1, z0 - fl], [(r + fl) / r, z0], [(r + fl) / r, z0 + ov], [0, z0 + ov]];
+        B.loft(circ, t.c, prof);
+        if (B.rec) B.rec.push({ owner: ti, pts: [...circ.map(([x, y]) => [x, y, 0]), ...scalePts(circ, t.c, (r + fl) / r).map(([x, y]) => [x, y, z0 + ov])] });
       } else info.pillarSkipped++;
     }
   }
+  info.Rfold = Number.isFinite(Rfold) ? Rfold : p.edge / 2;
+  info.deep = Math.max(0, ...deep);
 
   const positions = new Float32Array(B.pos);
   const colors = new Float32Array(B.col);
-  return { positions, colors, info, L, zTop, prisms: B.rec };
+  return { positions, colors, info, S, zTop, prisms: B.rec, solids: B.solids, tiles };
 }
 
 // ===== decoration =====
@@ -1181,7 +1871,7 @@ function makeControl(p) {
 const groupBodies = {};
 for (const [id, title] of Object.entries(GROUPS)) {
   const det = document.createElement('details');
-  det.open = id !== 'output';
+  det.open = id !== 'output' && id !== 'print';
   const sum = document.createElement('summary');
   sum.textContent = title;
   det.append(sum);
@@ -1390,6 +2080,7 @@ function regenerate() {
   if (frameKey !== lastFrameKey) { applyView(); frameObject(); lastFrameKey = frameKey; }
 
   renderStats();
+  scheduleFold();
   writeHash();
   $('busy').hidden = true;
 }
@@ -1411,8 +2102,8 @@ function triangleCount() {
 }
 
 function renderStats() {
-  const { fabric, soup, places } = current;
-  const { info, L, zTop } = fabric;
+  const { fabric, soup, places, fold } = current;
+  const { info, S } = fabric;
   const P = fabric.positions;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = 0;
   for (let k = 0; k < P.length; k += 3) {
@@ -1425,19 +2116,42 @@ function renderStats() {
   const mb = (84 + tris * 50) / 1048576;
   const rows = [];
   rows.push(['Tiles', `${info.tiles}`]);
-  rows.push(['Hooks', `${info.hooks}`]);
+  rows.push(['Joints', `${info.joints}${info.links ? `, ${info.links} free links` : ''}`]);
   if (info.tiles) rows.push(['Dimensions, mm', `${(x1 - x0).toFixed(1)} × ${(y1 - y0).toFixed(1)} × ${z1.toFixed(1)}`]);
-  rows.push(['Links layer / tile top, mm', `${L.zp.toFixed(2)} / ${zTop.toFixed(2)}`]);
-  if (soup) rows.push(['Models on tiles', `${places.length}`]);
+  rows.push(['Heights, mm', S.levels.map(([n, z]) => `${n} ${z.toFixed(2)}`).join(', ')]);
+  rows.push(['Bends: tiles out / in', fold ? `${fold.mountain}° / ${fold.valley}°` : '…']);
+  if (fold && (fold.escV || fold.escM)) rows.push(['Can come apart', `bent over ${fold.escM ? fold.mountain : fold.valley}°: lower the clearance under bridges or use a taller bar`, true]);
+  if (fold && S.under) rows.push(['Play pulled / pushed, mm', `${fold.play.pull.toFixed(2)} / ${fold.play.push.toFixed(2)}`]);
+  if (S.bridges.length) {
+    const [name, span] = S.bridges.reduce((a, b) => (b[1] > a[1] ? b : a));
+    rows.push(['Longest bridge in a joint', `${span.toFixed(1)} mm (${name})`, span > 10]);
+  }
+  const thin = S.thin.filter(([, v]) => v < 2 * state.lineW - 1e-6).map(([n]) => n);
+  if (thin.length) rows.push(['Thinner than 2 lines', thin.join(', '), true]);
+  for (const [k, v] of S.notes) rows.push([k, v]);
+  if (S.type === 'hinge' && (state.tiling === 'hex' || state.tiling === 'octagon')) rows.push(['Hinges lock', 'three tiles meet at a corner: use squares, rhombi, triangles or kagome', true]);
+  if (S.type === 'flex') rows.push(['Strips bend', 'print in TPU or PETG, PLA strips crack']);
   rows.push(['Triangles in STL', tris.toLocaleString('en-US'), tris > EXPORT_WARN_TRIANGLES]);
   rows.push(['File size', `${mb.toFixed(1)} MB`]);
-  if (info.tooShort) rows.push(['Links do not fit', `edge ≥ ${info.minEdge.toFixed(1)} mm`, true]);
-  if (info.pillarSkipped && state.pillar && isSolid(state)) rows.push(['Pillar too wide', `${info.pillarSkipped} tiles without`, true]);
+  if (info.tooShort) rows.push(['Joints do not fit', `edge ≥ ${info.minEdge.toFixed(1)} mm`, true]);
+  if (info.pillarSkipped && state.pillar && isSolid(state) && S.under) rows.push(['Pillar too wide', `${info.pillarSkipped} tiles without`, true]);
   if (info.frames) rows.push(['Support frames', `${info.frames} tiles${info.spokes ? ', with spokes' : ''}`]);
   if (state.decor === 'stl' && !loadedSTL) rows.push(['Model', 'load an STL file', true]);
   $('stats').innerHTML = '<dl style="display:contents">' + rows
     .map(([k, v, w]) => `<dt>${k}</dt><dd${w ? ' class="warn"' : ''}>${v}</dd>`)
     .join('') + '</dl>';
+}
+
+// Bending limits take a moment: computed after the preview, cached per joint settings.
+let foldTimer = 0;
+function scheduleFold() {
+  clearTimeout(foldTimer);
+  const cur = current;
+  foldTimer = setTimeout(() => {
+    if (cur !== current) return;
+    try { cur.fold = foldLimits(state, cur.fabric.S, cur.fabric.info.Rfold); } catch (e) { cur.fold = null; }
+    if (cur === current) renderStats();
+  }, 80);
 }
 
 // ---------- export & sharing ----------
@@ -1455,7 +2169,7 @@ $('export').addEventListener('click', () => {
     try {
       const blob = new Blob([trianglesToSTL(exportParts())], { type: 'model/stl' });
       const suffix = state.exportWhat === 'all' ? '' : `-${state.exportWhat}`;
-      const name = `space-fabric-${state.tiling}-${current.fabric.info.tiles}${suffix}.stl`;
+      const name = `space-fabric-${state.tiling}-${state.linkType}-${current.fabric.info.tiles}${suffix}.stl`;
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = name;
@@ -1502,7 +2216,7 @@ $('share').addEventListener('click', async () => {
 });
 
 // Test hook: lets headless checks call the generator directly.
-window.__fabric = { camera, orbit, buildFabric, state, DEFAULTS, PRESETS, linkLayout, parseSTL, trianglesToSTL, decorPlacements, currentDecor, decorTriangles };
+window.__fabric = { camera, orbit, buildFabric, state, DEFAULTS, PRESETS, linkSpec, foldLimits, parseSTL, trianglesToSTL, decorPlacements, currentDecor, decorTriangles };
 
 syncForm();
 resize();
